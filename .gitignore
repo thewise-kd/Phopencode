@@ -1,0 +1,51 @@
+# Gradle and build output
+.gradle/
+.kotlin/
+build/
+captures/
+.cxx/
+.externalNativeBuild/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+*.hprof
+
+# Python
+__pycache__/
+*.pyc
+
+# IDE and OS
+.idea/
+*.iml
+.DS_Store
+
+# Claude Code, local state only: the rest of .claude/ stays in the repository
+.claude/settings.local.json
+.claude/worktrees/
+
+# Secrets
+local.properties
+key.properties
+keystore.properties
+secrets.properties
+.env
+.env.*
+*.env
+!.env.example
+!.env.sample
+!.env.template
+*.jks
+*.keystore
+*.bks
+*.p12
+*.pfx
+*.pem
+*.key
+*.ppk
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
+!id_*.pub

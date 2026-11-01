@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "agent": "orchestrator",
+  "permissions": {
+    "allow": [
+      "Bash(.claude/scripts/run-review.sh *)",
+      "Bash(.claude/scripts/run-security.sh *)",
+      "Bash(./.claude/scripts/run-review.sh *)",
+      "Bash(./.claude/scripts/run-security.sh *)",
+      "Bash(./gradlew *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git rev-parse *)",
+      "Bash(git merge-base *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git cherry-pick *)",
+      "Bash(git worktree remove .claude/worktrees/*)",
+      "Bash(git branch -D worktree-*)"
+    ],
+    "deny": [
+      "Bash(git push *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Monitor|Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/guard.py",
+            "args": [],
+            "timeout": 60,
+            "onFailure": "block"
+          }
+        ]
+      }
+    ]
+  },
+  "worktree": {
+    "baseRef": "head"
+  }
+}
