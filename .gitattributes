@@ -1,0 +1,30 @@
+# Normalize text to LF, in the repository and in working trees.
+* text=auto eol=lf
+
+# Scripts that must keep a fixed line ending to run.
+gradlew text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf
+
+# Binaries: no line-ending conversion, no text diff.
+*.jar binary
+*.aar binary
+*.apk binary
+*.aab binary
+*.png binary
+*.webp binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.zip binary
+
+# Keystores. These are ignored by .gitignore and must never be committed;
+# the rules only keep git from treating one as text.
+*.jks binary
+*.keystore binary
+*.bks binary
+*.p12 binary
+*.pfx binary
