@@ -4,7 +4,16 @@ Public Android app for managing, from a phone, opencode running on a server with
 
 Stack: Kotlin + Jetpack Compose, Android only.
 
-Build and test commands are added here once the relevant task is done.
+## Build
+
+Needs JDK 21 (`docs/dev-setup/jdk.md`). No Android SDK on the Pi: Android modules are included in Gradle only when `ANDROID_HOME`, `ANDROID_SDK_ROOT` or `sdk.dir` in `local.properties` names an existing directory.
+
+- `./gradlew jvmCheck`: tests all JVM modules and checks the wrapper and the version catalog. Needs no SDK.
+- `./gradlew :<module>:test`: one module, for example `:core:api-http:test` or `:feature:chat:logic:test`.
+- `./gradlew functionalTest`: runs copies of the real build to prove the module map, the Android guard and library compatibility. Slow (minutes); run it after changing `build-logic/`, the catalog or a module build file.
+- `gradle/verify-wrapper.sh --online`: compares the wrapper with the hashes Gradle publishes. Run it after a wrapper upgrade, before `./gradlew`.
+
+Modules apply convention plugins from `build-logic/`, never AGP or Kotlin directly: `phopencode.jvm.library`, `phopencode.feature.logic`, `phopencode.serialization`, `phopencode.android.library`, `phopencode.android.compose`, `phopencode.feature.ui`, `phopencode.android.application`. A JVM module that takes an Android dependency, directly or transitively, fails its own compile.
 
 ## Tasks
 
