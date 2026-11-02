@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_common_navigate_back">Geri dön</string>
+    <string name="ui_common_empty_title">Burada henüz bir şey yok</string>
+    <string name="ui_common_error_generic">Bir sorun oluştu</string>
+    <string name="ui_common_error_dismiss">Hatayı kapat</string>
+    <string name="ui_common_retry">Tekrar dene</string>
+    <string name="ui_common_loading">Yükleniyor…</string>
+    <string name="ui_common_confirm">Onayla</string>
+    <string name="ui_common_cancel">İptal</string>
+    <string name="ui_common_dangerous_action">Tehlikeli işlem</string>
+    <string name="ui_common_status_success">Başarılı</string>
+    <string name="ui_common_status_warning">Uyarı</string>
+    <string name="ui_common_status_danger">Hata</string>
+    <string name="ui_common_status_info">Bilgi</string>
+</resources>
