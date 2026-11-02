@@ -202,11 +202,19 @@ Notification flow: the service sees the event and sends fixed text to `ntfy.sh/<
 | P1.6 | Theme | P0.5 | `core/ui/…/theme/`, `core/ui/src/main/res/values*/` | Light/dark theme; color, typography and spacing tokens; screen test opens in both themes | `CI` |
 | P1.7 | Real API samples `[U]` (D1, D7) | P0.3 | `scripts/capture_fixtures.py`, `core/testing/src/main/resources/fixtures/`, `docs/api/` | Spec and text, reasoning, tool, subagent, form and permission flows are recorded; paths and IDs are masked; secret scan passes; "Unverified items" in the notes are updated | `PY` |
 
+**G2b**
+
+Runs before G3 by user decision, because the fakes in P1.8 build on these contracts.
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P1.11 | Align contracts with the recorded API | P1.1, P1.2, P1.7 | `core/model/`, `core/api/`, `docs/PHASES.md` (this group and P1.8's dependency only) | Every item in "Changes for the API modules" in `docs/api/README.md` is applied; no model or API type can hold server `settings`, `headers` or an API key; `jvmCheck` passes | `PI` |
+
 **G3 (parallel)**
 
 | Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
 |---|---|---|---|---|---|
-| P1.8 | Fakes | P1.2, P1.3, P1.4 | `core/testing/…/` | A fake for every interface; the event stream can be driven by hand; fakes pass the interface contract tests | `PI` |
+| P1.8 | Fakes | P1.2, P1.3, P1.4, P1.11 | `core/testing/…/` | A fake for every interface; the event stream can be driven by hand; fakes pass the interface contract tests | `PI` |
 | P1.9 | Shared components | P1.6 | `core/ui/…/component/`, `core/ui/src/main/res/values*/strings_ui_common.xml` | Scaffold, EmptyState, ErrorBanner, Loading, StatusChip, ConfirmDialog; screen tests in both languages | `CI` |
 
 **G4**

@@ -17,8 +17,8 @@ class FormTest {
             sessionId = SessionId("session-1"),
             kind = FormKind.Question,
             fields = listOf(
-                FormField.SingleChoice(key = "q0", label = "One?", options = options, allowCustom = true, required = true),
-                FormField.MultipleChoice(key = "q1", label = "Many?", options = options, minSelected = 1, maxSelected = 2),
+                FormField.SingleChoice(key = "q0", title = "One?", options = options, allowCustom = true, required = true),
+                FormField.MultipleChoice(key = "q1", title = "Many?", options = options, minSelected = 1, maxSelected = 2),
             ),
         )
 
@@ -33,16 +33,17 @@ class FormTest {
 
     @Test
     fun `fields are optional and unconditional unless stated`() {
-        val field = FormField.YesNo(key = "ok", label = "Proceed?")
+        val field = FormField.YesNo(key = "ok", title = "Proceed?")
 
         assertFalse(field.required)
-        assertNull(field.visibleWhen)
+        assertFalse(field.hidden)
+        assertEquals(emptyList(), field.visibleWhen)
         assertNull(field.defaultValue)
     }
 
     @Test
     fun `free text carries length limits`() {
-        val field = FormField.FreeText(key = "name", label = "Name", minLength = 1, maxLength = 40, defaultValue = "x")
+        val field = FormField.FreeText(key = "name", title = "Name", minLength = 1, maxLength = 40, defaultValue = "x")
 
         assertEquals(1, field.minLength)
         assertEquals(40, field.maxLength)
@@ -52,7 +53,7 @@ class FormTest {
     fun `a number field carries exact limits and may be integer only`() {
         val field = FormField.Number(
             key = "n",
-            label = "Count",
+            title = "Count",
             integerOnly = true,
             min = BigDecimal("0.1"),
             max = BigDecimal("10"),
@@ -67,7 +68,7 @@ class FormTest {
     fun `a number field with limits at the extremes of the scale hashes and prints`() {
         val field = FormField.Number(
             key = "n",
-            label = "Count",
+            title = "Count",
             min = BigDecimal("-100e2147483647"),
             max = BigDecimal("100e2147483647"),
             defaultValue = BigDecimal("1e-2147483647"),
@@ -79,18 +80,87 @@ class FormTest {
     }
 
     @Test
-    fun `a field can be conditional on another field`() {
-        val condition = FieldCondition.AllOf(
-            listOf(
-                FieldCondition.Equals(key = "q0", value = DataValue.Text("a")),
-                FieldCondition.NotEquals(key = "q1", value = DataValue.Bool(true)),
-                FieldCondition.OneOf(key = "q2", values = listOf(DataValue.Text("b"))),
-                FieldCondition.AnyOf(listOf(FieldCondition.Unknown("future-operator"))),
-            ),
+    fun `a field can have several conditions on other fields`() {
+        val conditions = listOf(
+            FieldCondition.Equals(key = "q0", value = DataValue.Text("a")),
+            FieldCondition.NotEquals(key = "q1", value = DataValue.Bool(true)),
+            FieldCondition.Equals(key = "q2", value = DataValue.Num(BigDecimal.ONE)),
+            FieldCondition.Unknown("future-operator"),
         )
-        val field = FormField.FreeText(key = "q3", label = "Why?", visibleWhen = condition)
+        val field = FormField.FreeText(key = "q3", title = "Why?", visibleWhen = conditions)
 
-        assertEquals(condition, field.visibleWhen)
+        assertEquals(conditions, field.visibleWhen)
+    }
+
+    @Test
+    fun `a condition is eq or neq, with no nesting`() {
+        assertEquals(
+            setOf("Equals", "NotEquals", "Unknown"),
+            FieldCondition::class.java.permittedSubclasses.map { it.simpleName }.toSet(),
+        )
+    }
+
+    @Test
+    fun `a field may have no title, as a hidden field does`() {
+        val field = FormField.FreeText(key = "hidden", hidden = true, defaultValue = "x")
+
+        assertNull(field.title)
+        assertTrue(field.hidden)
+    }
+
+    @Test
+    fun `free text carries the format and the input hints`() {
+        val field = FormField.FreeText(
+            key = "mail",
+            format = TextFormat.Email,
+            pattern = "^.+$",
+            placeholder = "a@example.invalid",
+        )
+
+        assertEquals(TextFormat.Email, field.format)
+        assertEquals("^.+$", field.pattern)
+        assertEquals("a@example.invalid", field.placeholder)
+    }
+
+    @Test
+    fun `a form has no description of its own`() {
+        assertFalse(Form::class.java.declaredFields.any { it.name == "description" })
+    }
+
+    @Test
+    fun `an external field has a url and only the limited keys`() {
+        val field: FormField = FormField.External(
+            key = "login",
+            url = "https://example.invalid/login",
+            title = "Sign in",
+            description = "Opens a page",
+        )
+        val names = FormField.External::class.java.declaredFields.map { it.name }.toSet()
+
+        assertEquals(setOf("key", "title", "description", "url"), names)
+        assertFalse(field is FormField.Input)
+    }
+
+    @Test
+    fun `the fields other than external can be required, hidden and conditional`() {
+        val inputs = FormField.Input::class.java.permittedSubclasses.map { it.simpleName }.toSet()
+
+        assertEquals(setOf("SingleChoice", "MultipleChoice", "FreeText", "Number", "YesNo", "Unknown"), inputs)
+    }
+
+    @Test
+    fun `the detail route adds a state`() {
+        val answers = mapOf("q0" to DataValue.Text("Red"))
+        val form = Form(
+            id = FormId("f"),
+            sessionId = SessionId("s"),
+            kind = FormKind.Question,
+            state = FormState.Answered(answers),
+        )
+
+        assertEquals(FormState.Answered(answers), form.state)
+        assertNull(form.copy(state = null).state)
+        assertEquals("gone", FormState.Cancelled("gone").message)
     }
 
     @Test

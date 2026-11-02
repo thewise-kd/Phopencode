@@ -1,6 +1,9 @@
 package io.github.thewisekd.phopencode.core.api
 
+import io.github.thewisekd.phopencode.core.model.MessageId
+import io.github.thewisekd.phopencode.core.model.SessionActivity
 import io.github.thewisekd.phopencode.core.model.SessionId
+import io.github.thewisekd.phopencode.core.model.SessionRevert
 import java.lang.reflect.GenericArrayType
 import java.lang.reflect.Modifier
 import java.lang.reflect.ParameterizedType
@@ -226,9 +229,85 @@ class ApiBoundaryTest {
     }
 
     @Test
-    fun `a page knows whether more follows`() {
-        assertFalse(Page(listOf(1)).hasMore)
-        assertTrue(Page(listOf(1), nextCursor = PageCursor("next")).hasMore)
+    fun `a page keeps both cursors of the server's cursor object`() {
+        val page = Page(listOf(1), previousCursor = PageCursor("back"), nextCursor = PageCursor("next"))
+
+        assertEquals(PageCursor("back"), page.previousCursor)
+        assertEquals(PageCursor("next"), page.nextCursor)
+    }
+
+    @Test
+    fun `a next cursor alone does not mean more follows, because the last page has one too`() {
+        assertFalse(Page(listOf(1), nextCursor = PageCursor("next")).isEnd)
+        assertTrue(Page(emptyList<Int>(), nextCursor = PageCursor("next")).isEnd)
+        assertTrue(Page(listOf(1)).isEnd)
+    }
+
+    /** A suspend function's result, which sits in the type of its last parameter. */
+    private fun resultOf(name: String, type: Class<*>): String = type.declaredMethods
+        .filter { Modifier.isAbstract(it.modifiers) }
+        .single { it.name.substringBefore('-') == name }
+        .genericParameterTypes.last().typeName
+
+    @Test
+    fun `prompt and compact return the inbox item the server made`() {
+        assertTrue(InboxItem::class.java.name in resultOf("prompt", MessageApi::class.java))
+        assertTrue(InboxItem::class.java.name in resultOf("compact", SessionApi::class.java))
+    }
+
+    @Test
+    fun `stop says whether anything was interrupted, and staging returns the revert`() {
+        assertTrue(Boolean::class.javaObjectType.name in resultOf("stop", SessionApi::class.java))
+        assertTrue(SessionRevert::class.java.name in resultOf("stageRevert", MessageApi::class.java))
+    }
+
+    @Test
+    fun `active statuses can only be running or something unknown`() {
+        assertEquals(
+            setOf("Running", "Unknown"),
+            SessionActivity::class.java.permittedSubclasses.map { it.simpleName }.toSet(),
+        )
+        assertTrue(SessionActivity::class.java.name in resultOf("activeStatuses", SessionApi::class.java))
+    }
+
+    @Test
+    fun `an inbox item holds the text of a prompt under its own kind`() {
+        val item = InboxItem(
+            MessageId("msg_1"),
+            SessionId("ses_1"),
+            content = InboxContent.User("Begin."),
+            delivery = PromptDelivery.Steer,
+        )
+
+        assertEquals("Begin.", (item.content as InboxContent.User).text)
+        assertEquals(InboxContent.Unknown("move"), item.copy(content = InboxContent.Unknown("move")).content)
+    }
+
+    @Test
+    fun `a VCS branch is a plain name`() {
+        assertEquals(setOf("name"), VcsBranch::class.java.declaredFields.map { it.name }.toSet())
+        assertEquals("main", VcsBranch("main").name)
+    }
+
+    @Test
+    fun `an MCP status can be pending`() {
+        assertEquals(McpStatus.Pending, McpServer("tools", McpStatus.Pending).status)
+    }
+
+    @Test
+    fun `a plugin has an id and a status, and no name or version`() {
+        val names = Plugin::class.java.declaredFields.map { it.name }.toSet()
+
+        assertEquals(setOf("id", "status", "error"), names)
+        assertEquals(PluginStatus.Active, Plugin("opencode.agent", PluginStatus.Active).status)
+    }
+
+    @Test
+    fun `a plugin does not print its error text`() {
+        val plugin = Plugin(id = null, status = PluginStatus.Failed, error = "SENTINEL-plugin-error")
+
+        assertFalse("SENTINEL" in plugin.toString())
+        assertEquals("SENTINEL-plugin-error", plugin.error)
     }
 
     @Test

@@ -16,7 +16,7 @@ class UnknownStatesTest {
     }
 
     private fun describe(status: ToolStatus): String = when (status) {
-        ToolStatus.Pending -> "pending"
+        ToolStatus.Streaming -> "streaming"
         ToolStatus.Running -> "running"
         ToolStatus.Completed -> "completed"
         ToolStatus.Failed -> "failed"
@@ -44,6 +44,7 @@ class UnknownStatesTest {
         is FormField.FreeText -> "text"
         is FormField.Number -> "number"
         is FormField.YesNo -> "yes-no"
+        is FormField.External -> "external"
         is FormField.Unknown -> "unknown:${field.rawType}"
     }
 
@@ -52,7 +53,7 @@ class UnknownStatesTest {
         val blocks = listOf(
             AssistantBlock.Text(text = "answer"),
             AssistantBlock.Reasoning(text = "thinking"),
-            AssistantBlock.Tool(callId = "call-1", name = "shell", status = ToolStatus.Running),
+            AssistantBlock.Tool(id = "call-1", name = "shell", status = ToolStatus.Running),
             AssistantBlock.Unknown(rawType = "hologram"),
         )
 
@@ -73,7 +74,7 @@ class UnknownStatesTest {
     @Test
     fun `a tool can name an unknown tool, carry free-form input and link a subagent session`() {
         val tool = AssistantBlock.Tool(
-            callId = "call-1",
+            id = "call-1",
             name = "subagent",
             status = ToolStatus.Unknown("paused"),
             input = DataValue.Fields(mapOf("task" to DataValue.Text("look around"))),
@@ -93,9 +94,9 @@ class UnknownStatesTest {
 
     @Test
     fun `an unknown form field keeps its raw type, key and required flag`() {
-        val field = FormField.Unknown(key = "q0", label = "Where?", required = true, rawType = "external")
+        val field = FormField.Unknown(key = "q0", title = "Where?", required = true, rawType = "signature")
 
-        assertEquals("unknown:external", describe(field))
+        assertEquals("unknown:signature", describe(field))
         assertEquals("q0", field.key)
         assertEquals(true, field.required)
     }
@@ -108,6 +109,12 @@ class UnknownStatesTest {
                 is FileEntryType.Unknown -> value.raw
                 is AgentMode.Unknown -> value.raw
                 is SessionStatus.Unknown -> value.raw
+                is SessionActivity.Unknown -> value.raw
+                is SessionOutcome.Unknown -> value.raw
+                is ForkBoundaryType.Unknown -> value.raw
+                is FormState.Unknown -> value.raw
+                is TextFormat.Unknown -> value.raw
+                is PermissionEffect.Unknown -> value.raw
                 is FieldCondition.Unknown -> value.raw
                 else -> error("not an unknown case: $value")
             }
@@ -118,6 +125,12 @@ class UnknownStatesTest {
             FileEntryType.Unknown("x"),
             AgentMode.Unknown("x"),
             SessionStatus.Unknown("x"),
+            SessionActivity.Unknown("x"),
+            SessionOutcome.Unknown("x"),
+            ForkBoundaryType.Unknown("x"),
+            FormState.Unknown("x"),
+            TextFormat.Unknown("x"),
+            PermissionEffect.Unknown("x"),
             FieldCondition.Unknown("x"),
         ).forEach { assertEquals("x", raw(it)) }
     }

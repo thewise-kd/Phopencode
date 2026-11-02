@@ -32,13 +32,20 @@ interface CatalogApi {
     suspend fun plugins(location: Location? = null): List<Plugin>
 }
 
-/** A model provider. Holds no credentials: the app does not manage them. */
+/**
+ * A model provider. The server sends `settings` and `headers` in clear, API key included, so a decoder
+ * must drop them and this type has no place for them.
+ */
 data class Provider(
     val id: String,
     val name: String,
 )
 
-/** @property error Why the connection failed, in the server's words. Left out of [toString]. */
+/**
+ * @property status From the nested `status.status`.
+ * @property error Why the connection failed, in the server's words, from `status.error`. Left out of
+ *   [toString].
+ */
 data class McpServer(
     val name: String,
     val status: McpStatus,
@@ -51,6 +58,8 @@ data class McpServer(
 sealed interface McpStatus {
     data object Connected : McpStatus
 
+    data object Pending : McpStatus
+
     data object Disabled : McpStatus
 
     data object Failed : McpStatus
@@ -60,7 +69,24 @@ sealed interface McpStatus {
     data class Unknown(val raw: String) : McpStatus
 }
 
+/**
+ * @property id Optional in the server's spec.
+ * @property status From `state.status`.
+ * @property error Why the plugin failed, from `state.error`. Left out of [toString].
+ */
 data class Plugin(
-    val name: String,
-    val version: String? = null,
-)
+    val id: String?,
+    val status: PluginStatus,
+    val error: String? = null,
+) {
+    /** A plugin error can quote a path or a package address. */
+    override fun toString(): String = "Plugin(id=$id, status=$status)"
+}
+
+sealed interface PluginStatus {
+    data object Active : PluginStatus
+
+    data object Failed : PluginStatus
+
+    data class Unknown(val raw: String) : PluginStatus
+}

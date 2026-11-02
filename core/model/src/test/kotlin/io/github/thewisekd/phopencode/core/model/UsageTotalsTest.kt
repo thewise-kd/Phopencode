@@ -12,37 +12,51 @@ class UsageTotalsTest {
 
     private fun cost(text: String): Cost = Cost.parse(text)!!
 
-    private fun assistant(id: String, usage: TokenUsage? = null, steps: List<TokenUsage> = emptyList()) =
-        Message.Assistant(id = MessageId(id), sessionId = session, usage = usage, steps = steps)
+    private fun assistant(id: String, usage: TokenUsage? = null) =
+        Message.Assistant(id = MessageId(id), sessionId = session, usage = usage)
+
+    private fun compaction(id: String, usage: TokenUsage? = null) =
+        Message.Compaction(id = MessageId(id), sessionId = session, usage = usage)
 
     private fun user(id: String) = Message.User(id = MessageId(id), sessionId = session, text = "hello")
 
     private fun sessionWith(usage: TokenUsage?) = Session(id = session, usage = usage)
 
     @Test
-    fun `an assistant total comes from its steps when no total was reported`() {
-        val message = assistant(
-            "m1",
-            steps = listOf(TokenUsage.of(input = 1, cost = cost("0.1")), TokenUsage.of(input = 2, cost = cost("0.2"))),
+    fun `an assistant total is the usage the server reported for it`() {
+        val reported = TokenUsage.of(input = 100, cost = cost("9"))
+
+        assertEquals(reported, assistant("m1", usage = reported).totalUsage)
+    }
+
+    @Test
+    fun `an assistant message without a cost shows up as a gap in the list total`() {
+        val total = listOf(
+            assistant("m1", usage = TokenUsage.of(cost = cost("0.1"))),
+            assistant("m2", usage = TokenUsage.of()),
+        ).totalUsage()
+
+        assertEquals(cost("0.1"), total.cost)
+        assertTrue(total.hasMissingCost)
+    }
+
+    @Test
+    fun `the session total of the compaction recording is its assistant plus its compaction`() {
+        val messages = listOf(
+            assistant("m1", usage = TokenUsage.of(input = 5_000, output = 200, cost = cost("0.0087"))),
+            compaction("m2", usage = TokenUsage.of(cost = Cost.ZERO)),
+            compaction("m3", usage = TokenUsage.of(input = 5_200, output = 40, cost = cost("0.00804"))),
         )
 
-        assertEquals(TokenUsage.of(input = 3, cost = cost("0.3")), message.totalUsage)
+        assertEquals(TokenUsage.of(input = 10_200, output = 240, cost = cost("0.01674")), messages.totalUsage())
     }
 
     @Test
-    fun `a reported assistant total wins over its steps`() {
-        val reported = TokenUsage.of(input = 100, cost = cost("9"))
-        val message = assistant("m1", usage = reported, steps = listOf(TokenUsage.of(input = 1)))
+    fun `a compaction that has not finished makes the list total incomplete`() {
+        val total = listOf(assistant("m1", usage = TokenUsage.of(cost = cost("1"))), compaction("m2")).totalUsage()
 
-        assertEquals(reported, message.totalUsage)
-    }
-
-    @Test
-    fun `a step without a cost shows up as a gap in the assistant total`() {
-        val message = assistant("m1", steps = listOf(TokenUsage.of(cost = cost("0.1")), TokenUsage.of()))
-
-        assertEquals(cost("0.1"), message.totalUsage.cost)
-        assertTrue(message.totalUsage.hasMissingCost)
+        assertEquals(cost("1"), total.cost)
+        assertTrue(total.hasMissingCost)
     }
 
     @Test
@@ -54,7 +68,7 @@ class UsageTotalsTest {
     }
 
     @Test
-    fun `a list total counts assistant messages only`() {
+    fun `a list total leaves out messages that consume no tokens`() {
         val messages = listOf(
             user("m1"),
             assistant("m2", usage = TokenUsage.of(input = 1, cost = cost("0.1"))),

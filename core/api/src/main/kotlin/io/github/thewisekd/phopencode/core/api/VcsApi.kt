@@ -1,5 +1,6 @@
 package io.github.thewisekd.phopencode.core.api
 
+import io.github.thewisekd.phopencode.core.model.FileDiff
 import io.github.thewisekd.phopencode.core.model.VcsFile
 
 /**
@@ -8,6 +9,7 @@ import io.github.thewisekd.phopencode.core.model.VcsFile
  * Git changes, and the staged/unstaged distinction, go over SSH: the server API has neither.
  */
 interface VcsApi {
+    /** Combines `/api/vcs` and `/api/vcs/base`, which the server keeps as two routes. */
     suspend fun current(location: Location): VcsBranchInfo
 
     suspend fun status(location: Location): List<VcsFile>
@@ -19,19 +21,21 @@ interface VcsApi {
 }
 
 /**
- * @property branch The checked-out branch. Null when there is none, as on a detached HEAD.
- * @property defaultBranch The repository's main branch, if the server knows it.
+ * @property branch The checked-out branch, from `/api/vcs`. Null when there is none, as on a detached
+ *   HEAD or with no repository.
+ * @property defaultBranch The branch name from `/api/vcs/base`, which may be null. `/api/vcs` does not
+ *   give it.
  */
 data class VcsBranchInfo(
     val branch: String? = null,
     val defaultBranch: String? = null,
 )
 
-/** @property current Whether this branch is checked out. */
-data class VcsBranch(
-    val name: String,
-    val current: Boolean = false,
-)
+/**
+ * A branch name: the branch route returns plain strings. To tell which one is checked out, compare with
+ * [VcsBranchInfo.branch].
+ */
+data class VcsBranch(val name: String)
 
 /**
  * @property base What [VcsDiffMode.Branch] and [VcsDiffMode.Committed] compare with; null is the

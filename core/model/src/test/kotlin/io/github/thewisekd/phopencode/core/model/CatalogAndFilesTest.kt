@@ -17,7 +17,7 @@ class CatalogAndFilesTest {
     fun `skill, command and agent hold what the catalog shows`() {
         val skill = Skill(id = "s", name = "review", path = "skills/review.md", content = "# Review")
         val command = Command(name = "init")
-        val agent = Agent(name = "plan", mode = AgentMode.Primary, hidden = true)
+        val agent = Agent(id = "plan", name = "Plan", mode = AgentMode.Primary, hidden = true)
 
         assertFalse(skill.autoInvoke)
         assertNull(command.description)
@@ -34,18 +34,19 @@ class CatalogAndFilesTest {
 
     @Test
     fun `a model holds limits and exact pricing`() {
+        val tier = ModelPriceTier(input = Cost.ZERO, output = Cost.ZERO)
         val model = Model(
             id = "m",
             providerId = "p",
             name = "Model",
             limit = ModelLimit(context = 200_000, output = 8_000),
-            pricing = ModelPricing(input = Cost.parse("0.15"), output = Cost.parse("0.6")),
+            pricing = ModelPricing(listOf(tier)),
             variants = listOf("high"),
         )
 
         assertEquals(200_000, model.limit.context)
-        assertEquals(Cost.parse("0.150"), model.pricing?.input)
-        assertNull(model.pricing?.cacheRead)
+        assertEquals(tier, model.pricing?.base)
+        assertNull(model.pricing?.base?.cacheRead)
     }
 
     @Test

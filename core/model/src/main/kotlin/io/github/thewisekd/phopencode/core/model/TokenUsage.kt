@@ -8,6 +8,9 @@ import java.math.BigInteger
  * Counters are [BigInteger]: totals add up values a server sends, and a `Long` would either wrap to
  * a negative number or, with exact arithmetic, throw on the UI's way to showing a sum.
  *
+ * The counters do not overlap: [input] leaves out cached tokens, and [output] leaves out [reasoning],
+ * which is billed at the output price; see [ModelPriceTier.costOf].
+ *
  * [cost] and [hasMissingCost] together keep a missing cost apart from a zero cost:
  *
  * | [cost] | [hasMissingCost] | Meaning |

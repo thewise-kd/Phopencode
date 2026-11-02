@@ -19,8 +19,9 @@ sealed interface Message {
     ) : Message
 
     /**
-     * @property usage The total the server reported, if it did. Null while the message streams.
-     * @property steps The usage of each finished step, in order.
+     * One step of a turn: a turn with three tool rounds gives four of these.
+     *
+     * @property usage What the server reported, if it did. Null while the message streams.
      */
     data class Assistant(
         override val id: MessageId,
@@ -31,16 +32,12 @@ sealed interface Message {
         val model: ModelRef? = null,
         val blocks: List<AssistantBlock> = emptyList(),
         val usage: TokenUsage? = null,
-        val steps: List<TokenUsage> = emptyList(),
         val finishReason: String? = null,
-        val error: String? = null,
+        val error: StructuredError? = null,
     ) : Message {
-        /**
-         * The reported total, or else the total of [steps]. A message with neither has reported no
-         * cost, so it counts as missing rather than as free.
-         */
+        /** The reported usage. Without one, the cost counts as missing rather than as free. */
         val totalUsage: TokenUsage
-            get() = usage ?: if (steps.isEmpty()) TokenUsage() else steps.sumUsage()
+            get() = usage ?: TokenUsage()
     }
 
     data class Synthetic(
@@ -72,16 +69,29 @@ sealed interface Message {
         val output: String? = null,
     ) : Message
 
+    /**
+     * @property status The server's word: `running`, `completed` or `failed`. Open.
+     * @property usage What it cost: the session's totals include this. Null until it ended.
+     */
     data class Compaction(
         override val id: MessageId,
         override val sessionId: SessionId,
         override val createdAt: Instant? = null,
+        val status: String? = null,
+        val reason: String? = null,
+        val model: ModelRef? = null,
+        val summary: String? = null,
+        val usage: TokenUsage? = null,
+        val error: StructuredError? = null,
     ) : Message
 
+    /** Marks where an execution ended. */
     data class Idle(
         override val id: MessageId,
         override val sessionId: SessionId,
         override val createdAt: Instant? = null,
+        val outcome: SessionOutcome? = null,
+        val error: StructuredError? = null,
     ) : Message
 
     data class AgentSwitched(
@@ -89,6 +99,7 @@ sealed interface Message {
         override val sessionId: SessionId,
         override val createdAt: Instant? = null,
         val agent: String,
+        val previous: String? = null,
     ) : Message
 
     data class ModelSwitched(
@@ -96,6 +107,7 @@ sealed interface Message {
         override val sessionId: SessionId,
         override val createdAt: Instant? = null,
         val model: ModelRef,
+        val previous: ModelRef? = null,
     ) : Message
 
     data class LocationSwitched(
@@ -113,6 +125,14 @@ sealed interface Message {
     ) : Message
 }
 
-/** The usage of all assistant messages here; other message types consume no tokens. */
-fun Iterable<Message>.totalUsage(): TokenUsage =
-    filterIsInstance<Message.Assistant>().map { it.totalUsage }.sumUsage()
+/**
+ * The usage of all assistant and compaction messages here, which is what a session total adds up.
+ * Other message types consume no tokens.
+ */
+fun Iterable<Message>.totalUsage(): TokenUsage = mapNotNull { message ->
+    when (message) {
+        is Message.Assistant -> message.totalUsage
+        is Message.Compaction -> message.usage ?: TokenUsage()
+        else -> null
+    }
+}.sumUsage()

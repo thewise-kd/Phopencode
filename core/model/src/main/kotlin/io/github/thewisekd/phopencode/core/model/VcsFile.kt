@@ -8,6 +8,16 @@ data class VcsFile(
     val deletions: Long? = null,
 )
 
+/**
+ * The change to one file, for a turn, a revert or the working tree.
+ *
+ * @property patch A unified diff. Null when the server gave none, as for a binary file.
+ */
+data class FileDiff(
+    val file: VcsFile,
+    val patch: String? = null,
+)
+
 sealed interface VcsFileStatus {
     data object Added : VcsFileStatus
 
