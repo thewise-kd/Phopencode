@@ -1,0 +1,4 @@
+{"label": "session-create", "method": "POST", "path": "/api/session", "request": {"location": {"directory": "/workspace/project"}}, "status": 200, "after_event": 0, "response": "http/01-session-create.json"}
+{"label": "prompt", "method": "POST", "path": "/api/session/ses_00000000000000000000000021/prompt", "request": {"text": "A session with no title."}, "status": 200, "after_event": 1, "response": "http/02-prompt.json"}
+{"label": "final-session", "method": "GET", "path": "/api/session/ses_00000000000000000000000021", "request": null, "status": 200, "after_event": 15, "response": "http/03-final-session.json"}
+{"label": "final-messages", "method": "GET", "path": "/api/session/ses_00000000000000000000000021/message", "request": null, "status": 200, "after_event": 15, "response": "http/04-final-messages.json"}

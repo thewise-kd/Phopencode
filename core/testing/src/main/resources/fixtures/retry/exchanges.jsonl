@@ -1,0 +1,4 @@
+{"label": "session-create", "method": "POST", "path": "/api/session", "request": {"title": "Retry flow", "location": {"directory": "/workspace/project"}}, "status": 200, "after_event": 0, "response": "http/01-session-create.json"}
+{"label": "prompt", "method": "POST", "path": "/api/session/ses_00000000000000000000000017/prompt", "request": {"text": "Survive a dropped provider stream."}, "status": 200, "after_event": 1, "response": "http/02-prompt.json"}
+{"label": "final-session", "method": "GET", "path": "/api/session/ses_00000000000000000000000017", "request": null, "status": 200, "after_event": 21, "response": "http/03-final-session.json"}
+{"label": "final-messages", "method": "GET", "path": "/api/session/ses_00000000000000000000000017/message", "request": null, "status": 200, "after_event": 21, "response": "http/04-final-messages.json"}

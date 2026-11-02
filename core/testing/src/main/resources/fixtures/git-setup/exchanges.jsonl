@@ -1,0 +1,4 @@
+{"label": "session-create", "method": "POST", "path": "/api/session", "request": {"title": "Git setup", "location": {"directory": "/workspace/project"}}, "status": 200, "after_event": 0, "response": "http/01-session-create.json"}
+{"label": "vcs-init", "method": "POST", "path": "/api/vcs/init?location%5Bdirectory%5D=%2Fworkspace%2Fproject", "request": {}, "status": 204, "after_event": 4, "response": null}
+{"label": "vcs-after-init", "method": "GET", "path": "/api/vcs?location%5Bdirectory%5D=%2Fworkspace%2Fproject", "request": null, "status": 200, "after_event": 5, "response": "http/03-vcs-after-init.json"}
+{"label": "prompt", "method": "POST", "path": "/api/session/ses_00000000000000000000000002/prompt", "request": {"text": "Commit the project."}, "status": 200, "after_event": 18, "response": "http/04-prompt.json"}

@@ -1,0 +1,8 @@
+{"label": "session-create", "method": "POST", "path": "/api/session", "request": {"title": "Text flow", "location": {"directory": "/workspace/project"}}, "status": 200, "after_event": 0, "response": "http/01-session-create.json"}
+{"label": "prompt", "method": "POST", "path": "/api/session/ses_00000000000000000000000003/prompt", "request": {"text": "Say hello."}, "status": 200, "after_event": 2, "response": "http/02-prompt.json"}
+{"label": "session-after-turn", "method": "GET", "path": "/api/session/ses_00000000000000000000000003", "request": null, "status": 200, "after_event": 16, "response": "http/03-session-after-turn.json"}
+{"label": "messages-page-1", "method": "GET", "path": "/api/session/ses_00000000000000000000000003/message?limit=1", "request": null, "status": 200, "after_event": 16, "response": "http/04-messages-page-1.json"}
+{"label": "messages-page-2", "method": "GET", "path": "/api/session/ses_00000000000000000000000003/message?limit=1&cursor=eyJpZCI6Im1zZ18wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwNiIsIm9yZGVyIjoiZGVzYyIsImRpcmVjdGlvbiI6Im5leHQifQ", "request": null, "status": 200, "after_event": 16, "response": "http/05-messages-page-2.json"}
+{"label": "messages-asc", "method": "GET", "path": "/api/session/ses_00000000000000000000000003/message?order=asc", "request": null, "status": 200, "after_event": 16, "response": "http/06-messages-asc.json"}
+{"label": "final-session", "method": "GET", "path": "/api/session/ses_00000000000000000000000003", "request": null, "status": 200, "after_event": 16, "response": "http/07-final-session.json"}
+{"label": "final-messages", "method": "GET", "path": "/api/session/ses_00000000000000000000000003/message", "request": null, "status": 200, "after_event": 16, "response": "http/08-final-messages.json"}

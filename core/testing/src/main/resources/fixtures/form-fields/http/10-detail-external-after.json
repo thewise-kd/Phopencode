@@ -1,0 +1,1 @@
+{"data":{"id":"frm_00000000000000000000000004","sessionID":"ses_00000000000000000000000011","title":"External step","fields":[{"key":"login","type":"external","url":"https://example.invalid/login","title":"Sign in","description":"Opens a page"}],"state":{"status":"answered","answer":{"login":true}}}}

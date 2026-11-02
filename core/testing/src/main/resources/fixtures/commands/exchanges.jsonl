@@ -1,0 +1,9 @@
+{"label": "session-create", "method": "POST", "path": "/api/session", "request": {"title": "Command, shell and switching flow", "location": {"directory": "/workspace/project"}}, "status": 200, "after_event": 0, "response": "http/01-session-create.json"}
+{"label": "switch-agent", "method": "POST", "path": "/api/session/ses_00000000000000000000000024/agent", "request": {"agent": "plan"}, "status": 204, "after_event": 1, "response": null}
+{"label": "switch-model", "method": "POST", "path": "/api/session/ses_00000000000000000000000024/model", "request": {"model": {"id": "sim-2", "providerID": "sim"}}, "status": 204, "after_event": 2, "response": null}
+{"label": "switch-agent-back", "method": "POST", "path": "/api/session/ses_00000000000000000000000024/agent", "request": {"agent": "build"}, "status": 204, "after_event": 2, "response": null}
+{"label": "command", "method": "POST", "path": "/api/session/ses_00000000000000000000000024/command", "request": {"name": "review", "text": "uncommitted"}, "status": 204, "after_event": 5, "response": null}
+{"label": "shell", "method": "POST", "path": "/api/session/ses_00000000000000000000000024/shell", "request": {"command": "printf 'from shell\\n'"}, "status": 204, "after_event": 22, "response": null}
+{"label": "context", "method": "GET", "path": "/api/session/ses_00000000000000000000000024/context", "request": null, "status": 200, "after_event": 25, "response": "http/07-context.json"}
+{"label": "final-session", "method": "GET", "path": "/api/session/ses_00000000000000000000000024", "request": null, "status": 200, "after_event": 25, "response": "http/08-final-session.json"}
+{"label": "final-messages", "method": "GET", "path": "/api/session/ses_00000000000000000000000024/message", "request": null, "status": 200, "after_event": 25, "response": "http/09-final-messages.json"}

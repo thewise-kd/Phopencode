@@ -1,0 +1,1 @@
+{"location":{"directory":"/workspace/project"},"data":[{"name":"fixture-broken","status":{"status":"failed","error":"Connection closed: MCP server process exited with code 1"}},{"name":"fixture-off","status":{"status":"disabled"}},{"name":"fixture-remote","status":{"status":"failed","error":"ECONNREFUSED: Unable to connect. Is the computer able to access the url?"}}]}

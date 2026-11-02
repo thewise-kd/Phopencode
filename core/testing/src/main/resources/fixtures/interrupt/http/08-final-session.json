@@ -1,0 +1,1 @@
+{"data":{"id":"ses_00000000000000000000000016","projectID":"0000000000000000000000000000000000000007","cost":0,"tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"outcome":"interrupted","time":{"created":1700000027816,"updated":1700000028130,"busy":1700000027842,"idle":1700000028141},"title":"Interrupt flow","location":{"directory":"/workspace/project"}}}

@@ -1,0 +1,1 @@
+{"version":"2.2.5","pid":4242,"hostname":"fixture-host","urls":["http://127.0.0.1:4096"],"paths":{"tmp":"/tmp/capture/tmp/opencode"},"capabilities":{"persistentPty":true}}

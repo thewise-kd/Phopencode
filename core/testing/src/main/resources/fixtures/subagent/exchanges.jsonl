@@ -1,0 +1,8 @@
+{"label": "session-create", "method": "POST", "path": "/api/session", "request": {"title": "Subagent flow", "location": {"directory": "/workspace/project"}}, "status": 200, "after_event": 0, "response": "http/01-session-create.json"}
+{"label": "prompt", "method": "POST", "path": "/api/session/ses_00000000000000000000000006/prompt", "request": {"text": "Delegate reading the notes."}, "status": 200, "after_event": 1, "response": "http/02-prompt.json"}
+{"label": "active-during-subagent", "method": "GET", "path": "/api/session/active", "request": null, "status": 200, "after_event": 20, "response": "http/03-active-during-subagent.json"}
+{"label": "children", "method": "GET", "path": "/api/session?parentID=ses_00000000000000000000000006", "request": null, "status": 200, "after_event": 46, "response": "http/04-children.json"}
+{"label": "child-session", "method": "GET", "path": "/api/session/ses_00000000000000000000000007", "request": null, "status": 200, "after_event": 46, "response": "http/05-child-session.json"}
+{"label": "child-messages", "method": "GET", "path": "/api/session/ses_00000000000000000000000007/message", "request": null, "status": 200, "after_event": 46, "response": "http/06-child-messages.json"}
+{"label": "final-session", "method": "GET", "path": "/api/session/ses_00000000000000000000000006", "request": null, "status": 200, "after_event": 46, "response": "http/07-final-session.json"}
+{"label": "final-messages", "method": "GET", "path": "/api/session/ses_00000000000000000000000006/message", "request": null, "status": 200, "after_event": 46, "response": "http/08-final-messages.json"}

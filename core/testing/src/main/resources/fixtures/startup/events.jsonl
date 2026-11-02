@@ -1,0 +1,15 @@
+{"id":"evt_00000000000000000000000001","type":"server.connected","data":{}}
+{"id":"evt_00000000000000000000000002","created":1700000001455,"type":"project.updated","location":{"directory":"/workspace/project"},"data":{"id":"0000000000000000000000000000000000000001","canonical":"/workspace/project","time":{"created":1700000001443,"updated":1700000001443,"active":1700000001453},"sandboxes":[]}}
+{"id":"evt_00000000000000000000000003","created":1700000004418,"type":"mcp.status.changed","location":{"directory":"/workspace/project"},"data":{"server":"fixture-broken"}}
+{"id":"evt_00000000000000000000000004","created":1700000004419,"type":"mcp.status.changed","location":{"directory":"/workspace/project"},"data":{"server":"fixture-off"}}
+{"id":"evt_00000000000000000000000005","created":1700000004420,"type":"mcp.status.changed","location":{"directory":"/workspace/project"},"data":{"server":"fixture-remote"}}
+{"id":"evt_00000000000000000000000006","created":1700000004429,"type":"integration.updated","location":{"directory":"/workspace/project"},"data":{}}
+{"id":"evt_00000000000000000000000007","created":1700000004461,"type":"provider.updated","location":{"directory":"/workspace/project"},"data":{}}
+{"id":"evt_00000000000000000000000008","created":1700000004499,"type":"model.updated","location":{"directory":"/workspace/project"},"data":{}}
+{"id":"evt_00000000000000000000000009","created":1700000004510,"type":"agent.updated","location":{"directory":"/workspace/project"},"data":{}}
+{"id":"evt_00000000000000000000000010","created":1700000004512,"type":"command.updated","location":{"directory":"/workspace/project"},"data":{}}
+{"id":"evt_00000000000000000000000011","created":1700000004514,"type":"skill.updated","location":{"directory":"/workspace/project"},"data":{}}
+{"id":"evt_00000000000000000000000012","created":1700000004526,"type":"websearch.updated","location":{"directory":"/workspace/project"},"data":{}}
+{"id":"evt_00000000000000000000000013","created":1700000004695,"type":"reference.updated","location":{"directory":"/workspace/project"},"data":{}}
+{"id":"evt_00000000000000000000000014","created":1700000004698,"type":"plugin.updated","location":{"directory":"/workspace/project"},"data":{}}
+{"id":"evt_00000000000000000000000015","created":1700000005176,"type":"mcp.status.changed","location":{"directory":"/workspace/project"},"data":{"server":"fixture-broken"}}

@@ -1,0 +1,6 @@
+{"label": "session-create", "method": "POST", "path": "/api/session", "request": {"title": "Subagent permission flow", "location": {"directory": "/workspace/project"}}, "status": 200, "after_event": 0, "response": "http/01-session-create.json"}
+{"label": "prompt", "method": "POST", "path": "/api/session/ses_00000000000000000000000008/prompt", "request": {"text": "Delegate reading the secrets file."}, "status": 200, "after_event": 1, "response": "http/02-prompt.json"}
+{"label": "pending-all", "method": "GET", "path": "/api/permission/request?location%5Bdirectory%5D=%2Fworkspace%2Fproject", "request": null, "status": 200, "after_event": 22, "response": "http/03-pending-all.json"}
+{"label": "reply-child", "method": "POST", "path": "/api/session/ses_00000000000000000000000009/permission/per_00000000000000000000000001/reply", "request": {"decision": "once"}, "status": 204, "after_event": 22, "response": null}
+{"label": "child-session", "method": "GET", "path": "/api/session/ses_00000000000000000000000009", "request": null, "status": 200, "after_event": 45, "response": "http/05-child-session.json"}
+{"label": "child-messages", "method": "GET", "path": "/api/session/ses_00000000000000000000000009/message", "request": null, "status": 200, "after_event": 45, "response": "http/06-child-messages.json"}

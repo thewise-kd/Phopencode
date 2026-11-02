@@ -1,0 +1,1 @@
+{"data":{"id":"ses_00000000000000000000000021","projectID":"0000000000000000000000000000000000000007","cost":0,"tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"outcome":"succeeded","time":{"created":1700000036760,"updated":1700000038048,"busy":1700000036811,"idle":1700000038078},"title":"Generated title","location":{"directory":"/workspace/project"}}}

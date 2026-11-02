@@ -1,0 +1,6 @@
+{"label": "session-create", "method": "POST", "path": "/api/session", "request": {"title": "Compaction flow", "location": {"directory": "/workspace/project"}}, "status": 200, "after_event": 0, "response": "http/01-session-create.json"}
+{"label": "prompt", "method": "POST", "path": "/api/session/ses_00000000000000000000000023/prompt", "request": {"text": "Give me something to compact."}, "status": 200, "after_event": 1, "response": "http/02-prompt.json"}
+{"label": "compact-rejected", "method": "POST", "path": "/api/session/ses_00000000000000000000000023/compact", "request": {}, "status": 200, "after_event": 13, "response": "http/03-compact-rejected.json"}
+{"label": "compact", "method": "POST", "path": "/api/session/ses_00000000000000000000000023/compact", "request": {}, "status": 200, "after_event": 23, "response": "http/04-compact.json"}
+{"label": "final-session", "method": "GET", "path": "/api/session/ses_00000000000000000000000023", "request": null, "status": 200, "after_event": 31, "response": "http/05-final-session.json"}
+{"label": "final-messages", "method": "GET", "path": "/api/session/ses_00000000000000000000000023/message", "request": null, "status": 200, "after_event": 31, "response": "http/06-final-messages.json"}

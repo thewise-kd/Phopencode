@@ -1,0 +1,18 @@
+{"label": "session-create", "method": "POST", "path": "/api/session", "request": {"title": "Lifecycle flow", "location": {"directory": "/workspace/project"}, "metadata": {"origin": "fixture"}}, "status": 200, "after_event": 0, "response": "http/01-session-create.json"}
+{"label": "prompt", "method": "POST", "path": "/api/session/ses_00000000000000000000000013/prompt", "request": {"text": "First turn."}, "status": 200, "after_event": 1, "response": "http/02-prompt.json"}
+{"label": "messages", "method": "GET", "path": "/api/session/ses_00000000000000000000000013/message", "request": null, "status": 200, "after_event": 13, "response": "http/03-messages.json"}
+{"label": "rename", "method": "PATCH", "path": "/api/session/ses_00000000000000000000000013", "request": {"title": "Renamed flow"}, "status": 204, "after_event": 13, "response": null}
+{"label": "metadata", "method": "PATCH", "path": "/api/session/ses_00000000000000000000000013", "request": {"metadata": {"origin": "fixture", "pinned": true}}, "status": 204, "after_event": 14, "response": null}
+{"label": "permissions", "method": "PATCH", "path": "/api/session/ses_00000000000000000000000013", "request": {"permissions": [{"action": "shell", "resource": "*", "effect": "ask"}]}, "status": 204, "after_event": 15, "response": null}
+{"label": "view", "method": "POST", "path": "/api/session/ses_00000000000000000000000013/view", "request": {"idle": 0}, "status": 204, "after_event": 16, "response": null}
+{"label": "archive", "method": "PATCH", "path": "/api/session/ses_00000000000000000000000013", "request": {"archived": true}, "status": 204, "after_event": 17, "response": null}
+{"label": "archived-get", "method": "GET", "path": "/api/session/ses_00000000000000000000000013", "request": null, "status": 200, "after_event": 18, "response": "http/09-archived-get.json"}
+{"label": "list-archived", "method": "GET", "path": "/api/session?archived=true&limit=5&location%5Bdirectory%5D=%2Fworkspace%2Fproject", "request": null, "status": 200, "after_event": 18, "response": "http/10-list-archived.json"}
+{"label": "list-default", "method": "GET", "path": "/api/session?limit=5&location%5Bdirectory%5D=%2Fworkspace%2Fproject", "request": null, "status": 200, "after_event": 18, "response": "http/11-list-default.json"}
+{"label": "unarchive", "method": "PATCH", "path": "/api/session/ses_00000000000000000000000013", "request": {"archived": false}, "status": 204, "after_event": 18, "response": null}
+{"label": "unarchived-get", "method": "GET", "path": "/api/session/ses_00000000000000000000000013", "request": null, "status": 200, "after_event": 19, "response": "http/13-unarchived-get.json"}
+{"label": "fork", "method": "POST", "path": "/api/session/ses_00000000000000000000000013/fork", "request": {}, "status": 200, "after_event": 19, "response": "http/14-fork.json"}
+{"label": "fork-before", "method": "POST", "path": "/api/session/ses_00000000000000000000000013/fork", "request": {"before": "msg_00000000000000000000000046"}, "status": 200, "after_event": 20, "response": "http/15-fork-before.json"}
+{"label": "list-search", "method": "GET", "path": "/api/session?search=Renamed&limit=5&location%5Bdirectory%5D=%2Fworkspace%2Fproject", "request": null, "status": 200, "after_event": 21, "response": "http/16-list-search.json"}
+{"label": "delete-fork", "method": "DELETE", "path": "/api/session/ses_00000000000000000000000014", "request": null, "status": 204, "after_event": 21, "response": null}
+{"label": "delete-again", "method": "DELETE", "path": "/api/session/ses_00000000000000000000000014", "request": null, "status": 404, "after_event": 22, "response": "http/18-delete-again.json"}

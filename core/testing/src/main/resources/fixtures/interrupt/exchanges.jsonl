@@ -1,0 +1,9 @@
+{"label": "session-create", "method": "POST", "path": "/api/session", "request": {"title": "Interrupt flow", "location": {"directory": "/workspace/project"}}, "status": 200, "after_event": 0, "response": "http/01-session-create.json"}
+{"label": "active-idle", "method": "GET", "path": "/api/session/active", "request": null, "status": 200, "after_event": 1, "response": "http/02-active-idle.json"}
+{"label": "prompt", "method": "POST", "path": "/api/session/ses_00000000000000000000000016/prompt", "request": {"text": "Start something long."}, "status": 200, "after_event": 1, "response": "http/03-prompt.json"}
+{"label": "active-running", "method": "GET", "path": "/api/session/active", "request": null, "status": 200, "after_event": 8, "response": "http/04-active-running.json"}
+{"label": "session-running", "method": "GET", "path": "/api/session/ses_00000000000000000000000016", "request": null, "status": 200, "after_event": 8, "response": "http/05-session-running.json"}
+{"label": "interrupt", "method": "POST", "path": "/api/session/ses_00000000000000000000000016/interrupt", "request": null, "status": 200, "after_event": 8, "response": "http/06-interrupt.json"}
+{"label": "active-after", "method": "GET", "path": "/api/session/active", "request": null, "status": 200, "after_event": 12, "response": "http/07-active-after.json"}
+{"label": "final-session", "method": "GET", "path": "/api/session/ses_00000000000000000000000016", "request": null, "status": 200, "after_event": 12, "response": "http/08-final-session.json"}
+{"label": "final-messages", "method": "GET", "path": "/api/session/ses_00000000000000000000000016/message", "request": null, "status": 200, "after_event": 12, "response": "http/09-final-messages.json"}

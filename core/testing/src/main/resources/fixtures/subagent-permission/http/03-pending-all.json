@@ -1,0 +1,1 @@
+{"location":{"directory":"/workspace/project"},"data":[{"id":"per_00000000000000000000000001","sessionID":"ses_00000000000000000000000009","action":"read","resources":[".env"],"save":["*"],"source":{"type":"tool","messageID":"msg_00000000000000000000000030","id":"call_child_env"}}]}

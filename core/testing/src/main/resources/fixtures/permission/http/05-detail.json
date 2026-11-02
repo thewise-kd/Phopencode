@@ -1,0 +1,1 @@
+{"data":{"id":"per_00000000000000000000000002","sessionID":"ses_00000000000000000000000012","action":"read","resources":[".env"],"save":["*"],"source":{"type":"tool","messageID":"msg_00000000000000000000000041","id":"call_env1"}}}

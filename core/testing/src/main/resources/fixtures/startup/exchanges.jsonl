@@ -1,0 +1,3 @@
+{"label": "info", "method": "GET", "path": "/api/info", "request": null, "status": 200, "after_event": 15, "response": "http/01-info.json"}
+{"label": "location", "method": "GET", "path": "/api/location?location%5Bdirectory%5D=%2Fworkspace%2Fproject", "request": null, "status": 200, "after_event": 15, "response": "http/02-location.json"}
+{"label": "unknown-session", "method": "GET", "path": "/api/session/ses_0000000000000000000000001", "request": null, "status": 404, "after_event": 15, "response": "http/03-unknown-session.json"}

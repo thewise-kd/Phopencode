@@ -1,0 +1,4 @@
+{"label": "session-create", "method": "POST", "path": "/api/session", "request": {"title": "Tool flow", "location": {"directory": "/workspace/project"}}, "status": 200, "after_event": 0, "response": "http/01-session-create.json"}
+{"label": "prompt", "method": "POST", "path": "/api/session/ses_00000000000000000000000005/prompt", "request": {"text": "Write a file, read it, then run a command."}, "status": 200, "after_event": 1, "response": "http/02-prompt.json"}
+{"label": "final-session", "method": "GET", "path": "/api/session/ses_00000000000000000000000005", "request": null, "status": 200, "after_event": 47, "response": "http/03-final-session.json"}
+{"label": "final-messages", "method": "GET", "path": "/api/session/ses_00000000000000000000000005/message", "request": null, "status": 200, "after_event": 47, "response": "http/04-final-messages.json"}

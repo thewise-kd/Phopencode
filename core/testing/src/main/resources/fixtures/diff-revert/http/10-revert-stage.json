@@ -1,0 +1,1 @@
+{"data":{"messageID":"msg_00000000000000000000000078","snapshot":"000000000000000000000000000000000000000b","files":[{"file":"tracked.txt","patch":"diff --git a/tracked.txt b/tracked.txt\nindex f69a0b8..4a58007 100644\n--- a/tracked.txt\n+++ b/tracked.txt\n@@ -1,2 +1 @@\n-beta\n-gamma\n+alpha\n","additions":1,"deletions":2,"status":"modified"}]}}

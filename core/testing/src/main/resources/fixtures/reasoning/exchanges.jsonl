@@ -1,0 +1,5 @@
+{"label": "session-create", "method": "POST", "path": "/api/session", "request": {"title": "Reasoning flow", "location": {"directory": "/workspace/project"}}, "status": 200, "after_event": 0, "response": "http/01-session-create.json"}
+{"label": "prompt", "method": "POST", "path": "/api/session/ses_00000000000000000000000004/prompt", "request": {"text": "Think, then answer."}, "status": 200, "after_event": 1, "response": "http/02-prompt.json"}
+{"label": "prompt", "method": "POST", "path": "/api/session/ses_00000000000000000000000004/prompt", "request": {"text": "Answer with hidden thinking."}, "status": 200, "after_event": 19, "response": "http/03-prompt.json"}
+{"label": "final-session", "method": "GET", "path": "/api/session/ses_00000000000000000000000004", "request": null, "status": 200, "after_event": 30, "response": "http/04-final-session.json"}
+{"label": "final-messages", "method": "GET", "path": "/api/session/ses_00000000000000000000000004/message", "request": null, "status": 200, "after_event": 30, "response": "http/05-final-messages.json"}

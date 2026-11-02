@@ -1,0 +1,9 @@
+{"label": "session-create", "method": "POST", "path": "/api/session", "request": {"title": "Error flow", "location": {"directory": "/workspace/project"}}, "status": 200, "after_event": 1, "response": "http/01-session-create.json"}
+{"label": "prompt", "method": "POST", "path": "/api/session/ses_00000000000000000000000018/prompt", "request": {"text": "Hit a provider error."}, "status": 200, "after_event": 1, "response": "http/02-prompt.json"}
+{"label": "final-session", "method": "GET", "path": "/api/session/ses_00000000000000000000000018", "request": null, "status": 200, "after_event": 8, "response": "http/03-final-session.json"}
+{"label": "final-messages", "method": "GET", "path": "/api/session/ses_00000000000000000000000018/message", "request": null, "status": 200, "after_event": 8, "response": "http/04-final-messages.json"}
+{"label": "session-create", "method": "POST", "path": "/api/session", "request": {"title": "Unavailable model", "location": {"directory": "/workspace/project"}}, "status": 200, "after_event": 8, "response": "http/05-session-create.json"}
+{"label": "switch-unknown-model", "method": "POST", "path": "/api/session/ses_00000000000000000000000019/model", "request": {"model": {"id": "not-installed", "providerID": "sim"}}, "status": 204, "after_event": 10, "response": null}
+{"label": "prompt", "method": "POST", "path": "/api/session/ses_00000000000000000000000019/prompt", "request": {"text": "Use a model that does not exist."}, "status": 200, "after_event": 10, "response": "http/07-prompt.json"}
+{"label": "unavailable-session", "method": "GET", "path": "/api/session/ses_00000000000000000000000019", "request": null, "status": 200, "after_event": 15, "response": "http/08-unavailable-session.json"}
+{"label": "unavailable-messages", "method": "GET", "path": "/api/session/ses_00000000000000000000000019/message", "request": null, "status": 200, "after_event": 15, "response": "http/09-unavailable-messages.json"}

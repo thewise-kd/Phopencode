@@ -1,0 +1,1 @@
+{"data":[{"file":"tracked.txt","patch":"diff --git a/tracked.txt b/tracked.txt\nindex 4a58007..65b2df8 100644\n--- a/tracked.txt\n+++ b/tracked.txt\n@@ -1 +1 @@\n-alpha\n+beta\n","additions":1,"deletions":1,"status":"modified"}]}

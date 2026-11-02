@@ -222,8 +222,8 @@ Diff returns all files in a single response; a 3 MB file inflates the response. 
 
 ## Unverified items
 
-- 2.2.5 live behavior: now installed on this machine. `/api/info` and `opencode run --standalone --format json` were verified; the remaining streams are recorded in `P1.7`.
+- 2.2.5 server behavior: verified by `P1.7`, see `docs/api/README.md`. Event names, payload shapes, the message list and the REST routes were recorded from the real server, with scripted model output. Where that document disagrees with these notes, that document wins: for example `session.status` and `session.idle` were never emitted, `session.usage.recorded` does not exist, and message cursors are objects.
 - In 2.2.5, `opencode` commands connect to the background service on `127.0.0.1` (`opencode service status`). `opencode pair` generates a one-time link for a browser or app. The app must look for this service before starting a new process; `P3.7-P3.9` must be verified accordingly.
-- Live LLM stream: the actual order of reasoning, tool and subagent events. `P1.7` closes this with recorded samples.
-- `OPENCODE_SIMULATE` mode exists in the 2.2.5 code; whether it is suitable for recording without an LLM has not been tried.
+- Live LLM stream: still unverified. `P1.7` used simulation only, so how the server handles a stream is known, but what a real provider sends is not: chunk order and timing, real usage values, provider errors, provider-specific reasoning fields, and whether `session.tool.input.delta` ever appears.
+- `OPENCODE_SIMULATE`: tried and suitable. With `OPENCODE_DRIVE` it sends model requests for the OpenAI chat URL to a loopback control socket and denies every other destination. It is undocumented and can change between releases.
 - No stability commitment across V2 versions was found.

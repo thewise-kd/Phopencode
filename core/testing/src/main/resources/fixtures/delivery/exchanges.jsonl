@@ -1,0 +1,12 @@
+{"label": "session-create", "method": "POST", "path": "/api/session", "request": {"title": "Delivery flow", "location": {"directory": "/workspace/project"}}, "status": 200, "after_event": 0, "response": "http/01-session-create.json"}
+{"label": "prompt", "method": "POST", "path": "/api/session/ses_00000000000000000000000020/prompt", "request": {"text": "Begin."}, "status": 200, "after_event": 1, "response": "http/02-prompt.json"}
+{"label": "prompt", "method": "POST", "path": "/api/session/ses_00000000000000000000000020/prompt", "request": {"text": "Also do this now.", "delivery": "steer"}, "status": 200, "after_event": 5, "response": "http/03-prompt.json"}
+{"label": "prompt", "method": "POST", "path": "/api/session/ses_00000000000000000000000020/prompt", "request": {"text": "Afterwards do this.", "delivery": "queue"}, "status": 200, "after_event": 5, "response": "http/04-prompt.json"}
+{"label": "prompt", "method": "POST", "path": "/api/session/ses_00000000000000000000000020/prompt", "request": {"text": "Never mind this.", "delivery": "queue"}, "status": 200, "after_event": 7, "response": "http/05-prompt.json"}
+{"label": "prompt", "method": "POST", "path": "/api/session/ses_00000000000000000000000020/prompt", "request": {"text": "Make this one urgent.", "delivery": "queue"}, "status": 200, "after_event": 8, "response": "http/06-prompt.json"}
+{"label": "inbox", "method": "GET", "path": "/api/session/ses_00000000000000000000000020/inbox", "request": null, "status": 200, "after_event": 11, "response": "http/07-inbox.json"}
+{"label": "inbox-cancel", "method": "DELETE", "path": "/api/session/ses_00000000000000000000000020/inbox/msg_00000000000000000000000066", "request": null, "status": 204, "after_event": 11, "response": null}
+{"label": "inbox-steer", "method": "PATCH", "path": "/api/session/ses_00000000000000000000000020/inbox/msg_00000000000000000000000067", "request": {"delivery": "steer"}, "status": 204, "after_event": 12, "response": null}
+{"label": "inbox-after", "method": "GET", "path": "/api/session/ses_00000000000000000000000020/inbox", "request": null, "status": 200, "after_event": 14, "response": "http/10-inbox-after.json"}
+{"label": "final-session", "method": "GET", "path": "/api/session/ses_00000000000000000000000020", "request": null, "status": 200, "after_event": 37, "response": "http/11-final-session.json"}
+{"label": "final-messages", "method": "GET", "path": "/api/session/ses_00000000000000000000000020/message", "request": null, "status": 200, "after_event": 37, "response": "http/12-final-messages.json"}
