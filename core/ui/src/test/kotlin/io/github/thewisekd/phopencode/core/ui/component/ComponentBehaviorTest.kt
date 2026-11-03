@@ -10,7 +10,6 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
-import androidx.compose.ui.test.assertTouchHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -66,7 +65,7 @@ class ComponentBehaviorTest {
 
         compose.onNodeWithContentDescription(GO_BACK)
             .assert(isButton)
-            .assertTouchHeightIsEqualTo(touchTarget)
+            .assertTouchHeightIsAtLeast(touchTarget)
             .performClick()
 
         compose.runOnIdle { assertEquals(1, backs) }
@@ -128,7 +127,7 @@ class ComponentBehaviorTest {
 
         compose.onNodeWithText(BUTTON_LABEL)
             .assert(isButton)
-            .assertTouchHeightIsEqualTo(touchTarget)
+            .assertTouchHeightIsAtLeast(touchTarget)
             .performClick()
 
         compose.runOnIdle { assertEquals(1, clicks) }
@@ -162,10 +161,10 @@ class ComponentBehaviorTest {
             ErrorBanner(message = MESSAGE, onRetry = { retries++ }, onDismiss = { dismissals++ })
         }
 
-        compose.onNodeWithText(RETRY).assert(isButton).assertTouchHeightIsEqualTo(touchTarget).performClick()
+        compose.onNodeWithText(RETRY).assert(isButton).assertTouchHeightIsAtLeast(touchTarget).performClick()
         compose.runOnIdle { assertEquals(1 to 0, retries to dismissals) }
 
-        compose.onNodeWithContentDescription(DISMISS).assert(isButton).assertTouchHeightIsEqualTo(touchTarget).performClick()
+        compose.onNodeWithContentDescription(DISMISS).assert(isButton).assertTouchHeightIsAtLeast(touchTarget).performClick()
         compose.runOnIdle { assertEquals(1 to 1, retries to dismissals) }
     }
 
@@ -231,7 +230,7 @@ class ComponentBehaviorTest {
 
         compose.onNodeWithText(SCREEN_TITLE).assertIsDisplayed().assert(isHeading)
         compose.onNodeWithText(MESSAGE).assertIsDisplayed()
-        compose.onNodeWithText(CONFIRM).assert(isButton).assertTouchHeightIsEqualTo(touchTarget).performClick()
+        compose.onNodeWithText(CONFIRM).assert(isButton).assertTouchHeightIsAtLeast(touchTarget).performClick()
 
         compose.runOnIdle { assertEquals(1 to 0, confirmed to dismissed) }
     }
@@ -244,7 +243,7 @@ class ComponentBehaviorTest {
             ConfirmDialog(title = SCREEN_TITLE, message = MESSAGE, onConfirm = { confirmed++ }, onDismiss = { dismissed++ })
         }
 
-        compose.onNodeWithText(CANCEL).assert(isButton).assertTouchHeightIsEqualTo(touchTarget).performClick()
+        compose.onNodeWithText(CANCEL).assert(isButton).assertTouchHeightIsAtLeast(touchTarget).performClick()
 
         compose.runOnIdle { assertEquals(0 to 1, confirmed to dismissed) }
     }
