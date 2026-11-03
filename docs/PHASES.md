@@ -223,6 +223,12 @@ Runs before G3 by user decision, because the fakes in P1.8 build on these contra
 |---|---|---|---|---|---|
 | P1.10 | App shell | P1.5, P1.9 | `app/`, `feature/*/ui/…/*Graph.kt`, `feature/*/ui/…/*Module.kt` | NavHost calls all feature graphs; every route opens a placeholder; Koin verification test passes; `locales_config.xml` TR+EN; system language is followed; `networkSecurityConfig` and `dataExtractionRules` in the manifest point to stub XML files | `CI` |
 
+**G5 (fixes after CP1 push)**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P1.12 | CI test diagnostics | P1.10 | `.github/workflows/ci.yml`, `docs/PHASES.md` (this row) | The android job runs every Gradle task with `--continue` and uploads test and lint reports even on failure | `CI` |
+
 `CP1`: push, CI green.
 
 ### P2: opencode HTTP client

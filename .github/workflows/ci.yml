@@ -33,7 +33,16 @@ jobs:
       # The runner image presets both variables, and this job proves the build without an SDK.
       - run: |
           unset ANDROID_HOME ANDROID_SDK_ROOT
-          ./gradlew jvmCheck functionalTest
+          ./gradlew --continue jvmCheck functionalTest
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: jvm-reports
+          path: |
+            **/build/test-results/**
+            **/build/reports/tests/**
+          retention-days: 7
+          if-no-files-found: ignore
 
   helper:
     runs-on: ubuntu-24.04
@@ -74,10 +83,22 @@ jobs:
         with:
           cache-provider: basic
       # gradle.properties holds the small heaps of the Pi; the command line wins over it.
+      # --continue runs assembleDebug and lint even when tests fail; the step still fails.
       - run: |
-          ./gradlew testDebugUnitTest assembleDebug lint \
+          ./gradlew --continue testDebugUnitTest assembleDebug lint \
             "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" \
             -Pkotlin.daemon.jvmargs=-Xmx3g
+      # The console shows only a summary; the reports carry the stack traces.
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-reports
+          path: |
+            **/build/test-results/**
+            **/build/reports/tests/**
+            **/build/reports/lint-results*
+          retention-days: 7
+          if-no-files-found: ignore
 
   checks:
     runs-on: ubuntu-24.04
