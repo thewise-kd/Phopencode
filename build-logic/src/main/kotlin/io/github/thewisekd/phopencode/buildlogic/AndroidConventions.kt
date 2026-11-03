@@ -5,11 +5,22 @@ import com.android.build.api.dsl.CommonExtension
 import com.android.build.api.dsl.LibraryExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.tasks.testing.Test
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.getByType
+import org.gradle.kotlin.dsl.withType
 
 private const val BASE_PACKAGE = "io.github.thewisekd.phopencode"
 private const val TEST_RUNNER = "androidx.test.runner.AndroidJUnitRunner"
+
+/**
+ * Robolectric runs in the unit test JVM. On API 36 its FileDescriptorInterceptor.setInt
+ * (Robolectric 4.17, called from ApplicationSharedMemory.create) reaches
+ * jdk.internal.access.SharedSecrets, which java.base does not export. Its getInt and
+ * release use reflection on java.io.FileDescriptor fields; AGP already adds
+ * --add-opens=java.base/java.io=ALL-UNNAMED to unit test tasks, so that is not repeated.
+ */
+private val ROBOLECTRIC_JVM_ARGS = listOf("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
 
 private fun Project.configureAndroid(android: CommonExtension) = with(android) {
     compileSdk = libs.sdk("android-compileSdk")
@@ -18,6 +29,7 @@ private fun Project.configureAndroid(android: CommonExtension) = with(android) {
     compileOptions.sourceCompatibility = JAVA_VERSION
     compileOptions.targetCompatibility = JAVA_VERSION
     testOptions.unitTests.isIncludeAndroidResources = true
+    tasks.withType<Test>().configureEach { jvmArgs(ROBOLECTRIC_JVM_ARGS) }
 
     dependencies.addLibraries("implementation", libs, "androidx-core-ktx", "kotlinx-coroutines-android")
     dependencies.add("testImplementation", libs.library("kotlin-test"))

@@ -228,6 +228,7 @@ Runs before G3 by user decision, because the fakes in P1.8 build on these contra
 | Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
 |---|---|---|---|---|---|
 | P1.12 | CI test diagnostics | P1.10 | `.github/workflows/ci.yml`, `docs/PHASES.md` (this row) | The android job runs every Gradle task with `--continue` and uploads test and lint reports even on failure | `CI` |
+| P1.13 | Robolectric module access on JDK 21 | P1.12 | `build-logic/`, `docs/PHASES.md` (this row) | Android unit test JVMs get the module flags Robolectric needs on API 36; CI's android job is green | `CI` |
 
 `CP1`: push, CI green.
 

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -109,6 +110,40 @@ class AndroidConventionsTest {
         assertContains(output, "project ':feature:chat:logic'")
         assertContains(output, "project ':core:ui'")
         assertContains(output, "project ':core:navigation'")
+    }
+
+    private fun printUnitTestJvmArgs(module: String) {
+        build.edit("$module/build.gradle.kts") {
+            it + """
+
+                val unitTestJvmArgs = provider { tasks.named<Test>("testDebugUnitTest").get().jvmArgs }
+                tasks.register("printUnitTestJvmArgs") {
+                    doLast { println("unitTestJvmArgs=" + unitTestJvmArgs.get()) }
+                }
+            """.trimIndent() + "\n"
+        }
+    }
+
+    /**
+     * Robolectric's FileDescriptorInterceptor reaches into java.base on API 36; see
+     * ROBOLECTRIC_JVM_ARGS. The java.io flag comes from AGP and is checked so a change there shows up.
+     */
+    @Test
+    fun `Android unit test JVMs get the module access Robolectric needs`() {
+        printUnitTestJvmArgs("core/ui")
+        printUnitTestJvmArgs("app")
+        val output = build.succeeds(
+            ":core:ui:printUnitTestJvmArgs",
+            ":app:printUnitTestJvmArgs",
+            NO_CACHE,
+            sdk = build.emptySdk(),
+        ).output
+        val lines = output.lines().filter { it.startsWith("unitTestJvmArgs=") }
+        assertEquals(2, lines.size, "expected one line per module:\n$output")
+        lines.forEach { line ->
+            assertContains(line, "--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
+            assertContains(line, "--add-opens=java.base/java.io=ALL-UNNAMED")
+        }
     }
 
     private companion object {
