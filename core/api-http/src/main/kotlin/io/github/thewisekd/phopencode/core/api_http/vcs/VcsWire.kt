@@ -40,9 +40,9 @@ internal class VcsFileStatusWire(
 
 /**
  * `FileDiff.Info`. The spec makes `patch` required; it is optional here so that a file the server
- * gives no patch for still decodes. `more`, which marks an entry that stands for a folder the server
+ * gives no patch for still decodes. `more`, which marks an entry that stands for files the server
  * did not list in full, has no place in the model and is dropped: it only comes with
- * `untracked=folders`, which this module never sends.
+ * `untracked=folders`, past the server's 500-entry cap.
  */
 @Serializable
 internal class VcsFileDiffWire(

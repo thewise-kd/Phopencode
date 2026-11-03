@@ -3,6 +3,7 @@ package io.github.thewisekd.phopencode.core.api_http.vcs
 import io.github.thewisekd.phopencode.core.api.ApiError
 import io.github.thewisekd.phopencode.core.api.ApiException
 import io.github.thewisekd.phopencode.core.api.Location
+import io.github.thewisekd.phopencode.core.api.UntrackedMode
 import io.github.thewisekd.phopencode.core.api.VcsDiffMode
 import io.github.thewisekd.phopencode.core.api.VcsDiffQuery
 import io.github.thewisekd.phopencode.core.api_http.base.ApiRequest
@@ -25,17 +26,13 @@ internal object VcsRoutes {
 
     fun status(location: Location) = ApiRequest(HttpMethod.GET, VCS + "status", location = location)
 
-    /**
-     * The server's `untracked` takes `files`, every untracked file and its default, or `folders`,
-     * which collapses an untracked folder into one entry. Neither leaves untracked files out, so
-     * `untracked = false` cannot be asked for and is refused.
-     */
+    /** `untracked` goes out as `files` or `folders`, the server's names; null sends nothing. */
     fun diff(location: Location, query: VcsDiffQuery): ApiRequest {
         query.context?.let { if (it < 0) refuse("The diff context must not be negative.") }
         val untracked = when (query.untracked) {
             null -> null
-            true -> "files"
-            false -> refuse("The server cannot leave untracked files out of a diff.")
+            UntrackedMode.Files -> "files"
+            UntrackedMode.Folders -> "folders"
         }
         val parameters = buildList {
             add(

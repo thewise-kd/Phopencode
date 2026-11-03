@@ -2,6 +2,7 @@ package io.github.thewisekd.phopencode.core.api_http.vcs
 
 import io.github.thewisekd.phopencode.core.api.ApiError
 import io.github.thewisekd.phopencode.core.api.Location
+import io.github.thewisekd.phopencode.core.api.UntrackedMode
 import io.github.thewisekd.phopencode.core.api.VcsBranch
 import io.github.thewisekd.phopencode.core.api.VcsBranchInfo
 import io.github.thewisekd.phopencode.core.api.VcsDiffMode
@@ -61,23 +62,45 @@ class VcsApiBehaviorTest {
     }
 
     @Test
-    fun `untracked true asks for every untracked file`() = runTest {
+    fun `every untracked mode goes out by its wire name, and null sends nothing`() = runTest {
+        val sent = UntrackedMode.entries.associateWith { mode ->
+            queryOf("[]") { diff(project, VcsDiffQuery(untracked = mode)) }
+        }
         assertEquals(
-            listOf("mode" to "working", "untracked" to "files", location),
-            queryOf("[]") { diff(project, VcsDiffQuery(untracked = true)) },
+            mapOf(
+                UntrackedMode.Files to listOf("mode" to "working", "untracked" to "files", location),
+                UntrackedMode.Folders to listOf("mode" to "working", "untracked" to "folders", location),
+            ),
+            sent,
+        )
+        assertEquals(
+            listOf("mode" to "working", location),
+            queryOf("[]") { diff(project, VcsDiffQuery(untracked = null)) },
         )
     }
 
     /**
-     * The server's `untracked` is `files` or `folders`; both include untracked files, so leaving them
-     * out cannot be asked for. Refusing beats a diff that silently still holds them.
+     * With `folders` the server collapses an untracked folder into one entry and may mark entries with
+     * `more: true`. The model has no place for the marker, so it is dropped and the entry still decodes.
      */
     @Test
-    fun `untracked false is refused before any request`() = runTest {
+    fun `a folders diff with more markers decodes and drops the marker`() = runTest {
         TestServer().use { t ->
-            val error = apiError { HttpVcsApi(t.transport).diff(project, VcsDiffQuery(untracked = false)) }
-            assertIs<ApiError.BadRequest>(error)
-            assertEquals(0, t.server.requestCount)
+            t.enqueue(
+                body = envelope(
+                    """[{"file":"build/","patch":"","additions":0,"deletions":0,"status":"untracked","more":true},""" +
+                        """{"file":"a.txt","patch":"x","additions":1,"deletions":0,"status":"added"}]""",
+                ),
+            )
+            val diff = HttpVcsApi(t.transport).diff(project, VcsDiffQuery(untracked = UntrackedMode.Folders))
+            assertEquals(
+                listOf(
+                    FileDiff(VcsFile("build/", VcsFileStatus.Untracked, 0, 0), patch = ""),
+                    FileDiff(VcsFile("a.txt", VcsFileStatus.Added, 1, 0), patch = "x"),
+                ),
+                diff,
+            )
+            assertEquals("folders", t.server.takeRequest().url.queryParameter("untracked"))
         }
     }
 

@@ -267,6 +267,7 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 |---|---|---|---|---|---|
 | P2.10 | Resync | P2.9 | `core/session/…/sync/` | On reconnect, messages and pending items are fetched; state stays consistent after a missed event; a duplicate event has no effect | `PI` |
 | P2.11 | Client assembly and version gate | P2.2, P2.3, P2.4, P2.5, P2.6, P2.7, P2.8 | `core/api-http/…/client/` | `/api/info` version is read; below 2.2 is rejected with a clear error; warning on a new major | `PI` |
+| P2.12 | Untracked mode in `VcsDiffQuery` | P2.8 | `core/api/…/VcsApi.kt` (`VcsDiffQuery.untracked`), `core/testing/…/api/FakeCatalogAndFiles.kt` and vcs contract cases (where they use `untracked`), `core/api-http/…/vcs/` | `untracked` is a files/folders choice matching the server; the KDoc is correct; no value is refused locally | `PI` |
 
 ### P3: SSH and server management
 
