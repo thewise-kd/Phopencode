@@ -3,6 +3,7 @@ plugins {
 }
 
 dependencies {
+    implementation(project(":core:navigation"))
     implementation(project(":core:storage"))
     implementation(project(":core:ui"))
     implementation(project(":core:markdown"))

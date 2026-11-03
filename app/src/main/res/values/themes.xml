@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The window behind Compose, which draws its own theme from core:ui. -->
+    <style name="Theme.Phopencode" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
