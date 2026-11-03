@@ -5,6 +5,8 @@ import io.github.thewisekd.phopencode.core.api.ApiException
 import io.github.thewisekd.phopencode.core.api_http.base.TEST_PASSWORD
 import io.github.thewisekd.phopencode.core.api_http.base.TestServer
 import io.github.thewisekd.phopencode.core.api_http.base.fixture
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -17,6 +19,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -356,6 +359,48 @@ class HttpEventStreamTest {
         assertDisconnected(ApiError.MalformedResponse, 2, run.next())
         assertEquals(StreamSignal.Connected, run.next())
         run.job.cancelAndJoin()
+    }
+
+    /** A reader dispatcher whose one thread is held until [release], so no reader has started yet. */
+    private class HeldDispatcher : AutoCloseable {
+        private val gate = CountDownLatch(1)
+        private val executor = Executors.newSingleThreadExecutor().apply { execute { gate.await() } }
+        val dispatcher = executor.asCoroutineDispatcher()
+
+        fun release() = gate.countDown()
+
+        override fun close() {
+            release()
+            executor.shutdown()
+        }
+    }
+
+    @Test
+    fun `an open connection counts its reader before the reader has started`() = realTime { h ->
+        h.stream()
+        HeldDispatcher().use { held ->
+            val connector = HttpSseConnector(h.transport, readerDispatcher = held.dispatcher)
+            val connection = connector.open()
+            assertEquals(1, connector.activeReaders, "a reader not yet started is still a reader")
+            held.release()
+            connection.close()
+            assertEquals(0, connector.activeReaders)
+        }
+    }
+
+    @Test
+    fun `closing a connection whose reader never started leaves no reader`() = realTime { h ->
+        h.stream()
+        HeldDispatcher().use { held ->
+            val connector = HttpSseConnector(h.transport, readerDispatcher = held.dispatcher)
+            val connection = connector.open()
+            val closing = launch { connection.close() }
+            // The reader is cancelled while it waits for its thread.
+            delay(100)
+            held.release()
+            withTimeout(5_000) { closing.join() }
+            assertEquals(0, connector.activeReaders)
+        }
     }
 
     private fun Long.toDuration(): Duration = this.toDouble().let { (it / 1_000_000).milliseconds }

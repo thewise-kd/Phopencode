@@ -11,6 +11,7 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -45,7 +46,7 @@ internal class HttpSseConnector(
 ) : SseConnector {
     private val readers = AtomicInteger()
 
-    /** Readers running now; for tests. */
+    /** Readers of connections handed out that have not ended yet, started or not; for tests. */
     val activeReaders: Int
         get() = readers.get()
 
@@ -81,10 +82,14 @@ internal class HttpSseConnector(
 
     private inner class Connection(private val call: Call, private val response: Response) : SseConnection {
         private val items = Channel<SseItem>(BUFFERED_ITEMS)
-        private val reader: Job = CoroutineScope(readerDispatcher).launch { read() }
+        // Counted from here, not from when the reader gets a thread, so that a connection handed out
+        // always has its reader counted. ATOMIC runs the body even if cancelled before it starts,
+        // so the count always comes back down.
+        private val reader: Job = readers.incrementAndGet().let {
+            CoroutineScope(readerDispatcher).launch(start = CoroutineStart.ATOMIC) { read() }
+        }
 
         private suspend fun read() {
-            readers.incrementAndGet()
             try {
                 val parser = SseParser(maxEventBytes)
                 val source = response.body.source()
@@ -121,7 +126,7 @@ internal class HttpSseConnector(
         override suspend fun close() = withContext(NonCancellable) {
             call.cancel()
             reader.cancelAndJoin()
-            // The reader may have been cancelled before it ever ran.
+            // The reader closes it too; closing twice is harmless and does not rely on the reader.
             response.close()
             items.cancel()
         }
