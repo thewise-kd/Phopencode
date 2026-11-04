@@ -3,6 +3,7 @@ package io.github.thewisekd.phopencode.core.storage.repo
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import io.github.thewisekd.phopencode.core.model.ServerProfile
+import io.github.thewisekd.phopencode.core.storage_api.SshKeyEntry
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
@@ -34,6 +35,11 @@ internal class TestStores(private val dir: File) {
 
     fun knownHosts(file: File = newFile(KNOWN_HOSTS)): Opened<KnownHostsFile> = open(file) { knownHostsDataStore(it) { file } }
 
+    fun keyIndex(file: File = newFile(KEY_INDEX)): Opened<List<SshKeyEntry>> = open(file) { keyIndexDataStore(it) { file } }
+
+    fun recentFolders(file: File = newFile(RECENT_FOLDERS)): Opened<RecentFolders> =
+        open(file) { recentFoldersDataStore(it) { file } }
+
     fun settings(file: File = newFile(SETTINGS)): Opened<Preferences> = open(file) { settingsDataStore(it) { file } }
 
     private fun <T> open(file: File, create: (CoroutineScope) -> DataStore<T>): Opened<T> {
@@ -55,6 +61,8 @@ internal class TestStores(private val dir: File) {
     companion object {
         const val PROFILES = "profiles.json"
         const val KNOWN_HOSTS = "known_hosts.json"
+        const val KEY_INDEX = "ssh_keys.json"
+        const val RECENT_FOLDERS = "recent_folders.json"
         const val SETTINGS = "settings.preferences_pb"
     }
 }

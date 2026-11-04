@@ -72,7 +72,14 @@ class EveryInterfaceHasAFakeTest {
         assertFaked(
             "$base.storage_api",
             "storage",
-            setOf("SecretStore", "ProfileRepository", "KnownHostsStore", "SettingsRepository"),
+            setOf(
+                "SecretStore",
+                "ProfileRepository",
+                "KnownHostsStore",
+                "SettingsRepository",
+                "SshKeyIndex",
+                "RecentFoldersStore",
+            ),
         )
     }
 }

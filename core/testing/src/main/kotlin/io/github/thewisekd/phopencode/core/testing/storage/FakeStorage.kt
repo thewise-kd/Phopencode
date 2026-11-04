@@ -10,15 +10,20 @@ import io.github.thewisekd.phopencode.core.storage_api.HostKeyFingerprint
 import io.github.thewisekd.phopencode.core.storage_api.HostKeyUpdate
 import io.github.thewisekd.phopencode.core.storage_api.KnownHostsStore
 import io.github.thewisekd.phopencode.core.storage_api.ProfileRepository
+import io.github.thewisekd.phopencode.core.storage_api.RecentFoldersStore
 import io.github.thewisekd.phopencode.core.storage_api.SecretReadResult
 import io.github.thewisekd.phopencode.core.storage_api.SecretStore
 import io.github.thewisekd.phopencode.core.storage_api.SecretValue
 import io.github.thewisekd.phopencode.core.storage_api.SettingsRepository
+import io.github.thewisekd.phopencode.core.storage_api.SshKeyEntry
+import io.github.thewisekd.phopencode.core.storage_api.SshKeyId
+import io.github.thewisekd.phopencode.core.storage_api.SshKeyIndex
 import io.github.thewisekd.phopencode.core.storage_api.ThemePreference
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
@@ -178,8 +183,86 @@ class FakeKnownHostsStore : KnownHostsStore {
     }
 }
 
+/** @property unavailable Makes every suspending function throw [IOException]. */
+class FakeSshKeyIndex : SshKeyIndex {
+    private val keys = MutableStateFlow<Map<SshKeyId, SshKeyEntry>>(emptyMap())
+
+    @Volatile
+    var unavailable: Boolean = false
+
+    private fun Map<SshKeyId, SshKeyEntry>.sorted() = values.sortedWith(SshKeyIndex.BY_NAME)
+
+    override fun observe(): Flow<List<SshKeyEntry>> = keys.map { it.sorted() }
+
+    override suspend fun list(): List<SshKeyEntry> {
+        failIf(unavailable)
+        return keys.value.sorted()
+    }
+
+    override suspend fun get(id: SshKeyId): SshKeyEntry? {
+        failIf(unavailable)
+        return keys.value[id]
+    }
+
+    override suspend fun save(entry: SshKeyEntry) {
+        failIf(unavailable)
+        keys.update { it + (entry.id to entry) }
+    }
+
+    override suspend fun delete(id: SshKeyId) {
+        failIf(unavailable)
+        keys.update { it - id }
+    }
+
+    internal fun clear() {
+        failIf(unavailable)
+        keys.value = emptyMap()
+    }
+}
+
+/** @property unavailable Makes every suspending function throw [IOException]. */
+class FakeRecentFoldersStore : RecentFoldersStore {
+    private val folders = MutableStateFlow<Map<ServerProfileId, List<String>>>(emptyMap())
+
+    @Volatile
+    var unavailable: Boolean = false
+
+    override fun observe(profile: ServerProfileId): Flow<List<String>> =
+        folders.map { it[profile].orEmpty() }.distinctUntilChanged()
+
+    override suspend fun list(profile: ServerProfileId): List<String> {
+        failIf(unavailable)
+        return folders.value[profile].orEmpty()
+    }
+
+    override suspend fun add(profile: ServerProfileId, path: String) {
+        update(profile) { paths -> (listOf(path) + (paths - path)).take(RecentFoldersStore.MAX_PER_PROFILE) }
+    }
+
+    override suspend fun remove(profile: ServerProfileId, path: String) {
+        update(profile) { paths -> paths - path }
+    }
+
+    override suspend fun forget(profile: ServerProfileId) {
+        update(profile) { emptyList() }
+    }
+
+    private fun update(profile: ServerProfileId, change: (List<String>) -> List<String>) {
+        failIf(unavailable)
+        folders.update { all ->
+            val updated = change(all[profile].orEmpty())
+            if (updated.isEmpty()) all - profile else all + (profile to updated)
+        }
+    }
+
+    internal fun clear() {
+        failIf(unavailable)
+        folders.value = emptyMap()
+    }
+}
+
 /**
- * [deleteAllData] reaches into the three stores it is given, so share them with the test to see it.
+ * [deleteAllData] reaches into the stores it is given, so share them with the test to see it.
  * It tries every part even when one fails, then throws the first failure.
  *
  * @property unavailable Makes every suspending function throw [IOException].
@@ -188,6 +271,8 @@ class FakeSettingsRepository(
     private val secrets: FakeSecretStore = FakeSecretStore(),
     private val profiles: FakeProfileRepository = FakeProfileRepository(),
     private val knownHosts: FakeKnownHostsStore = FakeKnownHostsStore(),
+    private val keyIndex: FakeSshKeyIndex = FakeSshKeyIndex(),
+    private val recentFolders: FakeRecentFoldersStore = FakeRecentFoldersStore(),
 ) : SettingsRepository {
     private val settings = MutableStateFlow(AppSettings())
 
@@ -216,6 +301,8 @@ class FakeSettingsRepository(
             { secrets.deleteAll() },
             { profiles.clear() },
             { knownHosts.clear() },
+            { keyIndex.clear() },
+            { recentFolders.clear() },
             {
                 failIf(unavailable)
                 settings.value = AppSettings()

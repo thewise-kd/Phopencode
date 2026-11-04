@@ -101,6 +101,8 @@ class KnownHostsFileTest {
             FakeSecretStore(),
             DataStoreProfileRepository(stores.profiles().store),
             store,
+            DataStoreSshKeyIndex(stores.keyIndex().store),
+            DataStoreRecentFoldersStore(stores.recentFolders().store),
         )
 
         settings.deleteAllData()

@@ -12,10 +12,14 @@ import io.github.thewisekd.phopencode.core.storage_api.HostKeyFingerprint
 import io.github.thewisekd.phopencode.core.storage_api.HostKeyUpdate
 import io.github.thewisekd.phopencode.core.storage_api.KnownHostsStore
 import io.github.thewisekd.phopencode.core.storage_api.ProfileRepository
+import io.github.thewisekd.phopencode.core.storage_api.RecentFoldersStore
 import io.github.thewisekd.phopencode.core.storage_api.SecretReadResult
 import io.github.thewisekd.phopencode.core.storage_api.SecretStore
 import io.github.thewisekd.phopencode.core.storage_api.SecretValue
 import io.github.thewisekd.phopencode.core.storage_api.SettingsRepository
+import io.github.thewisekd.phopencode.core.storage_api.SshKeyEntry
+import io.github.thewisekd.phopencode.core.storage_api.SshKeyId
+import io.github.thewisekd.phopencode.core.storage_api.SshKeyIndex
 import io.github.thewisekd.phopencode.core.storage_api.ThemePreference
 import java.io.IOException
 import kotlin.time.Instant
@@ -291,14 +295,165 @@ fun knownHostsStoreContract(newStore: suspend () -> KnownHostsStore): List<Contr
     }
 }
 
+private fun key(id: String, name: String = id, passphrase: Boolean = false) = SshKeyEntry(
+    id = SshKeyId(id),
+    name = name,
+    type = "ssh-ed25519",
+    fingerprint = "SHA256:fp-$id",
+    publicKey = "ssh-ed25519 AAAA$id comment-$id",
+    privateKeyRef = SecretRef("key-$id"),
+    passphraseRef = if (passphrase) SecretRef("passphrase-$id") else null,
+)
+
+fun sshKeyIndexContract(newIndex: suspend () -> SshKeyIndex): List<ContractCase> = contractCases {
+    case("a new index is empty") {
+        val index = newIndex()
+        expectEqual(emptyList(), index.list(), "keys")
+        expectEqual(null, index.get(SshKeyId("a")), "get")
+    }
+    case("every field of an entry reads back as saved") {
+        val index = newIndex()
+        val withPassphrase = key("a", name = "Laptop", passphrase = true)
+        val without = key("b", name = "Phone")
+        index.save(withPassphrase)
+        index.save(without)
+        expectEqual(withPassphrase, index.get(withPassphrase.id), "entry with a passphrase")
+        expectEqual(without, index.get(without.id), "entry without a passphrase")
+        expectEqual(listOf(withPassphrase, without), index.list(), "list")
+    }
+    case("save adds, and replaces the entry with the same ID") {
+        val index = newIndex()
+        index.save(key("a", name = "old"))
+        index.save(key("b"))
+        index.save(key("a", name = "new"))
+        expectEqual(listOf("b", "new"), index.list().map { it.name }, "names")
+        expectEqual("new", index.get(SshKeyId("a"))?.name, "replaced entry")
+    }
+    case("lists are sorted by name, then by ID") {
+        val index = newIndex()
+        val keys = listOf(key("z", name = "b"), key("y", name = "a"), key("x", name = "b"), key("w", name = "c"))
+        keys.forEach { index.save(it) }
+        val expected = keys.sortedWith(SshKeyIndex.BY_NAME)
+        expectEqual(listOf("y", "x", "z", "w"), expected.map { it.id.value }, "comparator")
+        expectEqual(expected, index.list(), "list")
+        expectEqual(expected, index.observe().first(), "observe")
+    }
+    case("delete removes the entry, and does nothing without one") {
+        val index = newIndex()
+        index.save(key("a"))
+        index.save(key("b"))
+        index.delete(SshKeyId("missing"))
+        expectEqual(2, index.list().size, "after deleting a missing entry")
+        index.delete(SshKeyId("a"))
+        expectEqual(listOf("b"), index.list().map { it.id.value }, "after delete")
+        expectEqual(null, index.get(SshKeyId("a")), "get after delete")
+    }
+    case("observe emits the current list on collection, then after every change") {
+        val index = newIndex()
+        index.save(key("b"))
+        val seen = collect(index.observe())
+        expectEqual(listOf("b"), seen.next("current list").map { it.id.value }, "current list")
+        index.save(key("a"))
+        expectEqual(listOf("a", "b"), seen.next("list after save").map { it.id.value }, "list after save")
+        index.delete(SshKeyId("b"))
+        expectEqual(listOf("a"), seen.next("list after delete").map { it.id.value }, "list after delete")
+    }
+    case("concurrent saves lose no entry") {
+        val index = newIndex()
+        withContext(Dispatchers.Default) {
+            (0 until 16).map { async { index.save(key("k$it")) } }.awaitAll()
+        }
+        expectEqual(16, index.list().size, "entries")
+    }
+}
+
+private val PROFILE_A = ServerProfileId("a")
+private val PROFILE_B = ServerProfileId("b")
+
+fun recentFoldersStoreContract(newStore: suspend () -> RecentFoldersStore): List<ContractCase> = contractCases {
+    case("a new store has no folders") {
+        expectEqual(emptyList(), newStore().list(PROFILE_A), "folders")
+    }
+    case("add puts the newest folder first") {
+        val store = newStore()
+        store.add(PROFILE_A, "/srv/one")
+        store.add(PROFILE_A, "/srv/two")
+        expectEqual(listOf("/srv/two", "/srv/one"), store.list(PROFILE_A), "folders")
+    }
+    case("adding a folder again moves it to the front, once") {
+        val store = newStore()
+        listOf("/srv/one", "/srv/two", "/srv/three", "/srv/one").forEach { store.add(PROFILE_A, it) }
+        expectEqual(listOf("/srv/one", "/srv/three", "/srv/two"), store.list(PROFILE_A), "folders")
+    }
+    case("each profile keeps at most MAX_PER_PROFILE folders, dropping the oldest") {
+        val store = newStore()
+        val max = RecentFoldersStore.MAX_PER_PROFILE
+        (1..max + 2).forEach { store.add(PROFILE_A, "/srv/$it") }
+        expectEqual((max + 2 downTo 3).map { "/srv/$it" }, store.list(PROFILE_A), "folders")
+    }
+    case("profiles keep their folders apart") {
+        val store = newStore()
+        store.add(PROFILE_A, "/srv/a")
+        store.add(PROFILE_B, "/srv/b")
+        expectEqual(listOf("/srv/a"), store.list(PROFILE_A), "profile a")
+        expectEqual(listOf("/srv/b"), store.list(PROFILE_B), "profile b")
+    }
+    case("paths are kept exactly as given") {
+        val store = newStore()
+        val paths = listOf("/home/user/çalışma dizini", "/srv/x/", "/srv/x", "/SRV/X", "/srv/\"quoted\"")
+        paths.forEach { store.add(PROFILE_A, it) }
+        expectEqual(paths.reversed(), store.list(PROFILE_A), "folders")
+    }
+    case("remove takes out one folder, and does nothing without it") {
+        val store = newStore()
+        store.add(PROFILE_A, "/srv/one")
+        store.add(PROFILE_A, "/srv/two")
+        store.add(PROFILE_B, "/srv/one")
+        store.remove(PROFILE_A, "/srv/missing")
+        store.remove(PROFILE_A, "/srv/one")
+        expectEqual(listOf("/srv/two"), store.list(PROFILE_A), "profile a")
+        expectEqual(listOf("/srv/one"), store.list(PROFILE_B), "profile b")
+    }
+    case("forget removes one profile's folders only, and does nothing without any") {
+        val store = newStore()
+        store.add(PROFILE_A, "/srv/a")
+        store.add(PROFILE_B, "/srv/b")
+        store.forget(ServerProfileId("missing"))
+        store.forget(PROFILE_A)
+        expectEqual(emptyList(), store.list(PROFILE_A), "profile a")
+        expectEqual(listOf("/srv/b"), store.list(PROFILE_B), "profile b")
+    }
+    case("observe emits the profile's list on collection, then after every change to it") {
+        val store = newStore()
+        store.add(PROFILE_A, "/srv/one")
+        val seen = collect(store.observe(PROFILE_A))
+        expectEqual(listOf("/srv/one"), seen.next("current list"), "current list")
+        store.add(PROFILE_B, "/srv/other")
+        store.add(PROFILE_A, "/srv/two")
+        expectEqual(listOf("/srv/two", "/srv/one"), seen.next("list after add"), "list after add")
+        store.forget(PROFILE_A)
+        expectEqual(emptyList(), seen.next("list after forget"), "list after forget")
+    }
+    case("concurrent adds lose no folder") {
+        val store = newStore()
+        val paths = (0 until RecentFoldersStore.MAX_PER_PROFILE).map { "/srv/$it" }
+        withContext(Dispatchers.Default) {
+            paths.map { async { store.add(PROFILE_A, it) } }.awaitAll()
+        }
+        expectEqual(paths.toSet(), store.list(PROFILE_A).toSet(), "folders")
+    }
+}
+
 /** The parts of [SettingsRepository.deleteAllData]. */
-enum class StoragePart { Secrets, Profiles, KnownHosts, Settings }
+enum class StoragePart { Secrets, Profiles, KnownHosts, KeyIndex, RecentFolders, Settings }
 
 interface SettingsHarness {
     val settings: SettingsRepository
     val secrets: SecretStore
     val profiles: ProfileRepository
     val knownHosts: KnownHostsStore
+    val keyIndex: SshKeyIndex
+    val recentFolders: RecentFoldersStore
 
     suspend fun givenUnreadableSecret(ref: SecretRef)
 
@@ -311,6 +466,8 @@ private suspend fun SettingsHarness.fill() {
     givenUnreadableSecret(OTHER_SECRET)
     profiles.save(profile("a"))
     knownHosts.approve(ENDPOINT, KEY_A)
+    keyIndex.save(key("a"))
+    recentFolders.add(PROFILE_A, "/srv/a")
     settings.setLanguage(AppLanguage.TURKISH)
     settings.setTheme(ThemePreference.DARK)
     settings.setFileSizeLimit(7)
@@ -321,6 +478,8 @@ private suspend fun SettingsHarness.expectEmpty() {
     expectEqual(SecretReadResult.NotFound, secrets.read(OTHER_SECRET), "unreadable secret")
     expectEqual(emptyList(), profiles.list(), "profiles")
     expectEqual(null, knownHosts.approved(ENDPOINT), "known host")
+    expectEqual(emptyList(), keyIndex.list(), "keys")
+    expectEqual(emptyList(), recentFolders.list(PROFILE_A), "recent folders")
     expectEqual(AppSettings(), settings.observe().first(), "settings")
 }
 
@@ -353,7 +512,7 @@ fun settingsRepositoryContract(newHarness: suspend () -> SettingsHarness): List<
         harness.profiles.delete(saved.id)
         expectEqual("value", harness.secrets.text(SECRET), "secret")
     }
-    case("deleteAllData deletes secrets, profiles and known hosts, and resets settings") {
+    case("deleteAllData deletes secrets, profiles, known hosts, keys and recent folders, and resets settings") {
         val harness = newHarness()
         harness.fill()
         harness.settings.deleteAllData()

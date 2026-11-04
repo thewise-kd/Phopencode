@@ -13,6 +13,7 @@ import io.github.thewisekd.phopencode.core.api.ServerEvent
 import io.github.thewisekd.phopencode.core.api.SessionApi
 import io.github.thewisekd.phopencode.core.api.SessionQuery
 import io.github.thewisekd.phopencode.core.model.SecretRef
+import io.github.thewisekd.phopencode.core.model.ServerProfileId
 import io.github.thewisekd.phopencode.core.ssh.api.ExecEvent
 import io.github.thewisekd.phopencode.core.ssh.api.ExecRequest
 import io.github.thewisekd.phopencode.core.ssh.api.HostKeyVerifier
@@ -25,8 +26,11 @@ import io.github.thewisekd.phopencode.core.storage_api.HostEndpoint
 import io.github.thewisekd.phopencode.core.storage_api.HostKeyFingerprint
 import io.github.thewisekd.phopencode.core.storage_api.HostKeyUpdate
 import io.github.thewisekd.phopencode.core.storage_api.KnownHostsStore
+import io.github.thewisekd.phopencode.core.storage_api.RecentFoldersStore
 import io.github.thewisekd.phopencode.core.storage_api.SecretStore
 import io.github.thewisekd.phopencode.core.storage_api.SettingsRepository
+import io.github.thewisekd.phopencode.core.storage_api.SshKeyEntry
+import io.github.thewisekd.phopencode.core.storage_api.SshKeyIndex
 import io.github.thewisekd.phopencode.core.testing.api.FakeOpencodeClient
 import io.github.thewisekd.phopencode.core.testing.contract.ApiHarness
 import io.github.thewisekd.phopencode.core.testing.contract.ContractCase
@@ -36,11 +40,15 @@ import io.github.thewisekd.phopencode.core.testing.contract.SettingsHarness
 import io.github.thewisekd.phopencode.core.testing.contract.SshConnectorHarness
 import io.github.thewisekd.phopencode.core.testing.contract.knownHostsStoreContract
 import io.github.thewisekd.phopencode.core.testing.contract.opencodeClientContract
+import io.github.thewisekd.phopencode.core.testing.contract.recentFoldersStoreContract
 import io.github.thewisekd.phopencode.core.testing.contract.remoteExecContract
 import io.github.thewisekd.phopencode.core.testing.contract.secretStoreContract
 import io.github.thewisekd.phopencode.core.testing.contract.settingsRepositoryContract
 import io.github.thewisekd.phopencode.core.testing.contract.sshConnectorContract
+import io.github.thewisekd.phopencode.core.testing.contract.sshKeyIndexContract
 import io.github.thewisekd.phopencode.core.testing.storage.FakeKnownHostsStore
+import io.github.thewisekd.phopencode.core.testing.storage.FakeRecentFoldersStore
+import io.github.thewisekd.phopencode.core.testing.storage.FakeSshKeyIndex
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.flow.Flow
@@ -124,10 +132,90 @@ class ContractTeethTest {
                 }
             }
         }
-        assertCaught(
-            "deleteAllData deletes secrets, profiles and known hosts, and resets settings",
-            settingsRepositoryContract { KeepsProfiles() },
-        )
+        assertCaught(DELETE_ALL_DATA, settingsRepositoryContract { KeepsProfiles() })
+    }
+
+    @Test
+    fun `deleteAllData that keeps the key index or the recent folders is caught`() {
+        class Keeps(private val keepKeys: Boolean, val fake: FakeSettingsHarness = FakeSettingsHarness()) :
+            SettingsHarness by fake {
+            override val settings: SettingsRepository = object : SettingsRepository by fake.settings {
+                override suspend fun deleteAllData() {
+                    val profile = ServerProfileId("a")
+                    val keys = fake.keyIndex.list()
+                    val folders = fake.recentFolders.list(profile)
+                    fake.settings.deleteAllData()
+                    if (keepKeys) {
+                        keys.forEach { fake.keyIndex.save(it) }
+                    } else {
+                        folders.reversed().forEach { fake.recentFolders.add(profile, it) }
+                    }
+                }
+            }
+        }
+        assertCaught(DELETE_ALL_DATA, settingsRepositoryContract { Keeps(keepKeys = true) })
+        assertCaught(DELETE_ALL_DATA, settingsRepositoryContract { Keeps(keepKeys = false) })
+    }
+
+    @Test
+    fun `a key index that drops the passphrase reference is caught`() {
+        val cases = sshKeyIndexContract {
+            val real = FakeSshKeyIndex()
+            object : SshKeyIndex by real {
+                override suspend fun save(entry: SshKeyEntry) = real.save(entry.copy(passphraseRef = null))
+            }
+        }
+        assertCaught("every field of an entry reads back as saved", cases)
+    }
+
+    @Test
+    fun `a key index that does not sort is caught`() {
+        val cases = sshKeyIndexContract {
+            val real = FakeSshKeyIndex()
+            object : SshKeyIndex by real {
+                override suspend fun list() = real.list().reversed()
+            }
+        }
+        assertCaught("lists are sorted by name, then by ID", cases)
+    }
+
+    @Test
+    fun `recent folders that are unbounded or oldest first are caught`() {
+        val unbounded = recentFoldersStoreContract {
+            val real = FakeRecentFoldersStore()
+            object : RecentFoldersStore by real {
+                private val all = mutableMapOf<ServerProfileId, MutableList<String>>()
+
+                override suspend fun add(profile: ServerProfileId, path: String) {
+                    real.add(profile, path)
+                    all.getOrPut(profile) { mutableListOf() }.apply {
+                        remove(path)
+                        add(0, path)
+                    }
+                }
+
+                override suspend fun list(profile: ServerProfileId) = all[profile].orEmpty().toList()
+            }
+        }
+        assertCaught("each profile keeps at most MAX_PER_PROFILE folders, dropping the oldest", unbounded)
+        val oldestFirst = recentFoldersStoreContract {
+            val real = FakeRecentFoldersStore()
+            object : RecentFoldersStore by real {
+                override suspend fun list(profile: ServerProfileId) = real.list(profile).reversed()
+            }
+        }
+        assertCaught("add puts the newest folder first", oldestFirst)
+    }
+
+    @Test
+    fun `recent folders that duplicate a folder added again are caught`() {
+        val cases = recentFoldersStoreContract {
+            val real = FakeRecentFoldersStore()
+            object : RecentFoldersStore by real {
+                override suspend fun list(profile: ServerProfileId) = real.list(profile).let { it + it.takeLast(1) }
+            }
+        }
+        assertCaught("adding a folder again moves it to the front, once", cases)
     }
 
     /** Ends its event flow quietly on close, and turns Closed into a raw exception. */
@@ -230,5 +318,10 @@ class ContractTeethTest {
     @Test
     fun `a contract that passes reports nothing`() {
         assertEquals(emptySet(), knownHostsStoreContract { FakeKnownHostsStore() }.failing())
+    }
+
+    private companion object {
+        const val DELETE_ALL_DATA =
+            "deleteAllData deletes secrets, profiles, known hosts, keys and recent folders, and resets settings"
     }
 }

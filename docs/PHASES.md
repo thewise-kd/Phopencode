@@ -334,7 +334,15 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 |---|---|---|---|---|---|
 | P4.1 | Encrypted secret storage | P1.4, P1.10 | `core/storage/…/secret/` | Keystore + Tink; values are not plaintext on disk; unreadable once the installation is removed | `EMU` |
 | P4.2 | Profile and settings repositories | P1.4, P1.10 | `core/storage/…/repo/` | DataStore; profiles, known hosts, settings; no password in the profile file | `CI` |
-| P4.3 | `connect` contract | P3.9, P1.10 | `feature/connect/logic/…/contract/`, `feature/connect/ui/…/ConnectGraph.kt`, `feature/connect/ui/…/ConnectModule.kt`, screen stubs | Contract outputs complete; stubs compile (`logic`) | `PI` |
+| P4.3 | `connect` contract | P3.9, P1.10, P4.16, P4.17, P4.18 | `feature/connect/logic/…/contract/`, `feature/connect/ui/…/ConnectGraph.kt`, `feature/connect/ui/…/ConnectModule.kt`, screen stubs | Contract outputs complete; stubs compile (`logic`) | `PI` |
+
+**G1b (storage and connection gaps found by P4.3)**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P4.17 | Key index and recent folders stores | P1.4, P4.2 | `core/storage-api/…/` (new key index and recent folders interfaces only), `core/testing/…/storage/FakeStorage.kt` and `core/testing/…/contract/StorageContracts.kt` (their fakes and contract cases), `core/testing/src/test/…` (fake and contract tests for them), `core/storage/…/repo/`, `docs/PHASES.md` (G1b rows, P4.3's dependencies) | Each key's name, type, fingerprint, public key and the `SecretRef` of its private key persist; no private key material is in the index; recent folders are kept per profile, newest first, bounded; the contract cases pass on the fake and the real store | `CI` |
+| P4.18 | SFTP on the active connection | P3.12, P3.13 | `core/remote/…/connection/`, `docs/PHASES.md` (this row) | Opens a root-confined `SftpClient` over the connected SSH session; fails clearly when not connected; every client opened is closed on disconnect, reconnect and close | `PI` |
+| P4.16 | App wiring for storage and connection | P4.1, P4.2, P4.17, P4.18 | `app/…/di/`, `app/build.gradle.kts`, `docs/PHASES.md` (this row) | Koin provides the secret store, profile, known hosts, settings, key index and recent folders stores, the SSH connector, `ServerResolver`, `OpencodeClientFactory`, `ConnectionManager` and an app scope; the Koin verification test and the app's navigation tests stay green | `CI` |
 
 **G2 (parallel)**
 

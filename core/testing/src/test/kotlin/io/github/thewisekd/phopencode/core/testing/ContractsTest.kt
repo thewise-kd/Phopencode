@@ -10,16 +10,20 @@ import io.github.thewisekd.phopencode.core.testing.contract.knownHostsStoreContr
 import io.github.thewisekd.phopencode.core.testing.contract.messageApiContract
 import io.github.thewisekd.phopencode.core.testing.contract.opencodeClientContract
 import io.github.thewisekd.phopencode.core.testing.contract.profileRepositoryContract
+import io.github.thewisekd.phopencode.core.testing.contract.recentFoldersStoreContract
 import io.github.thewisekd.phopencode.core.testing.contract.remoteExecContract
 import io.github.thewisekd.phopencode.core.testing.contract.secretStoreContract
 import io.github.thewisekd.phopencode.core.testing.contract.sessionApiContract
 import io.github.thewisekd.phopencode.core.testing.contract.settingsRepositoryContract
 import io.github.thewisekd.phopencode.core.testing.contract.sftpClientContract
 import io.github.thewisekd.phopencode.core.testing.contract.sshConnectorContract
+import io.github.thewisekd.phopencode.core.testing.contract.sshKeyIndexContract
 import io.github.thewisekd.phopencode.core.testing.contract.sshSessionContract
 import io.github.thewisekd.phopencode.core.testing.contract.vcsApiContract
 import io.github.thewisekd.phopencode.core.testing.storage.FakeKnownHostsStore
 import io.github.thewisekd.phopencode.core.testing.storage.FakeProfileRepository
+import io.github.thewisekd.phopencode.core.testing.storage.FakeRecentFoldersStore
+import io.github.thewisekd.phopencode.core.testing.storage.FakeSshKeyIndex
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.TestFactory
 
@@ -74,6 +78,12 @@ class ContractsTest {
 
     @TestFactory
     fun knownHostsStore() = knownHostsStoreContract { FakeKnownHostsStore() }.asTests()
+
+    @TestFactory
+    fun sshKeyIndex() = sshKeyIndexContract { FakeSshKeyIndex() }.asTests()
+
+    @TestFactory
+    fun recentFoldersStore() = recentFoldersStoreContract { FakeRecentFoldersStore() }.asTests()
 
     @TestFactory
     fun settingsRepository() = settingsRepositoryContract { FakeSettingsHarness() }.asTests()

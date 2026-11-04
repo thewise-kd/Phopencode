@@ -45,8 +45,10 @@ import io.github.thewisekd.phopencode.core.testing.ssh.FakeSshConnector
 import io.github.thewisekd.phopencode.core.testing.ssh.FakeSshSession
 import io.github.thewisekd.phopencode.core.testing.storage.FakeKnownHostsStore
 import io.github.thewisekd.phopencode.core.testing.storage.FakeProfileRepository
+import io.github.thewisekd.phopencode.core.testing.storage.FakeRecentFoldersStore
 import io.github.thewisekd.phopencode.core.testing.storage.FakeSecretStore
 import io.github.thewisekd.phopencode.core.testing.storage.FakeSettingsRepository
+import io.github.thewisekd.phopencode.core.testing.storage.FakeSshKeyIndex
 import java.net.InetSocketAddress
 import kotlinx.coroutines.awaitCancellation
 
@@ -281,7 +283,9 @@ internal class FakeSettingsHarness : SettingsHarness {
     override val secrets = FakeSecretStore()
     override val profiles = FakeProfileRepository()
     override val knownHosts = FakeKnownHostsStore()
-    override val settings = FakeSettingsRepository(secrets, profiles, knownHosts)
+    override val keyIndex = FakeSshKeyIndex()
+    override val recentFolders = FakeRecentFoldersStore()
+    override val settings = FakeSettingsRepository(secrets, profiles, knownHosts, keyIndex, recentFolders)
 
     override suspend fun givenUnreadableSecret(ref: SecretRef) = secrets.seedUnreadable(ref)
 
@@ -289,6 +293,8 @@ internal class FakeSettingsHarness : SettingsHarness {
         secrets.unavailable = part == StoragePart.Secrets
         profiles.unavailable = part == StoragePart.Profiles
         knownHosts.unavailable = part == StoragePart.KnownHosts
+        keyIndex.unavailable = part == StoragePart.KeyIndex
+        recentFolders.unavailable = part == StoragePart.RecentFolders
         settings.unavailable = part == StoragePart.Settings
     }
 }

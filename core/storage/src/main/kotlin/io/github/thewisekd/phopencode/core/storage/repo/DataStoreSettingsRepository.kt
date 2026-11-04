@@ -56,6 +56,8 @@ internal class DataStoreSettingsRepository(
     private val secrets: SecretStore,
     private val profiles: DataStoreProfileRepository,
     private val knownHosts: DataStoreKnownHostsStore,
+    private val keyIndex: DataStoreSshKeyIndex,
+    private val recentFolders: DataStoreRecentFoldersStore,
 ) : SettingsRepository {
     /**
      * A settings file that cannot be read gives the defaults, so the app still starts, and is read
@@ -93,6 +95,8 @@ internal class DataStoreSettingsRepository(
             { secrets.deleteAll() },
             { profiles.clear() },
             { knownHosts.clear() },
+            { keyIndex.clear() },
+            { recentFolders.clear() },
             { store.edit { it.clear() } },
         )
         var failure: Exception? = null

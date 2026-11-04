@@ -51,6 +51,8 @@ class SettingsFileTest {
             FakeSecretStore(),
             DataStoreProfileRepository(stores.profiles().store),
             DataStoreKnownHostsStore(stores.knownHosts().store),
+            DataStoreSshKeyIndex(stores.keyIndex().store),
+            DataStoreRecentFoldersStore(stores.recentFolders().store),
         )
 
     @Test
@@ -129,6 +131,8 @@ class SettingsFileTest {
             FakeSecretStore(),
             DataStoreProfileRepository(stores.profiles().store),
             DataStoreKnownHostsStore(stores.knownHosts().store),
+            DataStoreSshKeyIndex(stores.keyIndex().store),
+            DataStoreRecentFoldersStore(stores.recentFolders().store),
         )
 
         assertFailsWith<IllegalStateException> { repository.observe().first() }
