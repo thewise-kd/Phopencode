@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Stub: no cleartext traffic and the system's certificates only. P3.10 decides what
-    the SSH tunnel needs.
+    No cleartext traffic and the system's certificates only, with one exception: the HTTP client
+    talks to `opencode serve` at http://127.0.0.1, and those connections run inside the SSH tunnel
+    (the tunnel's socket factory opens a direct-tcpip channel; no local port is listened on), so
+    SSH encrypts them. Nothing else, not even `localhost`, may be reached in clear text.
 -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false">
@@ -9,4 +11,7 @@
             <certificates src="system" />
         </trust-anchors>
     </base-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+    </domain-config>
 </network-security-config>

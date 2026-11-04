@@ -1,0 +1,217 @@
+name: Emulator
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+# An emulator run takes a while; a newer push to the same ref makes the older run pointless.
+concurrency:
+  group: emulator-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  connected:
+    name: connected (API ${{ matrix.api-level }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        # minSdk, and the newest system image the emulator action takes as a plain API level.
+        # targetSdk 37 ships only as "37.0", which the action's platform install does not name.
+        api-level: [26, 36]
+    env:
+      SSH_PORT: "2222"
+      ECHO_PORT: "7777"
+      STATS_PORT: "7778"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: gradle/actions/wrapper-validation@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+      - run: gradle/verify-wrapper.sh --online
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          # Space separated on one line: the action does not split on newlines.
+          packages: platform-tools platforms;android-37.0 build-tools;36.0.0
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-provider: basic
+
+      # Hardware acceleration for the emulator.
+      - run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # Built before the emulator starts, so that it does not wait for the compiler. The same
+      # heaps as the test run below, so that it reuses this Gradle daemon.
+      - run: |
+          ./gradlew assembleDebug assembleDebugAndroidTest \
+            "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" \
+            -Pkotlin.daemon.jvmargs=-Xmx2g
+
+      # An sshd of the runner's own user, on the runner's loopback only; the emulator reaches the
+      # host's loopback as 10.0.2.2. Its host key and the user key are generated here and never
+      # leave the runner except as instrumentation arguments to the emulator.
+      - name: Start the test sshd and the loopback servers
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/test-sshd"
+          mkdir -m 700 "$dir" "$dir/sftp-root"
+          if [ ! -x /usr/sbin/sshd ]; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends openssh-server
+          fi
+
+          ssh-keygen -q -t ed25519 -N '' -C phopencode-test-host -f "$dir/host_ed25519"
+          ssh-keygen -q -t ed25519 -N '' -C phopencode-test-user -f "$dir/user_ed25519"
+          install -m 600 "$dir/user_ed25519.pub" "$dir/authorized_keys"
+
+          # Not root, so it can log in only its own user, and needs no PAM. StrictModes would
+          # judge the runner's work folders, which this job does not own; the folder that holds
+          # the keys is 0700.
+          cat > "$dir/sshd_config" <<EOF
+          ListenAddress 127.0.0.1:$SSH_PORT
+          HostKey $dir/host_ed25519
+          PidFile $dir/sshd.pid
+          AuthorizedKeysFile $dir/authorized_keys
+          StrictModes no
+          UsePAM no
+          AllowUsers $(id -un)
+          HostKeyAlgorithms ssh-ed25519
+          PubkeyAcceptedAlgorithms ssh-ed25519
+          AuthenticationMethods publickey
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+          PermitRootLogin no
+          AllowTcpForwarding local
+          PermitOpen 127.0.0.1:$ECHO_PORT 127.0.0.1:$STATS_PORT
+          AllowStreamLocalForwarding no
+          AllowAgentForwarding no
+          X11Forwarding no
+          PermitTTY no
+          PermitTunnel no
+          GatewayPorts no
+          Subsystem sftp internal-sftp
+          LogLevel VERBOSE
+          EOF
+          /usr/sbin/sshd -t -f "$dir/sshd_config"
+          /usr/sbin/sshd -f "$dir/sshd_config" -E "$dir/sshd.log"
+
+          # A byte echo server, and a stats server that answers with the number of echo
+          # connections still open. The tests reach both only through SSH tunnels.
+          cat > "$dir/loopback_servers.py" <<'EOF'
+          import socket
+          import sys
+          import threading
+
+          lock = threading.Lock()
+          open_echoes = 0
+
+
+          def echo(conn):
+              global open_echoes
+              with lock:
+                  open_echoes += 1
+              try:
+                  with conn:
+                      while data := conn.recv(65536):
+                          conn.sendall(data)
+              except OSError:
+                  pass
+              finally:
+                  with lock:
+                      open_echoes -= 1
+
+
+          def stats(conn):
+              with conn, lock:
+                  conn.sendall(f"{open_echoes}\n".encode())
+
+
+          def serve(port, handler):
+              server = socket.create_server(("127.0.0.1", port))
+              while True:
+                  conn, _ = server.accept()
+                  threading.Thread(target=handler, args=(conn,), daemon=True).start()
+
+
+          threading.Thread(target=serve, args=(int(sys.argv[2]), stats), daemon=True).start()
+          serve(int(sys.argv[1]), echo)
+          EOF
+          nohup python3 "$dir/loopback_servers.py" "$ECHO_PORT" "$STATS_PORT" > "$dir/loopback.log" 2>&1 &
+
+          # The test run: the emulator action runs each line of its script on its own, so the
+          # command lives in a file. It reads the keys when it runs.
+          cat > "$dir/connected-tests.sh" <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          dir="$RUNNER_TEMP/test-sshd"
+          arg=-Pandroid.testInstrumentationRunnerArguments
+          exec ./gradlew connectedDebugAndroidTest \
+            "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" \
+            -Pkotlin.daemon.jvmargs=-Xmx2g \
+            "$arg.requireSsh=true" \
+            "$arg.sshHost=10.0.2.2" \
+            "$arg.sshPort=$SSH_PORT" \
+            "$arg.sshUser=$(id -un)" \
+            "$arg.sshHostKey=$(ssh-keygen -l -E sha256 -f "$dir/host_ed25519.pub" | cut -d ' ' -f 2)" \
+            "$arg.sshKey=$(base64 -w 0 "$dir/user_ed25519")" \
+            "$arg.sftpRoot=$dir/sftp-root" \
+            "$arg.echoPort=$ECHO_PORT" \
+            "$arg.statsPort=$STATS_PORT"
+          EOF
+
+          # Everything answers before the emulator starts; a login from the runner itself shows
+          # that the keys and the config fit together.
+          for port in "$SSH_PORT" "$ECHO_PORT" "$STATS_PORT"; do
+            for _ in $(seq 50); do
+              if (exec 3<> "/dev/tcp/127.0.0.1/$port") 2> /dev/null; then continue 2; fi
+              sleep 0.2
+            done
+            echo "Nothing listens on port $port" >&2
+            exit 1
+          done
+          echo "[127.0.0.1]:$SSH_PORT $(cat "$dir/host_ed25519.pub")" > "$dir/known_hosts"
+          ssh -i "$dir/user_ed25519" -p "$SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$dir/known_hosts" \
+            "$(id -un)@127.0.0.1" true
+
+      - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ matrix.api-level }}
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: bash $RUNNER_TEMP/test-sshd/connected-tests.sh
+
+      # Logs only: the keys in the same folder stay on the runner.
+      - if: ${{ !cancelled() }}
+        run: |
+          mkdir -p build/emulator-logs
+          cp "$RUNNER_TEMP/test-sshd/sshd.log" "$RUNNER_TEMP/test-sshd/loopback.log" build/emulator-logs/ || true
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: emulator-reports-api-${{ matrix.api-level }}
+          path: |
+            **/build/outputs/androidTest-results/**
+            **/build/reports/androidTests/**
+            build/emulator-logs/**
+          retention-days: 7
+          if-no-files-found: ignore
