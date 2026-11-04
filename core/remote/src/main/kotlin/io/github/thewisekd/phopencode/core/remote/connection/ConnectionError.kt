@@ -41,6 +41,31 @@ sealed interface ConnectionError {
         override val retryable: Boolean get() = true
     }
 
+    /**
+     * The SSH connection stood, but `opencode serve` stopped answering: the manager's event stream
+     * dropped or ended. The server may have died or restarted.
+     */
+    data object ServerLost : ConnectionError {
+        override val retryable: Boolean get() = true
+    }
+
+    /**
+     * An `opencode serve` runs and holds its loopback port, but the port does not answer. No other
+     * server is started next to it and it is never stopped, so only waiting can help.
+     */
+    data object ServerUnresponsive : ConnectionError {
+        override val retryable: Boolean get() = true
+    }
+
+    /**
+     * An `opencode serve` runs, but on no loopback port the app can reach: it listens only on
+     * another address, or has no socket yet. No other server is started next to it and it is never
+     * stopped; a server that is still starting may get its socket, so a reconnect tries again.
+     */
+    data object ServerUnusable : ConnectionError {
+        override val retryable: Boolean get() = true
+    }
+
     /** The SSH server refused the login. */
     data object AuthenticationFailed : ConnectionError
 

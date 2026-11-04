@@ -70,6 +70,28 @@ sealed interface ServerLookup {
         val notes: Set<ServerNote> = emptySet(),
     ) : ServerLookup
 
+    /**
+     * A live `opencode serve` of the login user holds the loopback port [host]:[port], but the port
+     * did not accept a connection. The server runs, so nothing may be started next to it; and it
+     * may be busy or stuck, so nothing may stop it either. Only trying again later can help.
+     */
+    data class Unresponsive(
+        val host: String,
+        val port: Int,
+        val pid: Long,
+        val source: ServerSource,
+        val notes: Set<ServerNote> = emptySet(),
+    ) : ServerLookup
+
+    /**
+     * Live `opencode serve` processes of the login user ([pids]) run, but none holds a loopback
+     * port the app could reach: each listens only on another address (see
+     * [ServerNote.NonLoopbackListener]), has no socket yet, or has one the tools cannot tie to it.
+     * A server runs, so nothing may be started next to it, and nothing may stop it.
+     */
+    data class Unusable(val pids: Set<Long>, val notes: Set<ServerNote> = emptySet()) : ServerLookup
+
+    /** No live `opencode serve` process of the login user was seen. */
     data class NotRunning(val notes: Set<ServerNote> = emptySet()) : ServerLookup
 
     data class Failed(val reason: DetectFailure) : ServerLookup

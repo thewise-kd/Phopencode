@@ -3,6 +3,7 @@ package io.github.thewisekd.phopencode.core.remote.connection
 import io.github.thewisekd.phopencode.core.api.ApiError
 import io.github.thewisekd.phopencode.core.api.ApiException
 import io.github.thewisekd.phopencode.core.api.OpencodeClient
+import io.github.thewisekd.phopencode.core.api.ServerEvent
 import io.github.thewisekd.phopencode.core.api.ServerInfo
 import io.github.thewisekd.phopencode.core.model.ServerProfile
 import io.github.thewisekd.phopencode.core.ssh.api.HostKey
@@ -19,6 +20,7 @@ import io.github.thewisekd.phopencode.core.storage_api.HostKeyUpdate
 import io.github.thewisekd.phopencode.core.storage_api.KnownHostsStore
 import io.github.thewisekd.phopencode.core.storage_api.SecretStore
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -33,6 +35,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
@@ -43,14 +47,26 @@ import kotlinx.coroutines.withTimeoutOrNull
  * and the API through the SSH tunnel; then watches the connection and reconnects after a drop.
  * [state] tells where it is; see [ConnectionState].
  *
- * Reconnecting: when an SSH connection that stood ends, the manager releases its client and
- * session and tries again after [ReconnectPolicy]'s delays. Only [ConnectionError.retryable]
- * failures are tried again, up to [ReconnectPolicy.maxAttempts]; any other failure, and every
- * failure of a first connect, ends in [ConnectionState.Error], since those need the user.
+ * Reconnecting: a connection that stood drops when its SSH session ends
+ * ([ConnectionError.Disconnected]) or when `opencode serve` stops answering while SSH stands
+ * ([ConnectionError.ServerLost]): the manager keeps an event stream of its own open on each
+ * connection's client, and that stream dropping or ending is the sign. Either way the manager
+ * releases the client and session and tries again after [ReconnectPolicy]'s delays, through every
+ * step, the server step included, so a server that is gone is found missing and started again.
+ * Only [ConnectionError.retryable] failures are tried again, up to [ReconnectPolicy.maxAttempts];
+ * any other failure, and every failure of a first connect, ends in [ConnectionState.Error], since
+ * those need the user. A [disconnect], [close] or new [connect] is never taken for a drop.
+ *
+ * What a drop may do on the server: nothing but what a first connect does. The manager never stops,
+ * kills or replaces a process, an `opencode serve` that runs but does not answer included, whoever
+ * started it, and never reboots or resets the machine. Only when discovery finds no `opencode
+ * serve` running at all does it start a new one, exactly as a first connect would; a server that
+ * runs but does not answer is just tried again with backoff.
  *
  * Resources: everything a connection opens (the SSH session, with its processes and tunnels, and
- * the API client) belongs to it, and is closed when the connection drops or fails, and when
- * [connect] replaces it. Login secrets are wiped right after use.
+ * the API client with the manager's event stream) belongs to it, and is closed when the
+ * connection drops or fails, and when [connect] replaces it. Login secrets are wiped right after
+ * use.
  *
  * Closing: [disconnect] and [close] suspend until every connection this manager started has
  * finished, its cleanup included: credentials wiped, client and session closed. Concurrent calls
@@ -134,7 +150,8 @@ class ConnectionManager(
     /**
      * Reconnects now: a standing connection is dropped and made again, and a wait before a
      * reconnect attempt ends at once. For when the app learns of a problem first, for example a
-     * failed event stream or a network change. Does nothing while idle, stopped or connecting.
+     * network change; a server or event-stream drop is noticed without it. Does nothing while idle,
+     * stopped or connecting.
      */
     fun reconnect() {
         synchronized(lock) { current }?.kicks?.trySend(Unit)
@@ -201,6 +218,9 @@ class ConnectionManager(
     private class PendingApproval(val key: HostKey, val decision: CompletableDeferred<Boolean>)
 
     private class Live(val session: SshSession, val client: OpencodeClient, val info: ServerInfo)
+
+    /** Why a connection that was published as connected ended, and whether its event stream opened. */
+    private class Drop(val cause: ConnectionError, val stood: Boolean)
 
     /** One [connect]: its job, what it holds open, and its waiting approval. */
     private inner class Run(profile: ServerProfile) {
@@ -308,11 +328,14 @@ class ConnectionManager(
                     // before the state is published, so a request answering that state counts.
                     while (kicks.tryReceive().isSuccess) Unit
                     publish(ConnectionState.Connected(live.client, live.info, nextGeneration()))
-                    awaitDrop(live.session)
+                    val dropped = awaitDrop(live)
                     release(live.client)
                     release(live.session)
-                    attempt = 0
-                    ConnectionError.Disconnected
+                    // Only a connection that really stood starts the attempts over. One whose event
+                    // stream never opened counts as a failed attempt, or a server that answers its
+                    // info call but nothing else would be retried forever.
+                    if (dropped.stood) attempt = 0
+                    dropped.cause
                 } catch (failure: ConnectionException) {
                     failure.error
                 }
@@ -334,16 +357,55 @@ class ConnectionManager(
 
         private fun nextGeneration(): Long = synchronized(lock) { ++generation }
 
-        /** Returns when the session ends or [reconnect] is called. */
-        private suspend fun awaitDrop(session: SshSession) {
-            coroutineScope {
-                val dropped = async { session.connected.first { !it } }
-                select<Unit> {
-                    dropped.onAwait { }
-                    kicks.onReceive { }
-                }
-                dropped.cancel()
+        /**
+         * Returns why the connection ended: the session ended, the server stopped answering (see
+         * [watchServer]), or [reconnect] was called; and whether the connection stood, which is
+         * when the watch's event stream opened. A stop cancels this instead, so a deliberate
+         * [disconnect] or [close] never comes back as a drop.
+         */
+        private suspend fun awaitDrop(live: Live): Drop = coroutineScope {
+            val stood = AtomicBoolean(false)
+            val sshDropped = async { live.session.connected.first { !it } }
+            val serverDropped = async { watchServer(live.client) { stood.set(true) } }
+            val cause = select<ConnectionError> {
+                sshDropped.onAwait { ConnectionError.Disconnected }
+                serverDropped.onAwait { it }
+                kicks.onReceive { ConnectionError.Disconnected }
             }
+            sshDropped.cancel()
+            serverDropped.cancel()
+            // The server's stream breaks with the SSH connection that carries it; that is an SSH drop.
+            Drop(if (!live.session.connected.value) ConnectionError.Disconnected else cause, stood.get())
+        }
+
+        /**
+         * Watches the server through an event stream of the manager's own, and returns once it is
+         * gone. The stream is cold, so this collection is a connection of its own and takes no
+         * event from the app's collectors. It asks only for [WATCHED_EVENTS], a rare type from the
+         * spec's `types` enum, which keeps the traffic down; `server.connected` is not in that enum,
+         * so a validating server might refuse it, but the server sends it first on every stream
+         * whatever the filter, and the client emits [ServerEvent.Connected] for each connection.
+         *
+         * The client's stream retries by itself and emits [ServerEvent.Disconnected] on each drop;
+         * the first one, the server's `location.shutdown` notice, or the stream completing means
+         * the server stopped answering, and the manager reconnects through the server step
+         * instead. A failure, the stream failing to open included, ends as that API error. Only
+         * the connection is dropped: nothing on the server is stopped.
+         *
+         * @param opened Called on each [ServerEvent.Connected], that is once the stream is open.
+         */
+        private suspend fun watchServer(client: OpencodeClient, opened: () -> Unit): ConnectionError = try {
+            client.events.events(WATCHED_EVENTS)
+                .onEach { if (it is ServerEvent.Connected) opened() }
+                .takeWhile { !it.endsServer() }
+                .collect { }
+            ConnectionError.ServerLost
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: ApiException) {
+            ConnectionError.Api(failure.error)
+        } catch (_: Exception) {
+            ConnectionError.Unexpected
         }
 
         private suspend fun establish(profile: ServerProfile, attempt: Int): Live {
@@ -466,6 +528,18 @@ class ConnectionManager(
     }
 
     private companion object {
+        /** The server's shutdown notice, which the client passes on as [ServerEvent.Unknown]. */
+        const val SHUTDOWN_EVENT = "location.shutdown"
+
+        /**
+         * What the watch asks for: one rare type that is in the spec's `types` enum for
+         * `GET /api/event`, and that itself means the server is going away.
+         */
+        val WATCHED_EVENTS: Set<String> = setOf(SHUTDOWN_EVENT)
+
+        fun ServerEvent.endsServer(): Boolean =
+            this is ServerEvent.Disconnected || (this is ServerEvent.Unknown && rawType == SHUTDOWN_EVENT)
+
         fun closeQuietly(resource: AutoCloseable) {
             try {
                 resource.close()

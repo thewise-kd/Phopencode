@@ -58,8 +58,12 @@ class ResolvedServer(val baseUrl: String, val passwords: List<SecretValue>) : Au
  * - A running server gets every known password: the profile's `opencodeCredential` and the one
  *   this resolver stored when it started a server for the profile, in the order [knownPasswords]
  *   gives. The caller tries them in turn until the server accepts one.
- * - When none runs, the opencode binary is looked up and started with a new random password. The
- *   password is stored under [startedPasswordRef] before the start, so that a server which comes
+ * - A server that runs but whose port does not answer fails with the retryable
+ *   [ConnectionError.ServerUnresponsive]: nothing is started next to it and it is never stopped.
+ * - A server that runs on no loopback port the app can reach (another address only, or no socket
+ *   yet) fails with the retryable [ConnectionError.ServerUnusable], likewise.
+ * - Only when no `opencode serve` process runs at all is the opencode binary looked up and
+ *   started with a new random password. The password is stored under [startedPasswordRef] before the start, so that a server which comes
  *   up can always be reached again, even if the start itself then reports a failure.
  *
  * Failures are thrown as [ConnectionException]; SSH failures pass through as they are.
@@ -72,6 +76,10 @@ class ServerResolver(
     suspend fun resolve(session: SshSession, profile: ServerProfile): ResolvedServer =
         when (val lookup = tools.findServer(session)) {
             is ServerLookup.Running -> ResolvedServer(baseUrl(lookup.host, lookup.port), knownPasswords(profile, lookup.source))
+            // A live server that does not answer is waited for: never started next to, never stopped.
+            is ServerLookup.Unresponsive -> throw ConnectionException(ConnectionError.ServerUnresponsive)
+            // A live server on no reachable loopback port is waited for too: it may still be starting.
+            is ServerLookup.Unusable -> throw ConnectionException(ConnectionError.ServerUnusable)
             is ServerLookup.NotRunning -> start(session, profile)
             is ServerLookup.Failed -> throw ConnectionException(ConnectionError.ServerDetectionFailed(lookup.reason))
         }

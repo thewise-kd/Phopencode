@@ -1,5 +1,7 @@
 package io.github.thewisekd.phopencode.core.remote.detect
 
+import io.github.thewisekd.phopencode.core.remote.start.encode
+import io.github.thewisekd.phopencode.core.remote.state.ServerState
 import io.github.thewisekd.phopencode.core.ssh.api.SshException
 import io.github.thewisekd.phopencode.core.testing.ssh.FakeRemoteExec
 import kotlin.test.Test
@@ -28,7 +30,7 @@ class ServerDetectionTest {
             exit(0)
         }
 
-    private fun stateFile(pid: Long, port: Int) = state("present\n" + ServerState(pid, port).toText())
+    private fun stateFile(pid: Long, port: Int) = state("present\n" + ServerState(port = port, pid = pid).encode().decodeToString())
 
     private fun scan(vararg lines: String) = exec.on(DetectCommands.SCAN) {
         stdout(lines.joinToString("") { "$it\n" })
@@ -115,10 +117,35 @@ class ServerDetectionTest {
     }
 
     @Test
-    fun `never reports a port that is not bound to loopback`() = runTest {
+    fun `never reports a port that is not bound to loopback, and the server is not taken for absent`() = runTest {
         state("absent\n")
         scan("H proc", "P 777", "H ss", ss(777, "0.0.0.0:4096"), ss(777, "[::]:4097"), ss(777, "192.168.1.9:4098"), ss(777, "*:4099"))
-        assertEquals(ServerLookup.NotRunning(setOf(ServerNote.NonLoopbackListener)), detector().findServer())
+        assertEquals(ServerLookup.Unusable(setOf(777L), setOf(ServerNote.NonLoopbackListener)), detector().findServer())
+    }
+
+    @Test
+    fun `a server bound only to a non-loopback address is unusable, never not running`() = runTest {
+        state("absent\n")
+        scan("H proc", "P 777", "H ss", ss(777, "0.0.0.0:4096"))
+        assertEquals(
+            ServerLookup.Unusable(setOf(777L), setOf(ServerNote.NonLoopbackListener)),
+            detector(withProbe = true).findServer(),
+        )
+        assertEquals(emptyList(), probed, "a non-loopback port is never probed")
+    }
+
+    @Test
+    fun `a live server process with no listener yet is unusable, never not running`() = runTest {
+        state("absent\n")
+        scan("H proc", "P 900", "P 300", "H ss", ss(55, "127.0.0.1:5432"))
+        assertEquals(ServerLookup.Unusable(setOf(300L, 900L), emptySet()), detector(withProbe = true).findServer())
+    }
+
+    @Test
+    fun `a live server process with no listener seen through proc tables is unusable`() = runTest {
+        state("absent\n")
+        scan("H proc", "P 777", "H procnet")
+        assertEquals(ServerLookup.Unusable(setOf(777L), emptySet()), detector().findServer())
     }
 
     @Test
@@ -126,7 +153,7 @@ class ServerDetectionTest {
         stateFile(pid = 4242, port = 4096)
         scan("H proc", "P 4242", "H ss", ss(4242, "0.0.0.0:4096"))
         assertEquals(
-            ServerLookup.NotRunning(setOf(ServerNote.StaleStateFile, ServerNote.NonLoopbackListener)),
+            ServerLookup.Unusable(setOf(4242L), setOf(ServerNote.StaleStateFile, ServerNote.NonLoopbackListener)),
             detector().findServer(),
         )
     }
@@ -146,15 +173,56 @@ class ServerDetectionTest {
     }
 
     @Test
-    fun `the port must answer when a probe is given`() = runTest {
+    fun `a live state server whose port does not answer is unresponsive, never not running`() = runTest {
         answering = emptySet()
         stateFile(pid = 4242, port = 4096)
         scan("H proc", "P 4242", "H ss", ss(4242, "127.0.0.1:4096"))
         assertEquals(
-            ServerLookup.NotRunning(setOf(ServerNote.StaleStateFile, ServerNote.PortDidNotAnswer)),
+            ServerLookup.Unresponsive("127.0.0.1", 4096, 4242, ServerSource.StateFile, setOf(ServerNote.PortDidNotAnswer)),
             detector(withProbe = true).findServer(),
         )
         assertEquals(listOf("127.0.0.1" to 4096), probed, "The same port is not probed twice")
+    }
+
+    @Test
+    fun `a scanned server whose loopback port does not answer is unresponsive, never not running`() = runTest {
+        answering = emptySet()
+        state("absent\n")
+        scan("H proc", "P 300", "H ss", ss(300, "127.0.0.1:5000"), ss(300, "127.0.0.1:6000"))
+        assertEquals(
+            ServerLookup.Unresponsive("127.0.0.1", 5000, 300, ServerSource.ProcessScan, setOf(ServerNote.PortDidNotAnswer)),
+            detector(withProbe = true).findServer(),
+        )
+        assertEquals(listOf("127.0.0.1" to 5000, "127.0.0.1" to 6000), probed)
+    }
+
+    @Test
+    fun `a probe that times out leaves a live server unresponsive on both paths`() = runTest {
+        val timingOut = ServerDetector(exec, PortProbe { _, _ -> throw SshException.Timeout() })
+        state("absent\n")
+        scan("H proc", "P 300", "H ss", ss(300, "127.0.0.1:5000"))
+        assertEquals(
+            ServerLookup.Unresponsive("127.0.0.1", 5000, 300, ServerSource.ProcessScan, setOf(ServerNote.PortDidNotAnswer)),
+            timingOut.findServer(),
+        )
+
+        stateFile(pid = 4242, port = 4096)
+        scan("H proc", "P 4242", "H ss", ss(4242, "127.0.0.1:4096"))
+        assertEquals(
+            ServerLookup.Unresponsive("127.0.0.1", 4096, 4242, ServerSource.StateFile, setOf(ServerNote.PortDidNotAnswer)),
+            timingOut.findServer(),
+        )
+    }
+
+    @Test
+    fun `a port that answers wins over an unresponsive state server`() = runTest {
+        answering = setOf(6000)
+        stateFile(pid = 4242, port = 4096)
+        scan("H proc", "P 4242", "P 300", "H ss", ss(4242, "127.0.0.1:4096"), ss(300, "127.0.0.1:6000"))
+        assertEquals(
+            ServerLookup.Running("127.0.0.1", 6000, 300, ServerSource.ProcessScan, setOf(ServerNote.PortDidNotAnswer)),
+            detector(withProbe = true).findServer(),
+        )
     }
 
     @Test
@@ -215,7 +283,7 @@ class ServerDetectionTest {
         scan("H proc", "P 4242", "H ss", ss(4242, "127.0.0.1:4096"))
         val failing = ServerDetector(exec, PortProbe { _, _ -> throw java.net.ConnectException("refused") })
         assertEquals(
-            ServerLookup.NotRunning(setOf(ServerNote.StaleStateFile, ServerNote.PortDidNotAnswer)),
+            ServerLookup.Unresponsive("127.0.0.1", 4096, 4242, ServerSource.StateFile, setOf(ServerNote.PortDidNotAnswer)),
             failing.findServer(),
         )
     }
@@ -272,7 +340,7 @@ class ServerDetectionTest {
     @Test
     fun `reads the state file from the location it is given`() = runTest {
         val location = StateFileLocation("srv/state.json")
-        state("present\n" + ServerState(5, 7000).toText(), location)
+        state("present\n" + ServerState(port = 7000, pid = 5).encode().decodeToString(), location)
         scan("H proc", "P 5", "H ss", ss(5, "127.0.0.1:7000"))
         assertEquals(ServerLookup.Running("127.0.0.1", 7000, 5, ServerSource.StateFile), detector(location = location).findServer())
         assertTrue(DetectCommands.readState(location).contains("'srv/state.json'"))

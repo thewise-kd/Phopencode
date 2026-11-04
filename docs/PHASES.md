@@ -316,6 +316,7 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
 |---|---|---|---|---|---|
 | P3.9 | Connection manager | P3.5, P3.7, P3.8, P2.10, P2.11 | `core/remote/…/connection/` | States: SSH, host approval, server, API, connected, reconnecting, error; reconnects after a drop; no resources remain after closing | `PI` |
+| P3.13 | Server and event-stream drop handling | P3.9 | `core/remote/…/connection/`, `core/remote/…/detect/`, `core/remote/…/start/`, `core/remote/…/state/` (shared state-file parser), `docs/PHASES.md` (this row) | A server or event-stream drop reconnects like an SSH drop; a deliberate disconnect does not; one server.state parser serves discovery and startup | `PI` |
 
 **G5**
 

@@ -3,6 +3,7 @@ package io.github.thewisekd.phopencode.core.remote.connection
 import io.github.thewisekd.phopencode.core.remote.detect.BinaryLookup
 import io.github.thewisekd.phopencode.core.remote.detect.DetectFailure
 import io.github.thewisekd.phopencode.core.remote.detect.ServerLookup
+import io.github.thewisekd.phopencode.core.remote.detect.ServerNote
 import io.github.thewisekd.phopencode.core.remote.detect.ServerSource
 import io.github.thewisekd.phopencode.core.remote.start.ServerStartException
 import io.github.thewisekd.phopencode.core.storage_api.SecretReadResult
@@ -84,6 +85,30 @@ class ServerResolverTest {
         val server = resolver.resolve(session, profile())
         server.close()
         server.passwords.forEach { assertFailsWith<IllegalStateException> { it.revealBytes() } }
+    }
+
+    @Test
+    fun `an unresponsive server is never started next to, and the failure is retryable`() = runTest {
+        seedOpencode()
+        for (source in ServerSource.entries) {
+            tools.server = ServerLookup.Unresponsive("127.0.0.1", 4096, 100, source)
+            val error = failure { resolver.resolve(session, profile()) }
+            assertEquals(ConnectionError.ServerUnresponsive, error)
+            assertTrue(error.retryable)
+        }
+        assertTrue(tools.startedWith.isEmpty(), "no start next to a live server")
+        assertTrue(tools.findBinaryCalls == 0, "not even the binary is looked up")
+    }
+
+    @Test
+    fun `a live server without a usable loopback port is never started next to, and the failure is retryable`() = runTest {
+        seedOpencode()
+        tools.server = ServerLookup.Unusable(setOf(100L), setOf(ServerNote.NonLoopbackListener))
+        val error = failure { resolver.resolve(session, profile()) }
+        assertEquals(ConnectionError.ServerUnusable, error)
+        assertTrue(error.retryable)
+        assertTrue(tools.startedWith.isEmpty(), "no start next to a live server")
+        assertEquals(0, tools.findBinaryCalls, "not even the binary is looked up")
     }
 
     @Test

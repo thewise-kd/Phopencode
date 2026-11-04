@@ -1,5 +1,6 @@
 package io.github.thewisekd.phopencode.core.remote.detect
 
+import io.github.thewisekd.phopencode.core.remote.state.ServerState
 import io.github.thewisekd.phopencode.core.ssh.api.ExecRequest
 import io.github.thewisekd.phopencode.core.ssh.api.ExecResult
 import io.github.thewisekd.phopencode.core.ssh.api.RemoteExec
@@ -86,15 +87,20 @@ class ServerDetector(
 
         val notes = linkedSetOf<ServerNote>()
         val probed = mutableSetOf<Pair<String, Int>>()
+        // A live server that holds its loopback port but does not answer. It is reported only when
+        // no port answers, and never as not running: nothing may be started next to it.
+        var unresponsive: ServerLookup.Unresponsive? = null
         when (state) {
             StateRead.Absent -> Unit
             StateRead.Invalid -> notes += ServerNote.InvalidStateFile
-            is StateRead.Valid -> {
-                val running = checkState(state.state, report, notes, probed)
-                if (running != null) return running
-                // A live server process whose sockets nothing can show is unknown, not stale.
-                val unverifiable = state.state.pid in report.processes && !report.listenerToolSeen
-                if (!unverifiable) notes += ServerNote.StaleStateFile
+            is StateRead.Valid -> when (val checked = checkState(state.state, report, notes, probed)) {
+                is ServerLookup.Running -> return checked
+                is ServerLookup.Unresponsive -> unresponsive = checked
+                else -> {
+                    // A live server process whose sockets nothing can show is unknown, not stale.
+                    val unverifiable = state.state.pid in report.processes && !report.listenerToolSeen
+                    if (!unverifiable) notes += ServerNote.StaleStateFile
+                }
             }
         }
 
@@ -109,18 +115,34 @@ class ServerDetector(
                 return ServerLookup.Running(listener.host, listener.port, checkNotNull(listener.pid), ServerSource.ProcessScan, notes)
             }
             notes += ServerNote.PortDidNotAnswer
+            if (unresponsive == null) {
+                unresponsive = ServerLookup.Unresponsive(
+                    listener.host,
+                    listener.port,
+                    checkNotNull(listener.pid),
+                    ServerSource.ProcessScan,
+                )
+            }
         }
+        unresponsive?.let { return it.copy(notes = notes) }
         if (report.processes.isNotEmpty() && !report.listenerToolSeen) return ServerLookup.Failed(DetectFailure.ToolsUnavailable)
+        // A live server that holds no loopback port is still a server: never reported as absent,
+        // so that nothing is started next to it.
+        if (report.processes.isNotEmpty()) return ServerLookup.Unusable(report.processes.toSet(), notes)
         return ServerLookup.NotRunning(notes)
     }
 
-    /** The state's server when the scan confirms it, else null. */
+    /**
+     * The state's server when the scan confirms it: [ServerLookup.Running] when its port answers,
+     * [ServerLookup.Unresponsive] when its live process holds the port but the port does not
+     * answer. Null when the file cannot be confirmed.
+     */
     private suspend fun checkState(
         state: ServerState,
         report: ScanReport,
         notes: MutableSet<ServerNote>,
         probed: MutableSet<Pair<String, Int>>,
-    ): ServerLookup.Running? {
+    ): ServerLookup? {
         if (state.pid !in report.processes) return null
         // An answering port shows that something listens, not what: without a tool that ties the
         // socket to the process, the file is never trusted.
@@ -130,7 +152,7 @@ class ServerDetector(
         probed += state.host to state.port
         if (!answers(state.host, state.port)) {
             notes += ServerNote.PortDidNotAnswer
-            return null
+            return ServerLookup.Unresponsive(state.host, state.port, state.pid, ServerSource.StateFile)
         }
         return ServerLookup.Running(state.host, state.port, state.pid, ServerSource.StateFile, notes)
     }

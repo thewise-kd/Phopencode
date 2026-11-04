@@ -1,5 +1,6 @@
 package io.github.thewisekd.phopencode.core.remote.start
 
+import io.github.thewisekd.phopencode.core.remote.state.ServerState
 import io.github.thewisekd.phopencode.core.ssh.api.ExecEvent
 import io.github.thewisekd.phopencode.core.ssh.api.ExecRequest
 import io.github.thewisekd.phopencode.core.ssh.api.RemoteExec

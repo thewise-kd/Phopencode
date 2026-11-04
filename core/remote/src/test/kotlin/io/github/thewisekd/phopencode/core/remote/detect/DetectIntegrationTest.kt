@@ -1,5 +1,7 @@
 package io.github.thewisekd.phopencode.core.remote.detect
 
+import io.github.thewisekd.phopencode.core.remote.start.encode
+import io.github.thewisekd.phopencode.core.remote.state.ServerState
 import io.github.thewisekd.phopencode.core.ssh.api.ExecRequest
 import io.github.thewisekd.phopencode.core.ssh.api.SshSession
 import io.github.thewisekd.phopencode.core.ssh.connect.SshjConnector
@@ -172,7 +174,7 @@ class DetectIntegrationTest {
     @Test
     fun `finds the server the state file names`(): Unit = runBlocking {
         val served = serve(fakeOpencode(".opencode/bin/opencode"))
-        writeState(ServerState(served.pid, served.port).toText())
+        writeState(ServerState(port = served.port, pid = served.pid).encode().decodeToString())
         val detection = detector().detect()
         assertEquals(ServerLookup.Running("127.0.0.1", served.port, served.pid, ServerSource.StateFile), detection.server)
         assertIs<BinaryLookup.Found>(detection.binary)
@@ -181,11 +183,13 @@ class DetectIntegrationTest {
     @Test
     fun `does not trust a stale state file`(): Unit = runBlocking {
         val gone = ProcessBuilder("true").start().apply { waitFor() }.pid()
-        writeState(ServerState(gone, 1).toText())
+        writeState(ServerState(port = 1, pid = gone).encode().decodeToString())
         val result = detector().findServer()
         val notes = when (result) {
             is ServerLookup.Running -> result.notes.also { assertNotEquals(ServerSource.StateFile, result.source) }
             is ServerLookup.NotRunning -> result.notes
+            is ServerLookup.Unresponsive -> error("A gone process cannot be unresponsive: $result")
+            is ServerLookup.Unusable -> result.notes
             is ServerLookup.Failed -> error("Detection failed: $result")
         }
         assertTrue(ServerNote.StaleStateFile in notes, "$result")
@@ -195,7 +199,7 @@ class DetectIntegrationTest {
     fun `ignores a state file that is a symbolic link`(): Unit = runBlocking {
         val served = serve(fakeOpencode(".opencode/bin/opencode"))
         val real = server.home.resolve("elsewhere.json")
-        real.writeText(ServerState(served.pid, served.port).toText())
+        real.writeText(ServerState(port = served.port, pid = served.pid).encode().decodeToString())
         val link = server.home.resolve(".local/state").resolve(StateFileLocation.DEFAULT.relativePath)
         link.parent.createDirectories()
         Files.createSymbolicLink(link, real)
@@ -210,7 +214,7 @@ class DetectIntegrationTest {
         val served = serve(fakeOpencode(".opencode/bin/opencode"))
         val stateHome = server.home.resolve("xdg state")
         server.extraEnvironment["XDG_STATE_HOME"] = stateHome.toString()
-        writeState(ServerState(served.pid, served.port).toText(), stateHome = stateHome)
+        writeState(ServerState(port = served.port, pid = served.pid).encode().decodeToString(), stateHome = stateHome)
         assertEquals(ServerLookup.Running("127.0.0.1", served.port, served.pid, ServerSource.StateFile), detector().findServer())
     }
 
@@ -218,14 +222,14 @@ class DetectIntegrationTest {
     fun `ignores a relative XDG_STATE_HOME`(): Unit = runBlocking {
         val served = serve(fakeOpencode(".opencode/bin/opencode"))
         server.extraEnvironment["XDG_STATE_HOME"] = "relative/state"
-        writeState(ServerState(served.pid, served.port).toText())
+        writeState(ServerState(port = served.port, pid = served.pid).encode().decodeToString())
         assertEquals(ServerLookup.Running("127.0.0.1", served.port, served.pid, ServerSource.StateFile), detector().findServer())
     }
 
     @Test
     fun `ignores a state file others can read`(): Unit = runBlocking {
         val served = serve(fakeOpencode(".opencode/bin/opencode"))
-        writeState(ServerState(served.pid, served.port).toText(), mode = "rw-r--r--")
+        writeState(ServerState(port = served.port, pid = served.pid).encode().decodeToString(), mode = "rw-r--r--")
         val result = detector().findServer()
         assertIs<ServerLookup.Running>(result)
         assertEquals(ServerSource.ProcessScan, result.source)

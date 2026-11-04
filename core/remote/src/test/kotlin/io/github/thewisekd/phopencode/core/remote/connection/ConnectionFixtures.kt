@@ -85,7 +85,12 @@ internal class FakeServerTools : ServerTools {
         return server
     }
 
-    override suspend fun findBinary(session: SshSession): BinaryLookup = binary
+    var findBinaryCalls = 0
+
+    override suspend fun findBinary(session: SshSession): BinaryLookup {
+        findBinaryCalls++
+        return binary
+    }
 
     override suspend fun start(session: SshSession, password: SecretValue, options: ServerStartOptions): StartedServer {
         startedWith += options to password.revealText()
@@ -105,12 +110,17 @@ internal class RecordingClientFactory : OpencodeClientFactory {
 
     val made = mutableListOf<Made>()
 
+    /** When set, every new client's event stream fails to open with this error; calls still work. */
+    @Volatile
+    var refuseEvents: ApiError? = null
+
     /** The server's password; a client with another one is refused. Null accepts any. */
     @Volatile
     var serverPassword: (() -> String?)? = null
 
     override fun create(baseUrl: String, password: SecretValue, sockets: SocketFactory): OpencodeClient {
         val client = FakeOpencodeClient(serverVersion = version)
+        refuseEvents?.let(client.events::refuseConnections)
         failures.removeFirstOrNull()?.let { client.control.failNext(it) }
         val expected = serverPassword?.invoke()
         if (expected != null && expected != password.revealText()) client.control.failNext(ApiError.Unauthorized)

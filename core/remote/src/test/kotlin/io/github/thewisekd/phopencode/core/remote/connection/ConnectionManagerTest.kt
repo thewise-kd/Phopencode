@@ -1,7 +1,9 @@
 package io.github.thewisekd.phopencode.core.remote.connection
 
 import io.github.thewisekd.phopencode.core.api.ApiError
+import io.github.thewisekd.phopencode.core.api.ServerEvent
 import io.github.thewisekd.phopencode.core.model.SecretRef
+import io.github.thewisekd.phopencode.core.model.SessionId
 import io.github.thewisekd.phopencode.core.model.SshAuth
 import io.github.thewisekd.phopencode.core.remote.detect.ServerLookup
 import io.github.thewisekd.phopencode.core.remote.detect.ServerSource
@@ -15,6 +17,7 @@ import io.github.thewisekd.phopencode.core.ssh.api.SshTarget
 import io.github.thewisekd.phopencode.core.storage_api.HostEndpoint
 import io.github.thewisekd.phopencode.core.storage_api.HostKeyFingerprint
 import io.github.thewisekd.phopencode.core.storage_api.SecretValue
+import io.github.thewisekd.phopencode.core.testing.api.FakeEventApi
 import io.github.thewisekd.phopencode.core.testing.ssh.FakeSshSession
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -48,6 +51,13 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 class ConnectionManagerTest {
     private fun ConnectionState.kind(): String = this::class.simpleName.orEmpty()
@@ -64,6 +74,414 @@ class ConnectionManagerTest {
         assertTrue(connector.sessions.all { !it.connected.value }, "a session is still open")
         assertTrue(clients.made.all { it.client.control.isClosed }, "a client is still open")
         assertEquals(0, connector.halfOpenConnections, "a connection is half open")
+        assertTrue(clients.made.all { it.client.events.activeConnections.value == 0 }, "an event stream is still open")
+    }
+
+    private fun Fixture.assertNoReconnectAttempted() {
+        assertTrue(states.none { it is ConnectionState.Reconnecting || it is ConnectionState.Error }, "states: $states")
+    }
+
+    /** The latest client's event stream, which the manager watches through a collection of its own. */
+    private fun Fixture.latestEvents(): FakeEventApi = clients.made.last().client.events
+
+    /** After a server-side drop of the first connection: waits out the delay and checks the new connection. */
+    private fun TestScope.assertReconnectsAfterServerDrop(fx: Fixture, first: ConnectionState.Connected) {
+        assertEquals(ConnectionState.Reconnecting(1, 1.seconds, ConnectionError.ServerLost), fx.manager.state.value)
+        assertTrue(fx.clients.made.single().client.control.isClosed, "the old client is closed at once")
+        assertFalse(fx.connector.sessions.single().connected.value, "the old session is closed at once")
+
+        advanceTimeBy(1.seconds + 1.milliseconds)
+        runCurrent()
+
+        val second = assertIs<ConnectionState.Connected>(fx.manager.state.value)
+        assertEquals(2, fx.connector.sessions.size)
+        assertEquals(2, fx.clients.made.size)
+        assertSame(fx.clients.made.last().client, second.client)
+        assertEquals(first.generation + 1, second.generation)
+        assertEquals(2, fx.tools.findServerCalls, "the server step runs again")
+        assertEquals(
+            listOf("Reconnecting", "Ssh", "Server", "Api", "Connected"),
+            fx.states.takeLast(5).map { it.kind() },
+        )
+        assertEquals(1, fx.latestEvents().activeConnections.value, "the new connection is watched")
+    }
+
+    @Test
+    fun `watches the server through an event stream of its own`() = runTest {
+        val fx = Fixture(this)
+        val connected = connected(fx)
+        val events = fx.latestEvents()
+        assertEquals(1, events.activeConnections.value)
+
+        val seen = mutableListOf<ServerEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            connected.client.events.events().collect { seen += it }
+        }
+        events.awaitConnections(2)
+        val deleted = ServerEvent.SessionDeleted(SessionId("s-1"))
+        events.emit(deleted)
+        runCurrent()
+
+        assertEquals(listOf(ServerEvent.Connected(), deleted), seen, "the app's collector misses nothing")
+        assertIs<ConnectionState.Connected>(fx.manager.state.value)
+    }
+
+    /** Every value the recorded spec allows for `GET /api/event`'s `types` query parameter. */
+    private fun specEventTypes(): Set<String> {
+        val text = checkNotNull(javaClass.getResource("/fixtures/spec/openapi.json")) { "spec fixture missing" }.readText()
+        val types = Json.parseToJsonElement(text).jsonObject.getValue("paths").jsonObject
+            .getValue("/api/event").jsonObject.getValue("get").jsonObject.getValue("parameters").jsonArray
+            .map { it.jsonObject }
+            .single { it["name"]?.jsonPrimitive?.content == "types" }
+        val found = mutableSetOf<String>()
+        fun collect(element: JsonElement) {
+            when (element) {
+                is JsonObject -> element.forEach { (key, value) ->
+                    if (key == "enum") value.jsonArray.forEach { found += it.jsonPrimitive.content } else collect(value)
+                }
+                is JsonArray -> element.forEach(::collect)
+                else -> Unit
+            }
+        }
+        collect(types.getValue("schema"))
+        return found
+    }
+
+    @Test
+    fun `the watch asks only for event types the server's spec allows`() = runTest {
+        val fx = Fixture(this)
+        connected(fx)
+
+        val requested = fx.latestEvents().requestedTypes.single()
+        val allowed = specEventTypes()
+        assertTrue("location.shutdown" in allowed, "the spec fixture lost the shutdown event")
+        assertTrue(requested.isNotEmpty(), "an empty filter asks for every event")
+        assertTrue(allowed.containsAll(requested), "not in the spec's types enum: ${requested - allowed}")
+        assertEquals(setOf("location.shutdown"), requested)
+    }
+
+    @Test
+    fun `the server's shutdown notice is taken for a server drop`() = runTest {
+        val fx = Fixture(this)
+        val first = connected(fx)
+
+        fx.latestEvents().emit(ServerEvent.Unknown("location.shutdown"))
+        runCurrent()
+
+        assertReconnectsAfterServerDrop(fx, first)
+    }
+
+    @Test
+    fun `other events on the watch do not drop the connection`() = runTest {
+        val fx = Fixture(this)
+        val connected = connected(fx)
+
+        fx.latestEvents().emit(ServerEvent.Connected())
+        fx.latestEvents().emit(ServerEvent.Unknown("location.other"))
+        runCurrent()
+
+        assertSame(connected, fx.manager.state.value)
+    }
+
+    @Test
+    fun `an event stream that never opens uses up the attempts and ends in an error`() = runTest {
+        val fx = Fixture(this)
+        // The info call answers every time, but the stream fails to open with a retryable error.
+        fx.clients.refuseEvents = ApiError.Network
+        fx.seedSecrets()
+        fx.trustServerKey()
+        fx.manager.connect(profile())
+        runCurrent()
+        assertTrue(fx.states.any { it is ConnectionState.Connected }, "the info call answered")
+        assertEquals(
+            ConnectionState.Reconnecting(1, 1.seconds, ConnectionError.Api(ApiError.Network)),
+            fx.manager.state.value,
+        )
+
+        advanceTimeBy(1.seconds + 1.milliseconds)
+        runCurrent()
+        assertEquals(
+            ConnectionState.Reconnecting(2, 2.seconds, ConnectionError.Api(ApiError.Network)),
+            fx.manager.state.value,
+        )
+        advanceTimeBy(2.seconds + 1.milliseconds)
+        runCurrent()
+        assertEquals(
+            ConnectionState.Reconnecting(3, 4.seconds, ConnectionError.Api(ApiError.Network)),
+            fx.manager.state.value,
+        )
+        advanceTimeBy(4.seconds + 1.milliseconds)
+        runCurrent()
+
+        assertEquals(ConnectionState.Error(ConnectionError.Api(ApiError.Network)), fx.manager.state.value)
+        assertEquals(4, fx.connector.attempts.size)
+        advanceTimeBy(60.seconds)
+        assertEquals(4, fx.connector.attempts.size, "no attempt after the limit")
+        fx.assertNothingOpen()
+    }
+
+    @Test
+    fun `a connection whose stream opened starts the attempts over after it drops`() = runTest {
+        val fx = Fixture(this)
+        connected(fx)
+        fx.clients.refuseEvents = ApiError.Network
+
+        fx.latestEvents().drop()
+        runCurrent()
+        assertEquals(ConnectionState.Reconnecting(1, 1.seconds, ConnectionError.ServerLost), fx.manager.state.value)
+        advanceTimeBy(1.seconds + 1.milliseconds)
+        runCurrent()
+        // That reconnect's stream never opened, so the count goes on.
+        assertEquals(
+            ConnectionState.Reconnecting(2, 2.seconds, ConnectionError.Api(ApiError.Network)),
+            fx.manager.state.value,
+        )
+
+        fx.clients.refuseEvents = null
+        advanceTimeBy(2.seconds + 1.milliseconds)
+        runCurrent()
+        assertIs<ConnectionState.Connected>(fx.manager.state.value)
+        fx.latestEvents().drop()
+        runCurrent()
+        assertEquals(ConnectionState.Reconnecting(1, 1.seconds, ConnectionError.ServerLost), fx.manager.state.value)
+    }
+
+    @Test
+    fun `a server drop while SSH stands reconnects with a new client`() = runTest {
+        val fx = Fixture(this)
+        val first = connected(fx)
+
+        fx.latestEvents().drop()
+        runCurrent()
+
+        assertReconnectsAfterServerDrop(fx, first)
+    }
+
+    @Test
+    fun `an event stream that ends reconnects with a new client`() = runTest {
+        val fx = Fixture(this)
+        val first = connected(fx)
+
+        fx.latestEvents().end()
+        runCurrent()
+
+        assertReconnectsAfterServerDrop(fx, first)
+    }
+
+    @Test
+    fun `a dead server the app started is started again`() = runTest {
+        val fx = Fixture(this)
+        fx.tools.server = ServerLookup.NotRunning()
+        val first = connected(fx)
+        assertEquals(1, fx.tools.startedWith.size)
+
+        fx.latestEvents().drop()
+        runCurrent()
+
+        assertReconnectsAfterServerDrop(fx, first)
+        assertEquals(2, fx.tools.startedWith.size)
+        val restarted = fx.clients.made.last()
+        assertEquals("http://127.0.0.1:4100", restarted.baseUrl)
+        assertEquals(fx.tools.startedWith.last().second, restarted.password)
+    }
+
+    private val destructive = Regex("""\b(kill|pkill|killall|reboot|shutdown|poweroff|halt|systemctl|init)\b""")
+
+    private fun Fixture.assertNothingStoppedOrKilled() {
+        val commands = connector.sessions.flatMap { it.exec.executions }.map { it.command }
+        assertTrue(commands.none { destructive.containsMatchIn(it) }, "a stop, kill or reboot was sent: $commands")
+    }
+
+    @Test
+    fun `a server that runs but does not answer is retried, never stopped, killed or replaced`() = runTest {
+        val fx = Fixture(this)
+        connected(fx)
+        // Discovery keeps finding the server, but it no longer answers through the tunnel.
+        repeat(3) { fx.clients.failures += ApiError.Network }
+
+        fx.latestEvents().drop()
+        runCurrent()
+        advanceTimeBy(1.seconds + 1.milliseconds)
+        runCurrent()
+        assertEquals(
+            ConnectionState.Reconnecting(2, 2.seconds, ConnectionError.Api(ApiError.Network)),
+            fx.manager.state.value,
+        )
+        advanceTimeBy(60.seconds)
+        runCurrent()
+
+        assertEquals(ConnectionState.Error(ConnectionError.Api(ApiError.Network)), fx.manager.state.value)
+        assertEquals(4, fx.tools.findServerCalls)
+        assertTrue(fx.tools.startedWith.isEmpty(), "a running server is never replaced")
+        fx.assertNothingStoppedOrKilled()
+        fx.assertNothingOpen()
+    }
+
+    @Test
+    fun `a live server whose port does not answer after a stream drop is never started next to`() = runTest {
+        val fx = Fixture(this)
+        // The app started the first server, so a start would be possible.
+        fx.tools.server = ServerLookup.NotRunning()
+        connected(fx)
+        assertEquals(1, fx.tools.startedWith.size)
+        // The process lives and holds its loopback port, but the port no longer answers.
+        fx.tools.server = ServerLookup.Unresponsive("127.0.0.1", 4100, 200, ServerSource.StateFile)
+
+        fx.latestEvents().drop()
+        runCurrent()
+        assertEquals(ConnectionState.Reconnecting(1, 1.seconds, ConnectionError.ServerLost), fx.manager.state.value)
+        advanceTimeBy(1.seconds + 1.milliseconds)
+        runCurrent()
+        assertEquals(
+            ConnectionState.Reconnecting(2, 2.seconds, ConnectionError.ServerUnresponsive),
+            fx.manager.state.value,
+        )
+        advanceTimeBy(2.seconds + 1.milliseconds)
+        runCurrent()
+        assertEquals(
+            ConnectionState.Reconnecting(3, 4.seconds, ConnectionError.ServerUnresponsive),
+            fx.manager.state.value,
+        )
+        advanceTimeBy(4.seconds + 1.milliseconds)
+        runCurrent()
+
+        assertEquals(ConnectionState.Error(ConnectionError.ServerUnresponsive), fx.manager.state.value)
+        assertEquals(1, fx.tools.startedWith.size, "no second server was started")
+        assertEquals(4, fx.tools.findServerCalls)
+        fx.assertNothingStoppedOrKilled()
+        fx.assertNothingOpen()
+    }
+
+    @Test
+    fun `a server found gone after a drop is only started, nothing is stopped or killed`() = runTest {
+        val fx = Fixture(this)
+        val first = connected(fx)
+        fx.tools.server = ServerLookup.NotRunning()
+
+        fx.latestEvents().drop()
+        runCurrent()
+
+        assertReconnectsAfterServerDrop(fx, first)
+        assertEquals(1, fx.tools.startedWith.size, "started once, as a first connect would")
+        fx.assertNothingStoppedOrKilled()
+    }
+
+    @Test
+    fun `an event stream failure retrying cannot help ends in an error`() = runTest {
+        val fx = Fixture(this)
+        connected(fx)
+
+        fx.latestEvents().fail(ApiError.Unauthorized)
+        runCurrent()
+
+        assertEquals(ConnectionState.Error(ConnectionError.Api(ApiError.Unauthorized)), fx.manager.state.value)
+        fx.assertNothingOpen()
+        advanceTimeBy(60.seconds)
+        assertEquals(1, fx.connector.attempts.size)
+    }
+
+    @Test
+    fun `a second server drop after a reconnect starts the attempts over`() = runTest {
+        val fx = Fixture(this)
+        val first = connected(fx)
+        fx.latestEvents().drop()
+        runCurrent()
+        assertReconnectsAfterServerDrop(fx, first)
+
+        fx.latestEvents().end()
+        runCurrent()
+
+        assertEquals(ConnectionState.Reconnecting(1, 1.seconds, ConnectionError.ServerLost), fx.manager.state.value)
+    }
+
+    @Test
+    fun `an SSH drop that also breaks the event stream counts as an SSH drop`() = runTest {
+        val fx = Fixture(this)
+        connected(fx)
+
+        fx.latestEvents().drop()
+        fx.connector.sessions.single().loseConnection()
+        runCurrent()
+
+        assertEquals(ConnectionState.Reconnecting(1, 1.seconds, ConnectionError.Disconnected), fx.manager.state.value)
+    }
+
+    @Test
+    fun `disconnect is not taken for a server drop`() = runTest {
+        val fx = Fixture(this)
+        connected(fx)
+
+        fx.manager.disconnect()
+        runCurrent()
+        advanceTimeBy(60.seconds)
+
+        assertEquals(ConnectionState.Idle, fx.manager.state.value)
+        fx.assertNoReconnectAttempted()
+        fx.assertNothingOpen()
+        assertEquals(1, fx.connector.attempts.size)
+    }
+
+    @Test
+    fun `close is not taken for a server drop`() = runTest {
+        val fx = Fixture(this)
+        connected(fx)
+
+        fx.manager.close()
+        runCurrent()
+        advanceTimeBy(60.seconds)
+
+        assertEquals(ConnectionState.Closed, fx.manager.state.value)
+        fx.assertNoReconnectAttempted()
+        fx.assertNothingOpen()
+        assertEquals(1, fx.connector.attempts.size)
+    }
+
+    @Test
+    fun `closing while waiting after a server drop leaves nothing open`() = runTest {
+        val fx = Fixture(this)
+        connected(fx)
+        fx.latestEvents().drop()
+        runCurrent()
+        assertIs<ConnectionState.Reconnecting>(fx.manager.state.value)
+
+        fx.manager.close()
+        advanceTimeBy(60.seconds)
+
+        assertEquals(ConnectionState.Closed, fx.manager.state.value)
+        assertEquals(1, fx.connector.attempts.size)
+        fx.assertNothingOpen()
+    }
+
+    @Test
+    fun `closing after reconnecting from a server drop or a stream end leaves nothing open`() = runTest {
+        for (breakStream in listOf<(FakeEventApi) -> Unit>({ it.drop() }, { it.end() })) {
+            val fx = Fixture(this)
+            fx.tools.server = ServerLookup.NotRunning()
+            connected(fx)
+            breakStream(fx.latestEvents())
+            runCurrent()
+            advanceTimeBy(1.seconds + 1.milliseconds)
+            runCurrent()
+            assertIs<ConnectionState.Connected>(fx.manager.state.value)
+
+            fx.manager.close()
+
+            assertEquals(ConnectionState.Closed, fx.manager.state.value)
+            fx.assertNothingOpen()
+        }
+    }
+
+    @Test
+    fun `closing after an event stream failure leaves nothing open`() = runTest {
+        val fx = Fixture(this)
+        connected(fx)
+        fx.latestEvents().fail(ApiError.Unauthorized)
+        runCurrent()
+
+        fx.manager.close()
+
+        assertEquals(ConnectionState.Closed, fx.manager.state.value)
+        fx.assertNothingOpen()
     }
 
     @Test

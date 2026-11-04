@@ -74,10 +74,10 @@ internal object StartScript {
     /** Stops the server whose PID is the first argument; see [STOP_FUNCTION]. */
     val STOP_SCRIPT: String = STOP_FUNCTION + "phopencode_stop \"\$1\"\n"
 
-    /** Sets `dir` to the state folder; see [ServerState]. */
+    /** Sets `dir` to the state folder; see [StateFolder]. */
     private val STATE_BASE: String = $$$"""
         case ${XDG_STATE_HOME-} in /*) base=$XDG_STATE_HOME ;; *) base=$HOME/.local/state ;; esac
-        dir=$base/$$${ServerState.DIRECTORY}
+        dir=$base/$$${StateFolder.DIRECTORY}
     """.trimIndent() + "\n"
 
     /**
@@ -88,7 +88,7 @@ internal object StartScript {
      *    A relative answer from `command -v`, from a relative or empty `PATH` entry, is made
      *    absolute against the login folder (`pwd -P`) and used if it is an executable file.
      * 2. Prepares the state folder (0700), removes logs of processes that no longer run, and
-     *    creates this start's own log `start-<shell PID>.log` (0600); see [ServerState].
+     *    creates this start's own log `start-<shell PID>.log` (0600); see [StateFolder].
      * 3. Reads the password as one line from stdin into the environment of this shell only; it is
      *    never an argument, so it is not in any process's command line.
      * 4. Starts `opencode serve --hostname 127.0.0.1` in a subshell, under `setsid` where present,
@@ -134,9 +134,9 @@ internal object StartScript {
         if [ -L "$dir" ] || ! mkdir -p -- "$dir" || ! chmod 700 -- "$dir"; then
           echo phopencode-start=state-dir; exit 0
         fi
-        for old in "$dir"/$$${ServerState.LOG_PREFIX}*$$${ServerState.LOG_SUFFIX} "$dir"/start-*.log; do
+        for old in "$dir"/$$${StateFolder.LOG_PREFIX}*$$${StateFolder.LOG_SUFFIX} "$dir"/start-*.log; do
           [ -f "$old" ] && [ ! -L "$old" ] || continue
-          n=${old##*/}; n=${n#$$${ServerState.LOG_PREFIX}}; n=${n#start-}; n=${n%.log}
+          n=${old##*/}; n=${n#$$${StateFolder.LOG_PREFIX}}; n=${n#start-}; n=${n%.log}
           case $n in ''|*[!0-9]*) continue ;; esac
           kill -0 "$n" 2>/dev/null || rm -f -- "$old"
         done
@@ -159,7 +159,7 @@ internal object StartScript {
         unset OPENCODE_SERVER_PASSWORD OPENCODE_PASSWORD
         case $pid in ''|*[!0-9]*) echo phopencode-start=exited; exit 0 ;; esac
         echo "phopencode-start-pid=$pid"
-        final=$dir/$$${ServerState.LOG_PREFIX}$pid$$${ServerState.LOG_SUFFIX}
+        final=$dir/$$${StateFolder.LOG_PREFIX}$pid$$${StateFolder.LOG_SUFFIX}
         rm -f -- "$final"
         if [ -e "$final" ] || [ -L "$final" ] || ! mv -f -- "$log" "$final"; then
           echo phopencode-start=state-dir; exit 0
@@ -189,17 +189,17 @@ internal object StartScript {
     """.trimIndent() + "\n"
 
     /**
-     * Writes [ServerState] from stdin atomically: `umask 077`, a temporary file created with
-     * noclobber, `chmod 600`, then `mv` over the old file. A state path that is a symlink or
-     * anything but a regular file is refused before the rename, and the result is checked after it,
+     * Writes the state file ([StateFolder]; its format is `state/ServerState`) from stdin atomically:
+     * `umask 077`, a temporary file created with noclobber, `chmod 600`, then `mv` over the old
+     * file. A state path that is a symlink or anything but a regular file is refused before the rename, and the result is checked after it,
      * because `mv` onto a directory would move the file into it and still succeed. Exits non-zero
      * if anything fails.
      */
     private val WRITE_STATE_SCRIPT: String = "umask 077\nset -C\n" + STATE_BASE + $$$"""
         if [ -L "$dir" ] || ! mkdir -p -- "$dir" || ! chmod 700 -- "$dir"; then exit 1; fi
-        target=$dir/$$${ServerState.FILE_NAME}
+        target=$dir/$$${StateFolder.FILE_NAME}
         if [ -L "$target" ] || { [ -e "$target" ] && [ ! -f "$target" ]; }; then exit 1; fi
-        tmp=$dir/.$$${ServerState.FILE_NAME}.$$
+        tmp=$dir/.$$${StateFolder.FILE_NAME}.$$
         if cat > "$tmp" && chmod 600 -- "$tmp" && mv -f -- "$tmp" "$target" &&
           [ -f "$target" ] && [ ! -L "$target" ] && [ ! -e "$tmp" ]; then exit 0; fi
         rm -f -- "$tmp"

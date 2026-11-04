@@ -1,5 +1,6 @@
 package io.github.thewisekd.phopencode.core.remote.detect
 
+import io.github.thewisekd.phopencode.core.remote.state.ServerState
 import io.github.thewisekd.phopencode.core.ssh.quote.ShellQuote
 
 /**
