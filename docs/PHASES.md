@@ -32,9 +32,12 @@ Tasks are listed by `P<phase>.<number>` ID. API details: `docs/opencode-api-note
 
 ## Local test constraint
 
-- The Pi has no JDK or Android SDK; aapt2 is not official for arm64 Linux. The APK is not built on the Pi.
-- Solution: logic lives in pure Kotlin/JVM modules, Compose screens in thin Android modules.
-- Android-dependent modules are included in `settings.gradle.kts` only when an SDK is present. On the Pi, `./gradlew jvmCheck` tests all JVM modules.
+- Logic lives in pure Kotlin/JVM modules, Compose screens in thin Android modules.
+- Android-dependent modules are included in `settings.gradle.kts` only when an SDK is present. Without one, `./gradlew jvmCheck` tests all JVM modules.
+- The Pi has an Android SDK at `/home/ace/android-sdk` (platform 37.0, build-tools 36.0.0). Android modules are included by passing `ANDROID_HOME=/home/ace/android-sdk` on the Gradle command; a project hook blocks writing `local.properties`.
+- aapt2 is not official for arm64 Linux. It runs through an x86-64 emulation wrapper set in the user's `~/.gradle/gradle.properties` (`android.aapt2FromMavenOverride`), never in the project.
+- The app compiles and the debug APKs build on the Pi, slowly (about 20 minutes under load).
+- Robolectric runs on the Pi (aarch64) only at API 26; API 36 runs are CI-only. Instrumented (`EMU`) tests run only in CI.
 - `CI` tasks cannot be built on the Pi. `coder` writes the test and the code and commits; verification happens at the checkpoint.
 - A phase does not count as finished until its checkpoint is green. A fix is added as a task at the end of the phase with the next number.
 
@@ -106,6 +109,7 @@ This list is created in one go in P0.4. 32 modules in total.
 - For each screen, an empty Composable file and an empty `strings_<f>_<screen>.xml` pair.
 - `<F>Graph.kt` and `<F>Module.kt` wiring.
 - The presenter constructor is fixed here. A later task cannot change the constructor.
+- Each screen stub keeps, on its root element, the `placeholder:<route>` test tag of the placeholder it replaces (`Modifier.testTag("placeholder:$route")`, the format of `placeholderTag(route)` in `app/src/test/…/navigation/AllRoutes.kt`). The real screen keeps it too. `app`'s navigation tests then keep passing without any task touching `app`.
 
 After the contract, the `logic` and `ui` tasks can run at the same time: `ui` only draws `State` and emits `Intent`.
 
@@ -230,6 +234,7 @@ Runs before G3 by user decision, because the fakes in P1.8 build on these contra
 | P1.12 | CI test diagnostics | P1.10 | `.github/workflows/ci.yml`, `docs/PHASES.md` (this row) | The android job runs every Gradle task with `--continue` and uploads test and lint reports even on failure | `CI` |
 | P1.13 | Robolectric module access on JDK 21 | P1.12 | `build-logic/`, `docs/PHASES.md` (this row) | Android unit test JVMs get the module flags Robolectric needs on API 36; CI's android job is green | `CI` |
 | P1.14 | Touch target checks use the minimum | P1.13 | `core/ui/src/test/…/component/`, `docs/PHASES.md` (this row) | Touch-target checks assert at least 48dp and still fail below it; CI's android job is green | `CI` |
+| P1.15 | Placeholder-tag rule and local build notes | P1.10, P3.12 | `docs/PHASES.md` (contract-task rule, local test constraint, P12.2's owned paths, this row), `core/ssh/…/api/SftpClient.kt` (KDoc only) | Contract tasks keep the `placeholder:<route>` tag; the local build notes match the Pi; SftpClient's KDoc matches P3.12 | `LOCAL` |
 
 `CP1`: push, CI green.
 
@@ -584,7 +589,7 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 
 | Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
 |---|---|---|---|---|---|
-| P12.2 | Icon and splash screen | P1.10 | `app/src/main/res/mipmap-*/`, `app/src/main/res/drawable/`, `app/src/main/res/values/ic_launcher_background.xml` | Adaptive icon; splash screen | `CI` |
+| P12.2 | Icon and splash screen | P1.10 | `app/src/main/res/mipmap-*/`, `app/src/main/res/drawable/`, `app/src/main/res/values/ic_launcher_background.xml`, `app/src/main/res/values*/themes.xml` | Adaptive icon; splash screen | `CI` |
 | P12.3 | License notices | P10.9 | `THIRD_PARTY_NOTICES.md`, `feature/settings/ui/…/licenses/`, `strings_settings_licenses.xml` | All dependencies are listed; LGPL notice; TextMate grammar licenses; viewable on a screen | `CI` |
 | P12.4 | Release hardening | P3.10 | `app/build.gradle.kts`, `app/proguard-rules.pro`, `app/src/main/res/xml/data_extraction_rules.xml` | R8 on; backup off; no logs in the release; the `release` build establishes an SSH connection on the emulator | `EMU` |
 

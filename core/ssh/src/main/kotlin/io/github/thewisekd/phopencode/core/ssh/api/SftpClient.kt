@@ -9,10 +9,12 @@ import java.io.OutputStream
  *
  * Every path is either relative to [root] or absolute and inside it. A path with a `.` or `..`
  * segment, a NUL byte, or a place outside [root] fails with [SftpFailure.PathRejected] before any
- * request reaches the server; so does a change whose real location, after symlinks, is outside
- * [root]. A root of `/` gives the whole server and the same segment rules. Reporting a symlink
- * itself ([lstat], [readLink], [list], [delete]) touches only the link, so it is allowed to point
- * anywhere.
+ * request reaches the server. Reads ([list], [stat], [read], [download]) and changes alike then
+ * fail with [SftpFailure.PathRejected] when the path's real location, after every symlink hop, is
+ * outside [root]: a symlink that leads out of [root] is neither read nor changed through. A root of
+ * `/` gives the whole server and the same segment rules. Reporting a symlink itself ([lstat],
+ * [readLink], a [list] entry, [delete]) does not follow it, so a link entry inside [root] is still
+ * reported, with its stored target, even when that target is outside [root].
  *
  * Failures are [SshException.Sftp], or [SshException.Disconnected] when the connection ends.
  * Cancelling stops the transfer. Stream arguments stay open: they belong to the caller.
@@ -26,13 +28,13 @@ interface SftpClient : AutoCloseable {
      */
     suspend fun list(path: String): List<FileEntry>
 
-    /** Follows symlinks. */
+    /** Follows symlinks, as long as every hop stays inside [root]. */
     suspend fun stat(path: String): FileEntry
 
-    /** Does not follow symlinks. */
+    /** Does not follow a symlink in the last segment; earlier segments must stay inside [root]. */
     suspend fun lstat(path: String): FileEntry
 
-    /** A symlink's target as stored, which may be relative. */
+    /** A symlink's target as stored, which may be relative and may point outside [root]. */
     suspend fun readLink(path: String): String
 
     /**
