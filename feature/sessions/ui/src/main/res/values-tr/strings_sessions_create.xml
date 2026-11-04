@@ -1,3 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="sessions_create_title">Yeni oturum</string>
+    <string name="sessions_create_folder">Klasör</string>
+    <string name="sessions_create_folder_help">Sunucuda / ile başlayan tam bir yol.</string>
+    <string name="sessions_create_folder_error_missing">Oturumun çalışacağı klasörü girin.</string>
+    <string name="sessions_create_folder_error_not_absolute">Klasör / ile başlayan tam bir yol olmalı.</string>
+    <string name="sessions_create_recent">Son klasörler</string>
+    <string name="sessions_create_recent_select">Bu klasörü kullan</string>
+    <string name="sessions_create_session_title">Başlık (isteğe bağlı)</string>
+    <string name="sessions_create_session_title_help">Boş bırakırsanız sunucu oturuma ilk mesajınızdan bir ad verir.</string>
+    <string name="sessions_create_agent">Ajan</string>
+    <string name="sessions_create_agent_default">Sunucu varsayılanı</string>
+    <string name="sessions_create_model">Model</string>
+    <string name="sessions_create_model_default">Sunucunun varsayılan modeli</string>
+    <string name="sessions_create_model_default_named">Varsayılan: %1$s</string>
+    <string name="sessions_create_model_change">Modeli değiştir</string>
+    <string name="sessions_create_model_choose">Model seçin</string>
+    <string name="sessions_create_model_cancel">İptal</string>
+    <string name="sessions_create_loading">Ajanlar ve modeller yükleniyor…</string>
+    <string name="sessions_create_skill">Seçilen beceri ilk mesajınıza eklenir.</string>
+    <string name="sessions_create_create">Oturum oluştur</string>
+    <string name="sessions_create_creating">Oluşturuluyor…</string>
+    <string name="sessions_create_error_create">Oturum oluşturulamadı. %1$s</string>
+    <string name="sessions_create_error_catalog">Ajanlar ve modeller yüklenemedi; sunucunun varsayılanları kullanılır. %1$s</string>
+    <string name="sessions_create_reason_not_connected">Sunucuya bağlı değilsiniz. Geri dönüp yeniden bağlanın.</string>
+    <string name="sessions_create_reason_unreachable">Sunucuya ulaşılamadı.</string>
+    <string name="sessions_create_reason_unauthorized">Sunucu kimlik bilgilerini reddetti.</string>
+    <string name="sessions_create_reason_not_found">Sunucu bunu bulamadı.</string>
+    <string name="sessions_create_reason_conflict">Bu arada sunucuda bir şey değişti. Tekrar deneyin.</string>
+    <string name="sessions_create_reason_rejected">Sunucu isteği reddetti.</string>
+    <string name="sessions_create_reason_server_failed">Sunucuda bir hata oluştu.</string>
+    <string name="sessions_create_reason_unknown">Beklenmeyen bir şey oldu.</string>
 </resources>

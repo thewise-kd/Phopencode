@@ -1,3 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="sessions_create_title">New session</string>
+    <string name="sessions_create_folder">Folder</string>
+    <string name="sessions_create_folder_help">An absolute path on the server, starting with /.</string>
+    <string name="sessions_create_folder_error_missing">Enter the folder the session works in.</string>
+    <string name="sessions_create_folder_error_not_absolute">The folder must be an absolute path that starts with /.</string>
+    <string name="sessions_create_recent">Recent folders</string>
+    <string name="sessions_create_recent_select">Use this folder</string>
+    <string name="sessions_create_session_title">Title (optional)</string>
+    <string name="sessions_create_session_title_help">Leave it empty and the server names the session from your first message.</string>
+    <string name="sessions_create_agent">Agent</string>
+    <string name="sessions_create_agent_default">Server default</string>
+    <string name="sessions_create_model">Model</string>
+    <string name="sessions_create_model_default">The server\'s default model</string>
+    <string name="sessions_create_model_default_named">Default: %1$s</string>
+    <string name="sessions_create_model_change">Change the model</string>
+    <string name="sessions_create_model_choose">Choose a model</string>
+    <string name="sessions_create_model_cancel">Cancel</string>
+    <string name="sessions_create_loading">Loading agents and models…</string>
+    <string name="sessions_create_skill">The chosen skill is attached to your first message.</string>
+    <string name="sessions_create_create">Create session</string>
+    <string name="sessions_create_creating">Creating…</string>
+    <string name="sessions_create_error_create">The session could not be created. %1$s</string>
+    <string name="sessions_create_error_catalog">Agents and models could not be loaded; the server\'s defaults are used. %1$s</string>
+    <string name="sessions_create_reason_not_connected">Not connected to the server. Go back and connect again.</string>
+    <string name="sessions_create_reason_unreachable">The server could not be reached.</string>
+    <string name="sessions_create_reason_unauthorized">The server refused the credentials.</string>
+    <string name="sessions_create_reason_not_found">The server could not find it.</string>
+    <string name="sessions_create_reason_conflict">Something changed on the server meanwhile. Try again.</string>
+    <string name="sessions_create_reason_rejected">The server refused the request.</string>
+    <string name="sessions_create_reason_server_failed">The server ran into an error.</string>
+    <string name="sessions_create_reason_unknown">Something unexpected happened.</string>
 </resources>
