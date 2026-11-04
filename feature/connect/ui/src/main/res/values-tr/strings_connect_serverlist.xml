@@ -1,3 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="connect_serverlist_title">Sunucular</string>
+    <string name="connect_serverlist_loading">Sunucular yükleniyor…</string>
+    <string name="connect_serverlist_empty_title">Henüz sunucu yok</string>
+    <string name="connect_serverlist_empty_message">opencode\'u yönetmek için SSH ile bağlandığınız bir sunucu ekleyin.</string>
+    <string name="connect_serverlist_add">Sunucu ekle</string>
+    <string name="connect_serverlist_keys">SSH anahtarları</string>
+    <string name="connect_serverlist_settings">Ayarlar</string>
+    <string name="connect_serverlist_connect">Bağlan</string>
+    <string name="connect_serverlist_edit">Düzenle: %1$s</string>
+    <string name="connect_serverlist_delete">Sil</string>
+    <string name="connect_serverlist_delete_title">Sunucu silinsin mi?</string>
+    <string name="connect_serverlist_delete_message">%1$s ve son klasörleri bu telefondan kaldırılacak. Sunucuda hiçbir şey değişmez.</string>
+    <string name="connect_serverlist_error_load">Kayıtlı sunucular okunamadı.</string>
+    <string name="connect_serverlist_error_save">Bağlantı başlamadı: sunucu güncellenemedi.</string>
+    <string name="connect_serverlist_error_delete">Sunucu silinemedi.</string>
 </resources>
