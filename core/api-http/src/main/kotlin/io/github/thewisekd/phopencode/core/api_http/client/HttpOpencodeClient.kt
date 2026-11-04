@@ -24,6 +24,7 @@ import io.github.thewisekd.phopencode.core.api_http.interaction.HttpInteractionA
 import io.github.thewisekd.phopencode.core.api_http.message.HttpMessageApi
 import io.github.thewisekd.phopencode.core.api_http.session.HttpSessionApi
 import io.github.thewisekd.phopencode.core.api_http.vcs.HttpVcsApi
+import javax.net.SocketFactory
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.JsonElement
@@ -84,22 +85,32 @@ class HttpOpencodeClient internal constructor(
         private val INFO_PATH = listOf("api", "info")
 
         /**
-         * A client for the server at [baseUrl], usually a tunnel's local end such as
-         * `http://localhost:<port>/`. A path prefix is kept. Nothing is sent until the first call.
+         * A client for the server at [baseUrl], usually `http://127.0.0.1:<port>/` reached through
+         * a tunnel's [socketFactory]. A path prefix is kept. Nothing is sent until the first call.
          *
          * Throws [IllegalArgumentException] for an address that is not an `http` or `https` URL, or
          * that carries a user name or password: those go in [credentials]. The message never quotes
          * the address.
          *
          * @param logger Gets one line per exchange, never a header, query, body or host; see [HttpLogger].
+         * @param socketFactory Opens every connection of the client: each request and the event
+         *   stream. Pass an SSH tunnel's factory, whose sockets are channels to the server: then
+         *   `127.0.0.1` in [baseUrl] means the server's loopback, not the phone's, and the password
+         *   only travels inside the tunnel. Without one, the client connects to [baseUrl] directly,
+         *   so a loopback address would send the password to the phone itself. The client does not
+         *   close the factory, nor the tunnel behind it: whoever made it does, after [close].
          */
         fun create(
             baseUrl: String,
             credentials: BasicCredentials,
             logger: HttpLogger = HttpLogger.None,
+            socketFactory: SocketFactory? = null,
         ): HttpOpencodeClient {
             val url = requireNotNull(baseUrl.toHttpUrlOrNull()) { "The server address is not an http or https URL." }
-            return HttpOpencodeClient(HttpTransport(url, credentials, logger))
+            val transport = HttpTransport(url, credentials, logger) {
+                if (socketFactory != null) socketFactory(socketFactory)
+            }
+            return HttpOpencodeClient(transport)
         }
     }
 }
