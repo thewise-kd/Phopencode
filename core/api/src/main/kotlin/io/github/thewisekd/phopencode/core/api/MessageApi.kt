@@ -18,6 +18,14 @@ interface MessageApi {
 
     suspend fun list(sessionId: SessionId, query: MessageQuery = MessageQuery()): Page<Message>
 
+    /**
+     * The session's inbox: what was handed to it and is not yet delivered or cancelled, oldest first.
+     * A [prompt] stays here until the server delivers it, when it becomes the message of the same ID.
+     * The list includes items the app did not send, such as the `synthetic` result of a shell command
+     * and types it does not know ([InboxContent.Unknown]). The whole list comes in one answer.
+     */
+    suspend fun inbox(sessionId: SessionId): List<InboxItem>
+
     /** Runs a command by name; see [CatalogApi.commands]. */
     suspend fun command(sessionId: SessionId, name: String, text: String = "")
 

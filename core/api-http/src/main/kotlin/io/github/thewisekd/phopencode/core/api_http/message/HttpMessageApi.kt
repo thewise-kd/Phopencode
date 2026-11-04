@@ -40,7 +40,7 @@ import kotlinx.serialization.json.JsonObject
  * | [commitRevert] | `POST revert/commit` | no | Deletes history; a repeat acts on what is left |
  * | [cancelRevert] | `DELETE revert` | no | Runs a short execution on the server |
  * | [switchAgent], [switchModel] | `POST agent`, `POST model` | yes | Sets a value; see below |
- * | [list], [turnDiff] | `GET` | yes | Reads only |
+ * | [list], [inbox], [turnDiff] | `GET` | yes | Reads only |
  *
  * A repeated switch sets the same value again. At worst the history gets a second switch marker,
  * which is cheaper than failing a switch on every stale pooled connection.
@@ -82,6 +82,16 @@ internal class HttpMessageApi(private val transport: HttpTransport) : MessageApi
         val request = ApiRequest(HttpMethod.GET, path(sessionId, "message"), query = parameters)
         val envelope = transport.receive(request, PageEnvelope.serializer(JsonObject.serializer()))
         return mapped { envelope.toPage { it.toMessage(sessionId) } }
+    }
+
+    /**
+     * Each item is decoded on its own: one without an `id` or `type` makes the answer malformed, and
+     * one whose payload does not fit its type is kept as an unknown item.
+     */
+    override suspend fun inbox(sessionId: SessionId): List<InboxItem> {
+        val request = ApiRequest(HttpMethod.GET, path(sessionId, "inbox"))
+        val envelope = transport.receive(request, DataEnvelope.serializer(ListSerializer(InboxItemWire.serializer())))
+        return mapped { envelope.data.map { it.toModel(sessionId, lenient = true) } }
     }
 
     override suspend fun command(sessionId: SessionId, name: String, text: String) {

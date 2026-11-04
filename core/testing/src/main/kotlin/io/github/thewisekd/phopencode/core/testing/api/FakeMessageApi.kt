@@ -25,7 +25,8 @@ data class CommandRun(val sessionId: SessionId, val name: String, val text: Stri
  * Conversations in memory, kept with the sessions of [sessions].
  *
  * The answer to a prompt is the test's to send: nothing here plays a model. [prompt] leaves an inbox
- * item, [deliver] turns it into a message, and [seed] adds what a test wants to read back.
+ * item, [deliver] turns it into a message, [cancel] drops it, and [seed] adds what a test wants to
+ * read back.
  * Committing or cancelling with no staged revert fails with [ApiError.Conflict].
  *
  * @property revertPreview What the next [stageRevert] says it would change, unless told not to.
@@ -71,6 +72,14 @@ class FakeMessageApi(
         message
     }
 
+    /** Drops an inbox item before delivery, as the server's cancel does. */
+    fun cancel(inboxId: MessageId) {
+        sessions.withLock {
+            val item = sessions.takeInbox(inboxId)
+            sessions.events.emit(ServerEvent.InboxCancelled(item.sessionId, item.id))
+        }
+    }
+
     private fun InboxItem.toMessage(): Message = when (val content = content) {
         is InboxContent.User -> Message.User(id, sessionId, createdAt, content.text, content.files, content.agents, content.skills)
         is InboxContent.Synthetic -> Message.Synthetic(id, sessionId, createdAt, content.text)
@@ -97,6 +106,14 @@ class FakeMessageApi(
                 }.page(query.limit, query.cursor)
             }
         }
+
+    /** What [prompt] and [FakeSessionApi.compact] enqueued and [deliver] or [cancel] has not taken, oldest first. */
+    override suspend fun inbox(sessionId: SessionId): List<InboxItem> = control.call("messages.inbox") {
+        sessions.serving {
+            sessions.require(sessionId)
+            sessions.inboxItems.filter { it.sessionId == sessionId }
+        }
+    }
 
     override suspend fun command(sessionId: SessionId, name: String, text: String): Unit =
         control.call("messages.command") {

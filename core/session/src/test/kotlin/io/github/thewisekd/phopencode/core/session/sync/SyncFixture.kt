@@ -3,9 +3,11 @@ package io.github.thewisekd.phopencode.core.session.sync
 import io.github.thewisekd.phopencode.core.api.ApiError
 import io.github.thewisekd.phopencode.core.api.ApiException
 import io.github.thewisekd.phopencode.core.api.EventMeta
+import io.github.thewisekd.phopencode.core.api.InboxItem
 import io.github.thewisekd.phopencode.core.api.MessageApi
 import io.github.thewisekd.phopencode.core.api.MessageQuery
 import io.github.thewisekd.phopencode.core.api.Page
+import io.github.thewisekd.phopencode.core.api.PromptDelivery
 import io.github.thewisekd.phopencode.core.api.ServerEvent
 import io.github.thewisekd.phopencode.core.api.SessionApi
 import io.github.thewisekd.phopencode.core.model.AssistantBlock
@@ -58,9 +60,23 @@ internal fun meta(id: String, n: Int): EventMeta = EventMeta(id = id, createdAt 
 internal fun Message?.firstText(): String? =
     ((this as? Message.Assistant)?.blocks?.firstOrNull() as? AssistantBlock.Text)?.text
 
-/** A message API whose list call number [failOn], counted from the moment it is armed, fails once. */
+/**
+ * A message API whose list call number [failOn], counted from the moment it is armed, fails once.
+ * [afterInbox] and [afterList] run once, after the next such call answers: a server change that
+ * lands between two calls of a fetch.
+ */
 internal class FlakyMessages(private val real: MessageApi) : MessageApi by real {
     @Volatile var failOn: Int? = null
+
+    @Volatile var afterInbox: (() -> Unit)? = null
+
+    @Volatile var afterList: (() -> Unit)? = null
+
+    /**
+     * Deliveries the server changed, which the fake server cannot store itself: [inbox] answers with
+     * them. Pair it with the matching [ServerEvent.InboxDeliveryChanged].
+     */
+    val changedDeliveries: MutableMap<MessageId, PromptDelivery> = java.util.concurrent.ConcurrentHashMap()
 
     @Volatile var error: ApiError = ApiError.Network
 
@@ -78,7 +94,21 @@ internal class FlakyMessages(private val real: MessageApi) : MessageApi by real 
             failOn = null
             throw ApiException(error)
         }
-        return real.list(sessionId, query)
+        return real.list(sessionId, query).also {
+            afterList?.let { hook ->
+                afterList = null
+                hook()
+            }
+        }
+    }
+
+    override suspend fun inbox(sessionId: SessionId): List<InboxItem> = real.inbox(sessionId).map { item ->
+        changedDeliveries[item.id]?.let { item.copy(delivery = it) } ?: item
+    }.also {
+        afterInbox?.let { hook ->
+            afterInbox = null
+            hook()
+        }
     }
 }
 

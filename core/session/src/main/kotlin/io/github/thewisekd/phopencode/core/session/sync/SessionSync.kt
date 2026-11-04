@@ -2,6 +2,7 @@ package io.github.thewisekd.phopencode.core.session.sync
 
 import io.github.thewisekd.phopencode.core.api.ApiError
 import io.github.thewisekd.phopencode.core.api.ApiException
+import io.github.thewisekd.phopencode.core.api.InboxItem
 import io.github.thewisekd.phopencode.core.api.InteractionApi
 import io.github.thewisekd.phopencode.core.api.MessageApi
 import io.github.thewisekd.phopencode.core.api.MessageQuery
@@ -44,10 +45,10 @@ import kotlinx.coroutines.yield
  * Keeps one session's [SessionState] in step with the server across connections.
  *
  * The server replays nothing after a drop, so each [ServerEvent.Connected] starts a resync: the
- * session, every page of its messages (following the cursors, oldest first), its pending forms and
- * permissions, and whether it runs. Once all of that has arrived, a fresh [SessionReducer] is seeded
- * with it, the events that arrived since the connection came up are applied on top in arrival order,
- * and the result replaces what was shown. So whatever was missed while the stream was down, the state
+ * session, its inbox, every page of its messages (following the cursors, oldest first), its pending
+ * forms and permissions, and whether it runs. Once all of that has arrived, a fresh [SessionReducer]
+ * is seeded with it, the events that arrived since the connection came up are applied on top in
+ * arrival order, and the result replaces what was shown. So whatever was missed while the stream was down, the state
  * after a resync is the fetched truth plus the events after it. Events that the fetch already
  * reflects are applied again on purpose: the reducer is built to take an event onto a seeded list.
  *
@@ -71,18 +72,17 @@ import kotlinx.coroutines.yield
  *   all of them arrived before any call that the next fetch makes, so its answers cover them. A fetch
  *   that has started its calls is therefore started over at once; one waiting to retry keeps waiting.
  *   A stream that fills the buffer faster than a fetch completes keeps starting it over.
- * - Inbox events (enqueued, delivery changed, delivered, cancelled) are the exception, because no fetch
- *   returns inbox items: those taken out of a full buffer are kept apart until the fetch completes,
- *   and applied before the rest. That store holds at most [maxBuffered] too; beyond it the oldest go,
- *   so an item enqueued that long before the fetch completes can be missing until it is delivered.
  * - The fetched status ([SessionApi.activeStatuses], asked for last) is placed among the held events
  *   by arrival from the stream, counted as each event is received, still queued ones included. Those
  *   received before the status was asked for are applied first, so an execution's end or start that
  *   the answer already reflects cannot override it; those after it are applied after it. A fetch
  *   that completes waits for the events received before that point to be handled.
  *
- * Pending inbox items are not fetched: the API has no list of them. A resync therefore shows only the
- * items enqueued after it, and an item delivered meanwhile shows as its message.
+ * The inbox the fetch returns replaces the one shown, so a reconnect shows the prompts still queued
+ * and drops those delivered or cancelled while the stream was down. It is read before the messages:
+ * an item delivered between the two calls is then in both, and shows once, as its message; one
+ * delivered after both is in the inbox, and its delivery event, held for the fetch, turns it into its
+ * message. Read the other way round, such an item would be in neither.
  *
  * Nothing here logs, and [state] prints counts only.
  *
@@ -155,6 +155,7 @@ class SessionSync(
 
     private class Truth(
         val session: Session,
+        val inbox: List<InboxItem>,
         val messages: List<Message>,
         val forms: List<Form>,
         val permissions: List<PermissionRequest>,
@@ -200,9 +201,6 @@ class SessionSync(
 
         /** This session's events since the connection came up, for the fetch to take. */
         private val buffered = ArrayList<Held>()
-
-        /** Inbox events taken out of a full buffer, which no fetch can make up for. */
-        private val keptInbox = ArrayDeque<Held>()
 
         suspend fun loop(incoming: ReceiveChannel<Received>) {
             while (true) {
@@ -264,11 +262,7 @@ class SessionSync(
                 return
             }
             // Full: every held event, this one too, came before any call of the next fetch, which
-            // covers them all but the inbox ones.
-            (buffered + held).filter { it.event.isInbox() }.forEach {
-                keptInbox.addLast(it)
-                if (keptInbox.size > maxBuffered) keptInbox.removeFirst()
-            }
+            // covers them all.
             buffered.clear()
             if (current.reading) {
                 current.result.cancel()
@@ -302,24 +296,18 @@ class SessionSync(
             val truth = checkNotNull(current.done)
             val (before, after) = buffered.partition { it.seq <= current.statusMark }
             reducer = seed(truth).apply {
-                keptInbox.forEach { apply(it.event) }
                 before.forEach { apply(it.event) }
                 statusOf(truth.activity)?.let { apply(ServerEvent.SessionStatusChanged(sessionId, it)) }
                 after.forEach { apply(it.event) }
             }
-            clearBuffer()
+            buffered.clear()
             publish(SyncPhase.Live)
         }
 
         private fun abandonFetch() {
             fetch?.result?.cancel()
             fetch = null
-            clearBuffer()
-        }
-
-        private fun clearBuffer() {
             buffered.clear()
-            keptInbox.clear()
         }
 
         /** Shows the current reducer's state, with [phase] or else the phase shown now. */
@@ -333,20 +321,26 @@ class SessionSync(
             current.reading = true
             return try {
                 val session = sessions.get(sessionId)
-                val messages = allMessages()
+                // Before the messages; see the class KDoc.
+                val inbox = messages.inbox(sessionId)
+                val history = allMessages()
                 val forms = interactions.listForms(sessionId)
                 val permissions = interactions.listPermissions(sessionId)
                 current.statusMark = received.get()
                 val activity = sessions.activeStatuses()[sessionId]
-                Fetched.Done(Truth(session, messages, forms, permissions, activity))
+                Fetched.Done(Truth(session, inbox, history, forms, permissions, activity))
             } catch (e: ApiException) {
                 Fetched.Failed(e.error)
             }
         }
     }
 
-    /** A fresh reducer holding [truth]. The pending items have no seed, so they go in as events. */
+    /**
+     * A fresh reducer holding [truth]. The pending items have no seed, so they go in as events. An
+     * inbox item that is already a message is skipped by the reducer, so it shows once.
+     */
     private fun seed(truth: Truth): SessionReducer = SessionReducer(sessionId, truth.session, truth.messages).apply {
+        truth.inbox.forEach { apply(ServerEvent.InboxEnqueued(it)) }
         truth.forms.forEach { apply(ServerEvent.FormCreated(it)) }
         truth.permissions.forEach { apply(ServerEvent.PermissionAsked(it)) }
     }
@@ -379,13 +373,6 @@ class SessionSync(
         const val DEFAULT_MAX_BUFFERED: Int = 4_096
     }
 }
-
-/** Whether no fetch can make up for this event: it is about an inbox item. */
-private fun SessionEvent.isInbox(): Boolean =
-    this is ServerEvent.InboxEnqueued ||
-        this is ServerEvent.InboxDeliveryChanged ||
-        this is ServerEvent.InboxDelivered ||
-        this is ServerEvent.InboxCancelled
 
 /** Whether fetching again later can succeed. */
 internal fun ApiError.isRetryable(): Boolean = when (this) {

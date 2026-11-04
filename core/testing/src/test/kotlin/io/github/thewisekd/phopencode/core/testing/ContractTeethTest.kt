@@ -4,6 +4,11 @@ import io.github.thewisekd.phopencode.core.api.ApiError
 import io.github.thewisekd.phopencode.core.api.ApiException
 import io.github.thewisekd.phopencode.core.api.EventApi
 import io.github.thewisekd.phopencode.core.api.OpencodeClient
+import io.github.thewisekd.phopencode.core.testing.contract.messageApiContract
+import io.github.thewisekd.phopencode.core.model.SessionId
+import io.github.thewisekd.phopencode.core.api.PromptDelivery
+import io.github.thewisekd.phopencode.core.api.MessageApi
+import io.github.thewisekd.phopencode.core.api.InboxItem
 import io.github.thewisekd.phopencode.core.api.ServerEvent
 import io.github.thewisekd.phopencode.core.api.SessionApi
 import io.github.thewisekd.phopencode.core.api.SessionQuery
@@ -154,6 +159,26 @@ class ContractTeethTest {
         assertCaught("an event collector fails with Closed on close, and does not reconnect", cases)
         assertCaught("every running call fails with Closed on close", cases)
         assertCaught("sessions.list after close fails with Closed", cases)
+    }
+
+    @Test
+    fun `an inbox that loses queued items or mixes sessions is caught`() {
+        fun casesWith(inbox: suspend (MessageApi, SessionId) -> List<InboxItem>) = messageApiContract {
+            val fake = FakeOpencodeClient()
+            object : ApiHarness by FakeApiHarness(fake) {
+                override val client: OpencodeClient = object : OpencodeClient by fake {
+                    override val messages: MessageApi = object : MessageApi by fake.messages {
+                        override suspend fun inbox(sessionId: SessionId) = inbox(fake.messages, sessionId)
+                    }
+                }
+            }
+        }
+        val dropsQueued = casesWith { real, id -> real.inbox(id).filter { it.delivery != PromptDelivery.Queue } }
+        assertCaught("inbox lists what prompt enqueued, oldest first, as prompt returned it", dropsQueued)
+        val newestFirst = casesWith { real, id -> real.inbox(id).reversed() }
+        assertCaught("inbox lists what prompt enqueued, oldest first, as prompt returned it", newestFirst)
+        val everySession = casesWith { real, _ -> real.inbox(SessionId("session-a")) + real.inbox(SessionId("session-b")) }
+        assertCaught("inbox lists only the session's own items", everySession)
     }
 
     @Test

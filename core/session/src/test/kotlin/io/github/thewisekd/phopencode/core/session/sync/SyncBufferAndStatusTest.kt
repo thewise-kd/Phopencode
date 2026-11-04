@@ -1,8 +1,7 @@
 package io.github.thewisekd.phopencode.core.session.sync
 
 import io.github.thewisekd.phopencode.core.api.ApiError
-import io.github.thewisekd.phopencode.core.api.InboxContent
-import io.github.thewisekd.phopencode.core.api.InboxItem
+import io.github.thewisekd.phopencode.core.api.Prompt
 import io.github.thewisekd.phopencode.core.api.PromptDelivery
 import io.github.thewisekd.phopencode.core.api.ServerEvent
 import io.github.thewisekd.phopencode.core.model.MessageId
@@ -93,11 +92,12 @@ class SyncBufferAndStatusTest {
         f.client.control.stall()
         f.start(backgroundScope)
         runCurrent()
-        val queued = InboxItem(MessageId("msg_queued"), SESSION, null, InboxContent.User("later"), PromptDelivery.Queue)
-        val changed = InboxItem(MessageId("msg_changed"), SESSION, null, InboxContent.User("steer"), PromptDelivery.Queue)
-
-        f.emit(ServerEvent.InboxEnqueued(queued, meta("evt_enqueued", 1)))
-        f.emit(ServerEvent.InboxEnqueued(changed, meta("evt_enqueued_2", 1)))
+        // Stalled, the server still takes them through its own side: their events reach the buffer.
+        f.client.control.resume()
+        val queued = f.client.messages.prompt(SESSION, Prompt("later", delivery = PromptDelivery.Queue))
+        val changed = f.client.messages.prompt(SESSION, Prompt("steer", delivery = PromptDelivery.Queue))
+        f.client.control.stall()
+        f.messages.changedDeliveries[changed.id] = PromptDelivery.Steer
         f.emit(ServerEvent.InboxDeliveryChanged(SESSION, changed.id, PromptDelivery.Steer, meta("evt_changed", 2)))
         repeat(20) { f.emit(formEvent(it)) }
         runCurrent()
@@ -107,19 +107,20 @@ class SyncBufferAndStatusTest {
 
         assertEquals(SyncPhase.Live, f.phase)
         assertEquals(listOf(queued.id, changed.id), f.session.inbox.map { it.id })
+        assertEquals(PromptDelivery.Queue, f.session.inbox[0].delivery)
         assertEquals(PromptDelivery.Steer, f.session.inbox[1].delivery)
     }
 
     @Test
-    fun `an item delivered before a full buffer stays delivered after the fetch starts over`() = runTest {
+    fun `an item cancelled before a full buffer stays gone after the fetch starts over`() = runTest {
         val f = SyncFixture(maxBuffered = 4)
         f.client.control.stall()
         f.start(backgroundScope)
         runCurrent()
-        val item = InboxItem(MessageId("msg_gone"), SESSION, null, InboxContent.User("now"), PromptDelivery.Steer)
-
-        f.emit(ServerEvent.InboxEnqueued(item, meta("evt_enqueued", 1)))
-        f.emit(ServerEvent.InboxCancelled(SESSION, item.id, meta("evt_cancelled", 2)))
+        f.client.control.resume()
+        val item = f.client.messages.prompt(SESSION, Prompt("now"))
+        f.client.control.stall()
+        f.client.messages.cancel(item.id)
         repeat(10) { f.emit(formEvent(it)) }
         runCurrent()
         f.client.control.resume()

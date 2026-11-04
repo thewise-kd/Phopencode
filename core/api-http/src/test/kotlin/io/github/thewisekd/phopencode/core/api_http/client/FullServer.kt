@@ -364,7 +364,7 @@ internal class FullServer(private val defaultFolder: String) : Dispatcher() {
     private fun notFound() = MockResponse.Builder().code(404).body("""{"_tag":"NotFound","message":"Route not found"}""").build()
 
     private companion object {
-        val MESSAGE_ROUTES = setOf("message", "prompt", "agent", "model", "command", "diff", "revert")
+        val MESSAGE_ROUTES = setOf("message", "prompt", "inbox", "agent", "model", "command", "diff", "revert")
         const val STALL_LIMIT_SECONDS = 30L
     }
 }

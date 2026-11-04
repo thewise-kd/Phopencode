@@ -5,6 +5,7 @@ import io.github.thewisekd.phopencode.core.api.ApiException
 import io.github.thewisekd.phopencode.core.api.CreateSessionRequest
 import io.github.thewisekd.phopencode.core.api.FileSearchType
 import io.github.thewisekd.phopencode.core.api.InboxContent
+import io.github.thewisekd.phopencode.core.api.InboxItem
 import io.github.thewisekd.phopencode.core.api.InterruptReason
 import io.github.thewisekd.phopencode.core.api.Location
 import io.github.thewisekd.phopencode.core.api.MessageQuery
@@ -140,6 +141,7 @@ private val ALL_CALLS: List<Pair<String, suspend (OpencodeClient) -> Unit>> = li
     "sessions.activeStatuses" to { it.sessions.activeStatuses() },
     "messages.prompt" to { it.messages.prompt(SESSION, Prompt("hello")) },
     "messages.list" to { it.messages.list(SESSION) },
+    "messages.inbox" to { it.messages.inbox(SESSION) },
     "messages.command" to { it.messages.command(SESSION, "name") },
     "messages.switchAgent" to { it.messages.switchAgent(SESSION, "build") },
     "messages.switchModel" to { it.messages.switchModel(SESSION, ModelRef("provider", "model")) },
@@ -634,6 +636,32 @@ fun messageApiContract(newHarness: suspend () -> ApiHarness): List<ContractCase>
     }
     case("prompt to a missing session fails with NotFound") {
         expectApiError(ApiError.NotFound, "prompt") { newHarness().client.messages.prompt(SESSION, Prompt("hello")) }
+    }
+    case("inbox lists what prompt enqueued, oldest first, as prompt returned it") {
+        val harness = newHarness()
+        harness.givenSession(Session(SESSION))
+        val first = harness.client.messages.prompt(SESSION, Prompt("first", delivery = PromptDelivery.Queue))
+        val second = harness.client.messages.prompt(SESSION, Prompt("second", files = listOf("a.txt")))
+        expectEqual(listOf(first, second), harness.client.messages.inbox(SESSION), "inbox")
+        expectEqual(0, harness.client.messages.list(SESSION).items.size, "messages")
+    }
+    case("inbox is empty for a session with nothing enqueued") {
+        val harness = newHarness()
+        harness.givenSession(Session(SESSION))
+        harness.givenMessages(SESSION, listOf(user("m1")))
+        expectEqual(emptyList<InboxItem>(), harness.client.messages.inbox(SESSION), "inbox")
+    }
+    case("inbox lists only the session's own items") {
+        val harness = newHarness()
+        harness.givenSession(Session(SESSION))
+        harness.givenSession(Session(OTHER_SESSION))
+        val mine = harness.client.messages.prompt(SESSION, Prompt("mine"))
+        val theirs = harness.client.messages.prompt(OTHER_SESSION, Prompt("theirs"))
+        expectEqual(listOf(mine), harness.client.messages.inbox(SESSION), "own")
+        expectEqual(listOf(theirs), harness.client.messages.inbox(OTHER_SESSION), "other")
+    }
+    case("inbox of a missing session fails with NotFound") {
+        expectApiError(ApiError.NotFound, "inbox") { newHarness().client.messages.inbox(SESSION) }
     }
     case("list is newest first unless asked otherwise") {
         val harness = newHarness()

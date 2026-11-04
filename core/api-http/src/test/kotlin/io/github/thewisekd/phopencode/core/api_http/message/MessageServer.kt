@@ -35,6 +35,9 @@ internal class MessageServer : Dispatcher() {
         val messages = mutableListOf<Message>()
         var revert: JsonObject? = null
         var inboxCount = 0
+
+        /** What prompts enqueued, oldest first; nothing here delivers them. */
+        val inbox = mutableListOf<JsonObject>()
     }
 
     private val lock = Any()
@@ -69,7 +72,12 @@ internal class MessageServer : Dispatcher() {
                     }
                 },
             )
-            "POST" to listOf("prompt") -> ok(buildJsonObject { put("data", inboxItem(segments[2], session, body!!)) })
+            "POST" to listOf("prompt") -> {
+                val item = inboxItem(segments[2], session, body!!)
+                session.inbox += item
+                ok(buildJsonObject { put("data", item) })
+            }
+            "GET" to listOf("inbox") -> ok(buildJsonObject { put("data", JsonArray(session.inbox.toList())) })
             "GET" to listOf("message") -> ok(page(session, url))
             "POST" to listOf("agent"), "POST" to listOf("model"), "POST" to listOf("command") -> noContent()
             "GET" to listOf("diff") -> {
@@ -108,7 +116,7 @@ internal class MessageServer : Dispatcher() {
     private fun inboxItem(sessionId: String, session: SessionState, body: JsonObject): JsonObject = buildJsonObject {
         put("id", "msg_inbox_${++session.inboxCount}")
         put("sessionID", sessionId)
-        putJsonObject("time") { put("created", 1700000000000) }
+        putJsonObject("time") { put("created", 1700000000000 + session.inboxCount) }
         put("type", "user")
         putJsonObject("payload") {
             put("text", body.getValue("text"))

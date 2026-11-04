@@ -63,6 +63,9 @@ internal object Recordings {
     val messagePages: List<Exchange> by lazy {
         exchanges.filter { isSessionRoute(it, "GET", "message") && it.status == 200 }
     }
+    val inboxLists: List<Exchange> by lazy {
+        exchanges.filter { isSessionRoute(it, "GET", "inbox") && it.status == 200 }
+    }
     val prompts: List<Exchange> by lazy { exchanges.filter { isSessionRoute(it, "POST", "prompt") } }
     val commands: List<Exchange> by lazy { exchanges.filter { isSessionRoute(it, "POST", "command") } }
     val agentSwitches: List<Exchange> by lazy { exchanges.filter { isSessionRoute(it, "POST", "agent") } }

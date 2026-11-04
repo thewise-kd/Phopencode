@@ -28,6 +28,7 @@ import kotlinx.coroutines.test.runTest
 class SessionSyncTest {
     private val fetchCalls = listOf(
         "sessions.get",
+        "messages.inbox",
         "messages.list",
         "interactions.listForms",
         "interactions.listPermissions",

@@ -270,6 +270,32 @@ class FakeApiTest {
     }
 
     @Test
+    fun `the inbox holds prompts and compactions until they are delivered`() = runTest {
+        val prompt = client.messages.prompt(session, Prompt("hello"))
+        val compaction = client.sessions.compact(session)
+        assertEquals(listOf(prompt, compaction), client.messages.inbox(session))
+        assertEquals(InboxContent.Compaction, client.messages.inbox(session)[1].content)
+        client.messages.deliver(prompt.id)
+        assertEquals(listOf(compaction), client.messages.inbox(session))
+        client.messages.deliver(compaction.id)
+        assertEquals(emptyList(), client.messages.inbox(session))
+    }
+
+    @Test
+    fun `listing the inbox sends no event and can be made to fail`() = runTest {
+        client.messages.prompt(session, Prompt("hello"))
+        client.events.events().test {
+            assertIs<ServerEvent.Connected>(awaitItem())
+            client.messages.inbox(session)
+            expectNoEvents()
+            cancelAndIgnoreRemainingEvents()
+        }
+        client.control.failNext(ApiError.Network)
+        assertEquals(ApiError.Network, assertFailsWith<ApiException> { client.messages.inbox(session) }.error)
+        assertEquals("messages.inbox", client.control.calls.last())
+    }
+
+    @Test
     fun `state changes send their events`() = runTest {
         client.events.events().test {
             assertIs<ServerEvent.Connected>(awaitItem())

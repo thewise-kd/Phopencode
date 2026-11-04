@@ -174,6 +174,7 @@ class ApiBoundaryTest {
             setOf(
                 "prompt",
                 "list",
+                "inbox",
                 "command",
                 "switchAgent",
                 "switchModel",
