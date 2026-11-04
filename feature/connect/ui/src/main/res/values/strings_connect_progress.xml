@@ -1,3 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="connect_progress_title">Connection</string>
+    <string name="connect_progress_status_connecting">Connecting…</string>
+    <string name="connect_progress_status_connected">Connected</string>
+    <string name="connect_progress_status_failed">Could not connect</string>
+
+    <string name="connect_progress_step_ssh">SSH login</string>
+    <string name="connect_progress_step_host_approval">Host key approval</string>
+    <string name="connect_progress_step_server">opencode server</string>
+    <string name="connect_progress_step_api">API check</string>
+    <string name="connect_progress_step_done">Done</string>
+    <string name="connect_progress_step_current">In progress</string>
+    <string name="connect_progress_step_failed">Failed</string>
+    <string name="connect_progress_step_pending">Waiting</string>
+
+    <string name="connect_progress_action_retry">Try again</string>
+    <string name="connect_progress_action_edit_server">Edit server</string>
+    <string name="connect_progress_action_review_host_key">Review host key</string>
+    <string name="connect_progress_action_enter_password">Enter password</string>
+    <string name="connect_progress_cancel">Cancel</string>
+
+    <string name="connect_progress_password_title">opencode server password</string>
+    <string name="connect_progress_password_message">An opencode server that this app did not start is running. Enter the password it was started with.</string>
+    <string name="connect_progress_password_label">Password</string>
+    <string name="connect_progress_password_submit">Connect</string>
+
+    <string name="connect_progress_error_invalid_profile">This server\'s settings are incomplete. Edit the server, then try again.</string>
+    <string name="connect_progress_error_secret_missing">The saved login for this server is missing. Edit the server to enter it again.</string>
+    <string name="connect_progress_error_secret_unreadable">The saved login for this server could not be read. Edit the server to enter it again.</string>
+    <string name="connect_progress_error_storage_unavailable">This phone\'s secure storage is unavailable. Unlock the phone, then try again.</string>
+    <string name="connect_progress_error_unreachable">The server could not be reached. Check the host, the port and your network.</string>
+    <string name="connect_progress_error_timeout">The server took too long to answer. Check your network, then try again.</string>
+    <string name="connect_progress_error_disconnected">The connection dropped. Try again.</string>
+    <string name="connect_progress_error_authentication_failed">The server refused the login. Check the user name, password or key.</string>
+    <string name="connect_progress_error_host_key_rejected">The server\'s host key was not approved, so the connection stopped.</string>
+    <string name="connect_progress_error_host_key_changed">The server\'s host key has changed. Review it before connecting again.</string>
+    <string name="connect_progress_error_opencode_missing">opencode was not found on the server. Install it there, then try again.</string>
+    <string name="connect_progress_error_server_password_unknown">An opencode server that this app did not start is running. Enter its password to connect.</string>
+    <string name="connect_progress_error_server_password_rejected">The opencode server refused the password. Enter it again.</string>
+    <string name="connect_progress_error_server_version_too_old">The opencode on the server is too old. Update it, then try again.</string>
+    <string name="connect_progress_error_server_unresponsive">An opencode server is running but not answering. The app will not start a second one or stop it: restart it on the server, then try again.</string>
+    <string name="connect_progress_error_server_unusable">An opencode server is running but cannot be reached on loopback (127.0.0.1). The app will not start a second one or stop it: restart it on the server listening on 127.0.0.1, then try again.</string>
+    <string name="connect_progress_error_server_detection_failed">Could not tell whether opencode is running on the server. Try again.</string>
+    <string name="connect_progress_error_server_start_failed">opencode could not be started on the server. Check that it runs there, then try again.</string>
+    <string name="connect_progress_error_server_lost">The opencode server stopped while connecting. Try again.</string>
+    <string name="connect_progress_error_api_failed">The opencode server\'s API returned an error. Try again.</string>
+    <string name="connect_progress_error_unexpected">Something unexpected went wrong. Try again.</string>
 </resources>

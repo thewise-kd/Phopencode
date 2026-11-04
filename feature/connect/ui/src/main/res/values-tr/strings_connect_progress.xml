@@ -1,3 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="connect_progress_title">Bağlantı</string>
+    <string name="connect_progress_status_connecting">Bağlanıyor…</string>
+    <string name="connect_progress_status_connected">Bağlandı</string>
+    <string name="connect_progress_status_failed">Bağlantı kurulamadı</string>
+
+    <string name="connect_progress_step_ssh">SSH girişi</string>
+    <string name="connect_progress_step_host_approval">Sunucu anahtarı onayı</string>
+    <string name="connect_progress_step_server">opencode sunucusu</string>
+    <string name="connect_progress_step_api">API denetimi</string>
+    <string name="connect_progress_step_done">Tamamlandı</string>
+    <string name="connect_progress_step_current">Sürüyor</string>
+    <string name="connect_progress_step_failed">Başarısız</string>
+    <string name="connect_progress_step_pending">Bekliyor</string>
+
+    <string name="connect_progress_action_retry">Tekrar dene</string>
+    <string name="connect_progress_action_edit_server">Sunucuyu düzenle</string>
+    <string name="connect_progress_action_review_host_key">Sunucu anahtarını incele</string>
+    <string name="connect_progress_action_enter_password">Parolayı gir</string>
+    <string name="connect_progress_cancel">İptal</string>
+
+    <string name="connect_progress_password_title">opencode sunucu parolası</string>
+    <string name="connect_progress_password_message">Bu uygulamanın başlatmadığı bir opencode sunucusu çalışıyor. Sunucunun başlatıldığı parolayı girin.</string>
+    <string name="connect_progress_password_label">Parola</string>
+    <string name="connect_progress_password_submit">Bağlan</string>
+
+    <string name="connect_progress_error_invalid_profile">Bu sunucunun ayarları eksik. Sunucuyu düzenleyip tekrar deneyin.</string>
+    <string name="connect_progress_error_secret_missing">Bu sunucunun kayıtlı giriş bilgisi bulunamadı. Sunucuyu düzenleyip yeniden girin.</string>
+    <string name="connect_progress_error_secret_unreadable">Kayıtlı giriş bilgisi okunamadı. Sunucuyu düzenleyip yeniden girin.</string>
+    <string name="connect_progress_error_storage_unavailable">Telefonun güvenli deposu kullanılamıyor. Telefonun kilidini açıp tekrar deneyin.</string>
+    <string name="connect_progress_error_unreachable">Sunucuya ulaşılamadı. Adresi, portu ve ağınızı denetleyin.</string>
+    <string name="connect_progress_error_timeout">Sunucu çok geç yanıt verdi. Ağınızı denetleyip tekrar deneyin.</string>
+    <string name="connect_progress_error_disconnected">Bağlantı koptu. Tekrar deneyin.</string>
+    <string name="connect_progress_error_authentication_failed">Sunucu girişi reddetti. Kullanıcı adını, parolayı ya da anahtarı denetleyin.</string>
+    <string name="connect_progress_error_host_key_rejected">Sunucu anahtarı onaylanmadı, bu yüzden bağlantı durduruldu.</string>
+    <string name="connect_progress_error_host_key_changed">Sunucu anahtarı değişti. Yeniden bağlanmadan önce inceleyin.</string>
+    <string name="connect_progress_error_opencode_missing">Sunucuda opencode bulunamadı. Oraya kurup tekrar deneyin.</string>
+    <string name="connect_progress_error_server_password_unknown">Bu uygulamanın başlatmadığı bir opencode sunucusu çalışıyor. Bağlanmak için parolasını girin.</string>
+    <string name="connect_progress_error_server_password_rejected">opencode sunucusu parolayı reddetti. Yeniden girin.</string>
+    <string name="connect_progress_error_server_version_too_old">Sunucudaki opencode çok eski. Güncelleyip tekrar deneyin.</string>
+    <string name="connect_progress_error_server_unresponsive">Bir opencode sunucusu çalışıyor ama yanıt vermiyor. Uygulama ikinci bir sunucu başlatmaz ve onu durdurmaz: sunucuda yeniden başlatıp tekrar deneyin.</string>
+    <string name="connect_progress_error_server_unusable">Bir opencode sunucusu çalışıyor ama loopback (127.0.0.1) üzerinden ulaşılamıyor. Uygulama ikinci bir sunucu başlatmaz ve onu durdurmaz: sunucuda 127.0.0.1 üzerinde dinleyecek şekilde yeniden başlatıp tekrar deneyin.</string>
+    <string name="connect_progress_error_server_detection_failed">Sunucuda opencode\'un çalışıp çalışmadığı anlaşılamadı. Tekrar deneyin.</string>
+    <string name="connect_progress_error_server_start_failed">opencode sunucuda başlatılamadı. Orada çalıştığını denetleyip tekrar deneyin.</string>
+    <string name="connect_progress_error_server_lost">opencode sunucusu bağlanırken durdu. Tekrar deneyin.</string>
+    <string name="connect_progress_error_api_failed">opencode sunucusunun API\'si hata döndürdü. Tekrar deneyin.</string>
+    <string name="connect_progress_error_unexpected">Beklenmeyen bir sorun oluştu. Tekrar deneyin.</string>
 </resources>
