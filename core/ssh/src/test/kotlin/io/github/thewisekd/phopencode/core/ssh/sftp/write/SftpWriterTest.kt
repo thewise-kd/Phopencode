@@ -8,6 +8,7 @@ import io.github.thewisekd.phopencode.core.ssh.api.SshException
 import io.github.thewisekd.phopencode.core.ssh.connect.SshjConnector
 import io.github.thewisekd.phopencode.core.ssh.connect.SshjSession
 import io.github.thewisekd.phopencode.core.ssh.connect.password
+import io.github.thewisekd.phopencode.core.ssh.sftp.RealPaths
 import java.io.ByteArrayInputStream
 import java.io.IOException
 import java.io.InputStream

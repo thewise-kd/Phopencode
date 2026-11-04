@@ -488,6 +488,222 @@ class SftpReaderTest {
         assertEquals(before, server.requests(), "No request may reach the server")
     }
 
+    // Symlinks and the root
+
+    /** Every read that would follow [path] is refused, with nothing of the outside in the failure. */
+    private suspend fun assertConfined(client: SftpReader, path: String) {
+        val opens = server.requests(SftpConstants.SSH_FXP_OPEN) + server.requests(SftpConstants.SSH_FXP_OPENDIR)
+        val bytes = server.bytesRead()
+        val failures = listOf<Pair<String, suspend () -> Unit>>(
+            "list" to { client.list(path) },
+            "stat" to { client.stat(path) },
+            "read" to { client.read(path, 1024) },
+            "download" to { client.download(path, ByteArrayOutputStream()) },
+        ).map { (what, block) ->
+            val failure = assertFailsWith<SshException.Sftp>("$what <$path>") { block() }
+            assertEquals(SftpFailure.PathRejected, failure.failure, "$what <$path>")
+            failure
+        }
+        assertEquals(
+            opens,
+            server.requests(SftpConstants.SSH_FXP_OPEN) + server.requests(SftpConstants.SSH_FXP_OPENDIR),
+            "Nothing may be opened through <$path>",
+        )
+        assertEquals(bytes, server.bytesRead(), "Nothing may be read through <$path>")
+        failures.forEach(::assertQuotesNothingOutside)
+    }
+
+    private fun assertQuotesNothingOutside(failure: Throwable) {
+        var current: Throwable? = failure
+        while (current != null) {
+            val text = current.toString() + current.message.orEmpty()
+            assertFalse(text.contains(outside.toString()), "Text of ${current.javaClass.name}")
+            assertFalse(text.contains(outside.fileName.toString()), "Text of ${current.javaClass.name}")
+            assertFalse(text.contains("outside.txt"), "Text of ${current.javaClass.name}")
+            current = current.cause
+        }
+    }
+
+    private fun outsideFile(): Path = outside.resolve("outside.txt").also { Files.write(it, BYTES) }
+
+    @Test
+    fun `reads through a symlink to a folder outside the root are refused`() = test {
+        outsideFile()
+        link("out", outside.toString())
+        val client = reader()
+        assertConfined(client, "out")
+        assertConfined(client, "out/outside.txt")
+        assertConfined(client, "$root/out/outside.txt")
+        assertFailure(SftpFailure.PathRejected, "lstat through the link") { client.lstat("out/outside.txt") }
+        assertFailure(SftpFailure.PathRejected, "readLink through the link") { client.readLink("out/outside.txt") }
+        // The link entry itself can still be reported.
+        assertEquals(FileEntryType.Symlink, client.lstat("out").type)
+        assertEquals(listOf(FileEntryType.Symlink), client.list("").map { it.type })
+    }
+
+    @Test
+    fun `reads through a symlink to a file outside the root are refused`() = test {
+        val target = outsideFile()
+        link("abs", target.toString())
+        link("rel", root.relativize(target).toString())
+        val client = reader()
+        assertConfined(client, "abs")
+        assertConfined(client, "rel")
+        assertEquals(FileEntryType.Symlink, client.lstat("abs").type)
+        assertEquals(setOf("abs", "rel"), client.list("").map { it.name }.toSet())
+    }
+
+    @Test
+    fun `a dot-dot chain out of the root through symlinks is refused`() = test {
+        outsideFile()
+        file("folder/inside.txt", BYTES)
+        val up = "../../${outside.fileName}"
+        root.resolve("folder/up").createSymbolicLinkPointingTo(root.fileSystem.getPath(up))
+        link("hop", "folder/up")
+        link("loop-out", "folder/../../${outside.fileName}/outside.txt")
+        // Out and back in: refused like a change, the walk must stay inside at every step.
+        link("back", "../${root.fileName}/folder/inside.txt")
+        val client = reader()
+        assertConfined(client, "folder/up")
+        assertConfined(client, "folder/up/outside.txt")
+        assertConfined(client, "hop/outside.txt")
+        assertConfined(client, "loop-out")
+        assertConfined(client, "back")
+        assertContentEquals(BYTES, client.read("folder/inside.txt", 1024))
+    }
+
+    @Test
+    fun `a dangling symlink that would leave the root is refused, not NotFound`() = test {
+        link("gone", "$outside/missing.txt")
+        val client = reader()
+        assertConfined(client, "gone")
+        assertEquals(FileEntryType.Symlink, client.lstat("gone").type)
+    }
+
+    @Test
+    fun `symlinks that stay inside the root keep working`() = test {
+        file("a.txt", BYTES)
+        file("folder/deep.txt", BYTES)
+        link("rel-file", "a.txt")
+        link("abs-file", "$root/a.txt")
+        link("rel-folder", "folder")
+        link("abs-folder", "$root/folder")
+        link("chain", "rel-folder")
+        link("dotdot", "folder/../a.txt")
+        root.resolve("folder/up").createSymbolicLinkPointingTo(root.fileSystem.getPath("../a.txt"))
+        val client = reader()
+        for (path in listOf("rel-file", "abs-file", "dotdot", "folder/up", "chain/up")) {
+            assertContentEquals(BYTES, client.read(path, 1024), path)
+            assertEquals(FileEntryType.File, client.stat(path).type, path)
+            assertEquals("$root/$path", client.stat(path).path, path)
+            val sink = ByteArrayOutputStream()
+            client.download(path, sink)
+            assertContentEquals(BYTES, sink.toByteArray(), path)
+        }
+        for (path in listOf("rel-folder", "abs-folder", "chain")) {
+            assertEquals(FileEntryType.Directory, client.stat(path).type, path)
+            assertEquals(setOf("$root/$path/deep.txt", "$root/$path/up"), client.list(path).map { it.path }.toSet(), path)
+            assertContentEquals(BYTES, client.read("$path/deep.txt", 1024), path)
+            assertEquals(FileEntryType.Symlink, client.lstat("$path/up").type, path)
+            assertEquals("../a.txt", client.readLink("$path/up"), path)
+        }
+    }
+
+    @Test
+    fun `a root reached through a symlink confines reads to its real folder`() = test {
+        val real = root.resolve("real root").createDirectory()
+        Files.write(real.resolve("ö.txt"), BYTES)
+        outsideFile()
+        val entry = outside.resolve("entry").createSymbolicLinkPointingTo(real)
+        real.resolve("out").createSymbolicLinkPointingTo(outside)
+        real.resolve("by-real").createSymbolicLinkPointingTo(real.resolve("ö.txt"))
+        real.resolve("by-logical").createSymbolicLinkPointingTo(entry.resolve("ö.txt"))
+        val client = reader(entry.toString())
+        assertEquals(entry.toString(), client.root)
+        assertContentEquals(BYTES, client.read("ö.txt", 1024))
+        assertContentEquals(BYTES, client.read("$entry/ö.txt", 1024))
+        assertContentEquals(BYTES, client.read("by-real", 1024))
+        assertContentEquals(BYTES, client.read("by-logical", 1024))
+        assertEquals("$entry/ö.txt", client.list("").single { it.name == "ö.txt" }.path)
+        for (op in listOf<suspend () -> Unit>({ client.list("out") }, { client.read("out/outside.txt", 1024) })) {
+            assertFailure(SftpFailure.PathRejected, "through the link out") { op() }
+        }
+    }
+
+    @Test
+    fun `lstat and readLink of a symlinked root describe the link, other reads go through it`() = test {
+        val real = root.resolve("real root").createDirectory()
+        Files.write(real.resolve("a.txt"), BYTES)
+        val entry = outside.resolve("entry").createSymbolicLinkPointingTo(real)
+        val client = reader(entry.toString())
+        for (path in listOf("", entry.toString())) {
+            val link = client.lstat(path)
+            assertEquals(FileEntryType.Symlink, link.type, "lstat <$path>")
+            assertEquals(entry.toString(), link.path, "lstat <$path>")
+            assertEquals(real.toString(), client.readLink(path), "readLink <$path>")
+            assertEquals(FileEntryType.Directory, client.stat(path).type, "stat <$path>")
+            assertEquals(listOf("a.txt"), client.list(path).map { it.name }, "list <$path>")
+        }
+    }
+
+    @Test
+    fun `a symlink target with a trailing slash must be a folder`() = test {
+        file("a.txt", BYTES)
+        file("folder/deep.txt", BYTES)
+        // java.nio drops a trailing slash from a link target; ln stores it as given.
+        for ((name, target) in listOf("file-slash" to "a.txt/", "folder-slash" to "folder/")) {
+            val ln = ProcessBuilder("ln", "-s", target, root.resolve(name).toString()).inheritIO().start()
+            assertEquals(0, ln.waitFor(), "ln")
+        }
+        val client = reader()
+        assertEquals("a.txt/", client.readLink("file-slash"), "The server must keep the slash")
+        assertFailure(SftpFailure.NotFound, "read") { client.read("file-slash", 1024) }
+        assertFailure(SftpFailure.NotFound, "stat") { client.stat("file-slash") }
+        assertFailure(SftpFailure.NotFound, "list") { client.list("file-slash") }
+        assertFailure(SftpFailure.NotFound, "download") { client.download("file-slash", ByteArrayOutputStream()) }
+        assertEquals(FileEntryType.Directory, client.stat("folder-slash").type)
+        assertEquals(listOf("deep.txt"), client.list("folder-slash").map { it.name })
+        assertContentEquals(BYTES, client.read("folder-slash/deep.txt", 1024))
+    }
+
+    @Test
+    fun `cancelling stops the path walk before its next request`() = test {
+        val deep = (1..DEEP_SEGMENTS).joinToString("/") { "d$it" }
+        root.resolve(deep).createDirectories()
+        val client = reader()
+        // The real root is found here, so the walk below is only the path's own segments.
+        client.stat("")
+        var thrown: Throwable? = null
+        val lstats = server.requests(SftpConstants.SSH_FXP_LSTAT)
+        val opens = server.requests(SftpConstants.SSH_FXP_OPENDIR)
+        coroutineScope {
+            val listing = launch {
+                try {
+                    client.list(deep)
+                } catch (failure: Throwable) {
+                    thrown = failure
+                    throw failure
+                }
+            }
+            server.onRequest = { type -> if (type == SftpConstants.SSH_FXP_LSTAT) listing.cancel() }
+        }
+        server.onRequest = {}
+        assertTrue(thrown is CancellationException, "Cancelling must not become <$thrown>")
+        assertEquals(1, server.requests(SftpConstants.SSH_FXP_LSTAT) - lstats, "LSTAT requests after cancelling")
+        assertEquals(opens, server.requests(SftpConstants.SSH_FXP_OPENDIR), "No folder may be opened")
+        // The reader stays usable.
+        assertEquals(emptyList(), client.list(deep))
+    }
+
+    @Test
+    fun `a root of slash follows every symlink`() = test {
+        val target = outsideFile()
+        link("out", outside.toString())
+        val whole = reader("/")
+        assertContentEquals(BYTES, whole.read("$root/out/outside.txt", 1024))
+        assertContentEquals(BYTES, whole.read(target.toString(), 1024))
+    }
+
     @Test
     fun `relative and absolute paths inside the root reach the same file`() = test {
         file("a.txt", BYTES)
@@ -629,6 +845,7 @@ class SftpReaderTest {
 
         /** With [LONG_NAME], enough for the server to answer READDIR in many batches. */
         const val MANY_ENTRIES = 600
+        const val DEEP_SEGMENTS = 20
         val LONG_NAME = "uzun-dosya-adı-".repeat(4)
         val ACCEPT = HostKeyVerifier { _, _ -> HostKeyDecision.Accept }
         val BYTES = byteArrayOf(0, 1, -1, 127, -128, 10, 13)

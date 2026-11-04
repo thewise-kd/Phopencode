@@ -1,8 +1,7 @@
-package io.github.thewisekd.phopencode.core.ssh.sftp.write
+package io.github.thewisekd.phopencode.core.ssh.sftp
 
 import io.github.thewisekd.phopencode.core.ssh.api.SftpFailure
 import io.github.thewisekd.phopencode.core.ssh.api.SshException
-import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot
 import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot.Companion.child
 import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot.Companion.parentOf
 import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot.Companion.rejected
@@ -14,8 +13,9 @@ import net.schmizz.sshj.sftp.SFTPException
 
 /**
  * Where a path really is, found with `lstat` and `readlink` one segment at a time, the way the
- * kernel walks it. The server's `realpath` is not used for this: OpenSSH resolves symlinks there,
- * but other servers (MINA among them) only tidy the text.
+ * kernel walks it. The read and the write side share it, so that both are confined alike. The
+ * server's `realpath` is not used for this: OpenSSH resolves symlinks there, but other servers
+ * (MINA among them) only tidy the text.
  *
  * A symlink target is never tidied as text: a `..` after a symlinked segment goes to the parent of
  * that link's real target, so `a/../x` with `a -> sub/deep` is `sub/x`, not `x`.
@@ -27,7 +27,8 @@ import net.schmizz.sshj.sftp.SFTPException
  * anything goes.
  *
  * A segment with more after it must be a folder, after symlinks; anything else fails with
- * [SftpFailure.NotFound] before a following `..` applies, as the kernel's ENOTDIR does.
+ * [SftpFailure.NotFound] before a following `..` applies, as the kernel's ENOTDIR does. So must the
+ * target of a symlink whose stored target ends with `/`.
  *
  * A missing segment ends the walk: the rest is appended as text, and the request that follows
  * reports it missing; a `..` after a missing segment fails with [SftpFailure.NotFound], as in the
@@ -42,14 +43,17 @@ internal class RealPaths(private val engine: SFTPEngine, private val bounds: Bou
      *
      * @param followLast Whether a symlink in the last segment is followed too. Without it, the
      *   result is the real folder plus the last name as given.
+     * @param checkpoint Runs before each request to the server; it can stop the walk by throwing,
+     *   for example when the caller is cancelled.
      */
-    fun locate(path: String, followLast: Boolean): String {
+    fun locate(path: String, followLast: Boolean, checkpoint: () -> Unit = {}): String {
         val (start, rest) = start(path.split('/').filter { it.isNotEmpty() })
-        return walk(start, rest, followLast, Hops())
+        return walk(start, rest, followLast, Hops(checkpoint))
     }
 
     /** The real location of the target of the symlink at [link], a real path; see [locate]. */
-    fun locateLink(link: String, followLast: Boolean): String = follow(link, followLast, Hops())
+    fun locateLink(link: String, followLast: Boolean, checkpoint: () -> Unit = {}): String =
+        follow(link, followLast, Hops(checkpoint))
 
     fun lstatOrNull(path: String): FileAttributes? = try {
         engine.lstat(path)
@@ -61,8 +65,13 @@ internal class RealPaths(private val engine: SFTPEngine, private val bounds: Bou
         }
     }
 
-    private class Hops {
+    private class Hops(val checkpoint: () -> Unit) {
         var count = 0
+    }
+
+    private fun lstatOrNull(path: String, hops: Hops): FileAttributes? {
+        hops.checkpoint()
+        return lstatOrNull(path)
     }
 
     /**
@@ -82,9 +91,12 @@ internal class RealPaths(private val engine: SFTPEngine, private val bounds: Bou
 
     private fun follow(link: String, followLast: Boolean, hops: Hops): String {
         if (++hops.count > MAX_SYMLINKS) throw SshException.Sftp(SftpFailure.Failed)
+        hops.checkpoint()
         val target = engine.readLink(link)
         if (target.isEmpty() || '\u0000' in target) throw SshException.Sftp(SftpFailure.Failed)
-        val segments = target.split('/').filter { it.isNotEmpty() }
+        // A trailing `/` makes the last name a folder to enter, as the kernel reads it.
+        val names = target.split('/').filter { it.isNotEmpty() }
+        val segments = if (target.endsWith('/')) names + "." else names
         val (start, rest) = if (target.startsWith('/')) start(segments) else parentOf(link) to segments
         return walk(start, rest, followLast, hops)
     }
@@ -103,11 +115,11 @@ internal class RealPaths(private val engine: SFTPEngine, private val bounds: Bou
                     if (last && !followLast) {
                         next
                     } else {
-                        val attributes = lstatOrNull(next) ?: return missing(next, rest)
+                        val attributes = lstatOrNull(next, hops) ?: return missing(next, rest)
                         if (attributes.type == FileMode.Type.SYMLINK) {
                             val target = follow(next, followLast = true, hops)
                             if (!last) {
-                                val resolved = lstatOrNull(target) ?: return missing(target, rest)
+                                val resolved = lstatOrNull(target, hops) ?: return missing(target, rest)
                                 requireFolder(resolved)
                             }
                             target

@@ -26,11 +26,10 @@ import net.schmizz.sshj.sftp.SFTPClient
  * ([SftpWriter]) over one SFTP channel, which the session tracks and this client closes once.
  *
  * Paths: both sides check the text with the same [SftpRoot] rules before any request, so a path is
- * rejected or accepted alike by a read and a change. Changes then walk the path on the server like
- * the kernel does and stay inside the real root at every step and symlink hop (see [SftpWriter]).
- * Reads do not: they follow symlinks wherever they point, also outside the root. Whether reads
- * should be confined the same way is a pending user decision; until it is made, a symlink inside
- * the root can show a file outside it, but never let a change reach one.
+ * rejected or accepted alike by a read and a change. Both then walk the path on the server like
+ * the kernel does, with [RealPaths], and stay inside the real root at every step and symlink hop
+ * (see [SftpReader] and [SftpWriter]): a symlink inside the root that points outside can be listed,
+ * `lstat`ed and `readLink`ed as a link, but neither read nor changed through.
  *
  * Failures are [SshException.Sftp], or [SshException.Disconnected] once the connection is gone. A
  * failure of the caller's source stream while writing is reported as [SftpFailure.Failed] (or

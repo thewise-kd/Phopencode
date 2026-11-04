@@ -4,6 +4,7 @@ import io.github.thewisekd.phopencode.core.ssh.api.SftpClient
 import io.github.thewisekd.phopencode.core.ssh.api.SftpFailure
 import io.github.thewisekd.phopencode.core.ssh.api.SftpWriteOptions
 import io.github.thewisekd.phopencode.core.ssh.api.SshException
+import io.github.thewisekd.phopencode.core.ssh.sftp.RealPaths
 import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot
 import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot.Companion.child
 import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot.Companion.nameOf

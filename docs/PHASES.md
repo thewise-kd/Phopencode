@@ -293,6 +293,7 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
 |---|---|---|---|---|---|
 | P3.11 | SSH feature wiring | P3.2, P3.3, P3.4, P3.5 | `core/ssh/…/connect/SessionFeatures.kt`, `core/ssh/…/connect/SshjConnector.kt` (default features only), `core/ssh/…/sftp/` (main and test: the `SftpClient` composite, the shared `SftpRoot` path rules and the read/write edits that use them), `core/ssh/…/exec/SshjRemoteExec.kt` (real-time timeout) and its test, `core/ssh/…/tunnel/` (socket tracking from creation) and its test, `core/ssh/src/test/…/wiring/`, `core/remote/src/test/…/wiring/` (the core/testing contracts; core/ssh cannot depend on core/testing), `docs/PHASES.md` (this row) | The default SshjConnector offers exec, SFTP and tunnels; one SftpClient composes read and write over one channel; core/testing SSH and SFTP contracts pass against the real implementation | `PI` |
+| P3.12 | SFTP read confinement | P3.11 | `core/ssh/…/sftp/read/` (main and test), `core/ssh/…/sftp/SftpRoot.kt`, `core/ssh/…/sftp/SshjSftpClient.kt` and their tests, `core/ssh/…/sftp/RealPaths.kt` (moved from `sftp/write/`, with only that move's edits in `sftp/write/`), `core/remote/src/test/…/wiring/` (contract adjustments only), `docs/PHASES.md` (this row) | Reads (list, stat, read) through a symlink leaving the root are refused; links inside the root work; no outside path appears in errors | `PI` |
 
 **G3 (parallel)**
 

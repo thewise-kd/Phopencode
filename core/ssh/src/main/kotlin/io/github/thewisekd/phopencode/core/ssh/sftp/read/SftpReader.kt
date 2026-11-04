@@ -6,6 +6,7 @@ import io.github.thewisekd.phopencode.core.model.FileEntryType
 import io.github.thewisekd.phopencode.core.ssh.api.SftpFailure
 import io.github.thewisekd.phopencode.core.ssh.api.SshException
 import io.github.thewisekd.phopencode.core.ssh.connect.RedactedFailure
+import io.github.thewisekd.phopencode.core.ssh.sftp.RealPaths
 import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot
 import java.io.ByteArrayOutputStream
 import java.io.Closeable
@@ -34,9 +35,19 @@ import net.schmizz.sshj.transport.TransportException
  * [read] and [download], with the signatures and the meaning the `SftpClient` KDoc gives them.
  *
  * Every path goes through [SftpRoot] first, the path policy the write side shares, so a rejected
- * path never reaches the server. Entries carry absolute, normalised paths, which this reader
- * accepts back. Reads follow symlinks wherever they lead, since only changes are confined by where
- * a link points.
+ * path never reaches the server. Then, on the server, [RealPaths] walks it like the kernel does,
+ * with the same bounds as the write side: every segment, `..` and symlink hop must stay inside the
+ * real root, else the read fails with [SftpFailure.PathRejected], fixed text and no cause, so no
+ * outside path is revealed. A symlink inside the root that points inside it works as usual. This
+ * costs one `lstat` per path segment, and the walk and the request are separate, so something that
+ * swaps a folder for a symlink in between can still win that race.
+ *
+ * [lstat] and [readLink] do not follow the last segment: the link entry itself is reported, and
+ * [readLink] gives its target as stored, wherever it points. A link in an earlier segment is
+ * followed and must stay inside, as for any other read. For the root itself they look at the root
+ * as configured, so a symlinked root reports as the link. [list] reports symlinks as symlinks without
+ * following them. Entries carry absolute, normalised paths under the root as configured (not the
+ * real one), which this reader accepts back.
  *
  * Failures are [SshException.Sftp], or [SshException.Disconnected] once [connected] is false. Their
  * causes are redacted: sshj's messages can quote a path or the server's text. A failure of the
@@ -56,6 +67,10 @@ internal class SftpReader(
     private val paths = SftpRoot.of(root)
     private val closed = AtomicBoolean()
 
+    /** Bound to the real root, found on the server at the first read that needs it. */
+    @Volatile
+    private var realPaths: RealPaths? = null
+
     val root: String get() = paths.path
 
     /**
@@ -67,7 +82,7 @@ internal class SftpReader(
     suspend fun list(path: String): List<FileEntry> {
         val folder = paths.resolve(path)
         return remote {
-            sftpCall { sftp.sftpEngine.openDir(folder) }.closing { directory ->
+            sftpCall { sftp.sftpEngine.openDir(locate(folder, followLast = true)) }.closing { directory ->
                 val untilCancelled = RemoteResourceSelector {
                     if (isActive) RemoteResourceSelector.Result.ACCEPT else RemoteResourceSelector.Result.BREAK
                 }
@@ -81,19 +96,19 @@ internal class SftpReader(
     /** Follows symlinks. */
     suspend fun stat(path: String): FileEntry {
         val remotePath = paths.resolve(path)
-        return remote { entry(remotePath, sftpCall { sftp.sftpEngine.stat(remotePath) }) }
+        return remote { entry(remotePath, sftpCall { sftp.sftpEngine.stat(locate(remotePath, followLast = true)) }) }
     }
 
     /** Does not follow symlinks. */
     suspend fun lstat(path: String): FileEntry {
         val remotePath = paths.resolve(path)
-        return remote { entry(remotePath, sftpCall { sftp.sftpEngine.lstat(remotePath) }) }
+        return remote { entry(remotePath, sftpCall { sftp.sftpEngine.lstat(locate(remotePath, followLast = false)) }) }
     }
 
     /** A symlink's target as stored, which may be relative. */
     suspend fun readLink(path: String): String {
         val remotePath = paths.resolve(path)
-        return remote { sftpCall { sftp.sftpEngine.readLink(remotePath) } }
+        return remote { sftpCall { sftp.sftpEngine.readLink(locate(remotePath, followLast = false)) } }
     }
 
     /**
@@ -105,7 +120,7 @@ internal class SftpReader(
         require(maxBytes >= 0) { "The limit must not be negative" }
         val remotePath = paths.resolve(path)
         return remote {
-            open(remotePath).closing { file ->
+            open(locate(remotePath, followLast = true)).closing { file ->
                 val attributes = sftpCall { file.fetchAttributes() }
                 if (attributes.has(FileAttributes.Flag.SIZE) && attributes.size > maxBytes) throw tooLarge()
                 // One byte past the limit tells a file of exactly maxBytes from a larger one.
@@ -131,7 +146,9 @@ internal class SftpReader(
     suspend fun download(path: String, sink: OutputStream, onProgress: (Long) -> Unit = {}): Long {
         val remotePath = paths.resolve(path)
         return remote {
-            open(remotePath).closing { file -> copy(stream(file, length = 0), sink, onProgress = onProgress) }
+            open(locate(remotePath, followLast = true)).closing { file ->
+                copy(stream(file, length = 0), sink, onProgress = onProgress)
+            }
         }
     }
 
@@ -141,6 +158,34 @@ internal class SftpReader(
     }
 
     override fun toString(): String = "SftpReader(closed=${closed.get()})"
+
+    /**
+     * The real location of [logical], a path [paths] accepted, after a walk that stays inside the
+     * real root; see [RealPaths.locate].
+     *
+     * Without [followLast], the root itself is the root as configured, not followed: a symlinked
+     * root then reports as the link, as any other last segment does.
+     *
+     * Cancellation is checked before each request of the walk.
+     */
+    private fun CoroutineScope.locate(logical: String, followLast: Boolean): String = sftpCall {
+        if (!followLast && logical == paths.path) return@sftpCall logical
+        val checkpoint = { ensureActive() }
+        val bounded = realPaths ?: bind(checkpoint)
+        bounded.locate(logical, followLast, checkpoint)
+    }
+
+    /**
+     * Finds the real root. It is kept once it exists, so that a root that is missing now is looked
+     * up again later.
+     */
+    private fun bind(checkpoint: () -> Unit): RealPaths {
+        val free = RealPaths(sftp.sftpEngine, null)
+        val real = free.locate(paths.path, followLast = true, checkpoint)
+        val bounded = RealPaths(sftp.sftpEngine, RealPaths.Bounds(SftpRoot.of(real), paths))
+        if (free.lstatOrNull(real) != null) realPaths = bounded
+        return bounded
+    }
 
     private fun open(remotePath: String): RemoteFile =
         sftpCall { sftp.sftpEngine.open(remotePath, EnumSet.of(OpenMode.READ)) }

@@ -152,14 +152,19 @@ class SshjSftpClientTest {
     }
 
     @Test
-    fun `reads follow a symlink out of the root, while changes through it are rejected`() = test {
+    fun `reads and changes through a symlink out of the root are both rejected`() = test {
         val outside = server.home.resolve("outside").createDirectory()
         outside.resolve("secret.txt").writeText("outside")
         // Relative: the server's file system is rooted at its home, the link lives on the real one.
         work.resolve("out").createSymbolicLinkPointingTo(Path.of("../outside"))
+        work.resolve("in.txt").writeText("inside")
+        work.resolve("in").createSymbolicLinkPointingTo(Path.of("in.txt"))
         val client = session().openSftp("/work").closeLater()
-        // Pending a user decision: reads are not confined by where a link points.
-        assertEquals("outside", client.read("out/secret.txt", 1024).decodeToString())
+        assertFailure(SftpFailure.PathRejected) { client.read("out/secret.txt", 1024) }
+        assertFailure(SftpFailure.PathRejected) { client.stat("out/secret.txt") }
+        assertFailure(SftpFailure.PathRejected) { client.stat("out") }
+        assertFailure(SftpFailure.PathRejected) { client.list("out") }
+        assertEquals("inside", client.read("in", 1024).decodeToString())
         assertFailure(SftpFailure.PathRejected) {
             client.writeAtomic("out/secret.txt", bytes("changed"), SftpWriteOptions(overwrite = true))
         }

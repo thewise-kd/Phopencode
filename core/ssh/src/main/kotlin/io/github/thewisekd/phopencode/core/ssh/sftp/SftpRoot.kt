@@ -12,8 +12,8 @@ import io.github.thewisekd.phopencode.core.ssh.api.SshException
  * is decoded: names are opaque bytes to SFTP, so `%2e%2e` or `a\..\b` are plain names on a POSIX
  * server.
  *
- * Symlinks are not looked at. Where a path really is after symlinks needs the server; the write
- * side checks that with `RealPaths`.
+ * Symlinks are not looked at. Where a path really is after symlinks needs the server; both sides
+ * check that with [RealPaths].
  *
  * @property path Absolute, without empty segments or a trailing `/` (except the root `/`).
  */
