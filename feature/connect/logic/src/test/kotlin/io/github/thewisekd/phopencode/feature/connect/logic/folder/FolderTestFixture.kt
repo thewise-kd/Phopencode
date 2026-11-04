@@ -62,6 +62,11 @@ internal val PROFILE = ServerProfile(
     opencodeCredential = OPENCODE_REF,
 )
 
+internal val OTHER_PROFILE_ID = ServerProfileId("other-profile")
+
+/** A second profile; it reaches the same fake server, so only the profile tells the two apart. */
+internal val OTHER_PROFILE = PROFILE.copy(id = OTHER_PROFILE_ID, name = "Other server")
+
 /** A running `opencode serve` is always found, so a connect walks straight to Connected. */
 private object RunningServer : ServerTools {
     override suspend fun findServer(session: SshSession): ServerLookup =
@@ -134,11 +139,11 @@ internal class FolderConnection(scope: CoroutineScope) {
     }
 
     /** Seeds the login and the host key, then starts the connect; the caller runs the scheduler. */
-    suspend fun connect() {
+    suspend fun connect(profile: ServerProfile = PROFILE) {
         SecretValue.ofText(SSH_PASSWORD).use { secrets.put(SSH_REF, it) }
         SecretValue.ofText(OPENCODE_PASSWORD).use { secrets.put(OPENCODE_REF, it) }
         knownHosts.approve(HostEndpoint(HOST, PORT), HostKeyFingerprint(SERVER_KEY.fingerprintSha256))
-        manager.connect(PROFILE)
+        manager.connect(profile)
     }
 
     /** The SFTP client of the latest open, to inject failures into. */

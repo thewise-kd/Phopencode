@@ -32,7 +32,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -59,21 +58,29 @@ import kotlinx.coroutines.yield
  * text of the path, and stops at `/`.
  *
  * Errors: [FolderError.PermissionDenied] and [FolderError.NotFound] as SFTP reports them;
- * [FolderError.NotConnected] without an active server, without a standing connection, or when the
- * SSH session ends under a request; [FolderError.Failed] for anything else. The folder shown stays
- * after an error, and so does the client, unless the error came from the connection: then the
- * client is closed, and the next request ([FolderIntent.Retry]) opens a new one. A client opened on
- * an earlier connection is replaced too, as the manager closes it when its connection ends, and so
- * is a client opened while another profile was active: a client belongs to one connection and one
- * profile, and a listing belongs to its client's profile. After the active profile changes, a
- * client is opened only on a connection newer than every one seen before the change (see
- * [admit]); until then browsing shows [FolderError.NotConnected].
+ * [FolderError.NotConnected] without an active server, without a connection that serves it (see
+ * below), or when the SSH session ends under a request; [FolderError.Failed] for anything else. The
+ * folder shown stays after an error, and so does the client, unless the error came from the
+ * connection: then the client is closed, and the next request ([FolderIntent.Retry]) opens a new
+ * one.
+ *
+ * Which server: the connection names its own profile in [ConnectionState.Connected.server]. A
+ * client is opened or used only while the state is `Connected`, its `server.profileId` is
+ * [ActiveServer]'s profile, and its generation is the one the client was opened on; otherwise the
+ * client is closed and browsing shows [FolderError.NotConnected]. So the previous server's
+ * connection, still standing for a moment after the active server changes, is never browsed under
+ * the new one, and the new server's connection serves on the next request whichever of the two
+ * changes came first. The state is read again after every suspension that closes a client, and
+ * checked again after a client is opened: a client whose connection changed while it opened is
+ * closed unused. A listing belongs to the profile of the connection whose client made it.
  *
  * Recent folders follow [RecentFoldersStore.observe] for [ActiveServer]'s profile. A storage
  * failure shows [FolderError.StorageFailed], which a later listing does not clear; a failed read
  * is tried again a second later, and again after each further failure. Selecting a folder stores it and then reports it, even when storing failed: the pick matters more than the
- * history. It is stored under the profile active at the pick, and refused with
- * [FolderError.Failed] when that is not the profile the folder shown was listed for.
+ * history. It is stored under the profile the folder shown was listed for, and only while that
+ * is still the active profile, refused with [FolderError.Failed] after a server switch. Before any
+ * listing has finished it is stored under the profile of the connection serving the active
+ * profile at the pick, and refused with [FolderError.NotConnected] when none does.
  *
  * Nothing runs in the constructor; when [scope] ends, the client is closed.
  *
@@ -106,29 +113,17 @@ class DefaultFolderPresenter(
     /** Guarded by [lock]: the [ConnectionState.Connected.generation] [client] was opened in. */
     private var clientGeneration = 0L
 
-    /** Guarded by [lock]: the active profile [client] was opened for. */
+    /** Guarded by [lock]: the [ConnectionState.Connected.server] profile [client] was opened on. */
     private var clientProfile: ServerProfileId? = null
 
     /** Guarded by [lock]: [scope] ended, so no client may be kept. */
     private var closed = false
 
     /**
-     * Guarded by [lock]: the profile of the client that listed the folder shown, or null before the
-     * first listing. A pick is stored only under this profile.
+     * Guarded by [lock]: the `Connected.server.profileId` of the client that listed the folder
+     * shown, or null before the first listing. A pick is stored only under this profile.
      */
     private var shownProfile: ServerProfileId? = null
-
-    /** Guarded by [lock]: the active profile [admit] last saw; see [admit]. */
-    private var admittedProfile: ServerProfileId? = null
-
-    /** Guarded by [lock]: whether [admit] has seen a profile yet. */
-    private var profileSeen = false
-
-    /** Guarded by [lock]: the oldest connection generation that may serve [admittedProfile]. */
-    private var minGeneration = Long.MIN_VALUE
-
-    /** Guarded by [lock]: the newest connection generation seen, under any profile. */
-    private var newestGeneration = Long.MIN_VALUE
 
     /** Guarded by [lock]: the listing under way; a newer one cancels it. */
     private var navigation: Job? = null
@@ -137,20 +132,12 @@ class DefaultFolderPresenter(
     private val browsing = Mutex()
 
     init {
-        // Only reads: the connection standing when the picker opens is trusted for its profile.
-        admit(activeServer.id.value, connection.state.value)
         scope.coroutineContext[Job]?.invokeOnCompletion { shutdown() }
         // The screen's scope may be Dispatchers.Main.immediate, which runs a launch at once; the
         // yield hands it back to the dispatcher, so nothing runs inside the constructor.
         scope.launch {
             yield()
             followRecent()
-        }
-        scope.launch {
-            yield()
-            // Sees each generation as it comes, so that a later profile change knows how new the
-            // connection must be.
-            combine(activeServer.id, connection.state, ::Pair).collect { (profile, state) -> admit(profile, state) }
         }
         browse(FolderPaths.ROOT)
     }
@@ -236,37 +223,64 @@ class DefaultFolderPresenter(
     }
 
     /**
-     * The client for the connection standing now and the active profile, with that profile. One
-     * opened for an earlier connection or another profile is closed and a new one opened, so that a
-     * listing never speaks for a server other than the active one.
+     * A client on the connection standing now, with the profile that connection was made for, which
+     * is the active profile. A client opened on an earlier connection is closed and a new one
+     * opened; without a connection that serves the active profile, the client is closed and
+     * [NotConnectedException] thrown. See [serving].
      */
     private suspend fun client(): Pair<ServerProfileId, SftpClient> {
-        val profile = activeServer.id.value
-        val state = connection.state.value
-        val connected = state as? ConnectionState.Connected
-        if (profile == null || connected == null || !admit(profile, state)) {
-            discardClient()
-            throw NotConnectedException()
-        }
-        val current = synchronized(lock) {
-            client?.takeIf { clientGeneration == connected.generation && clientProfile == profile }
-        }
-        if (current != null) return profile to current
-        discardClient()
-        val opened = connection.openSftp(FolderPaths.ROOT)
-        val keep = synchronized(lock) {
-            if (!closed) {
-                client = opened
-                clientGeneration = connected.generation
-                clientProfile = profile
+        while (true) {
+            val connected = serving() ?: run {
+                discardClient()
+                throw NotConnectedException()
             }
-            !closed
+            val (current, stale) = synchronized(lock) {
+                val matches = clientGeneration == connected.generation && clientProfile == connected.server.profileId
+                if (matches && client != null) client to false else null to (client != null)
+            }
+            if (current != null) return connected.server.profileId to current
+            if (stale) {
+                // Closing suspends, and the connection or the active server may change meanwhile:
+                // read both again.
+                discardClient()
+                continue
+            }
+            val opened = connection.openSftp(FolderPaths.ROOT)
+            // openSftp opens on whatever connection stands when it runs; keep the client only if
+            // that is still the one checked above, so it is never credited to another profile.
+            val now = serving()
+            val same = now != null && now.generation == connected.generation &&
+                now.server.profileId == connected.server.profileId
+            val ended = synchronized(lock) {
+                if (!closed && same) {
+                    client = opened
+                    clientGeneration = connected.generation
+                    clientProfile = connected.server.profileId
+                }
+                closed
+            }
+            if (ended) {
+                closeQuietly(opened)
+                throw CancellationException("The folder picker has ended")
+            }
+            if (!same) {
+                closeQuietly(opened)
+                throw NotConnectedException()
+            }
+            return connected.server.profileId to opened
         }
-        if (!keep) {
-            closeQuietly(opened)
-            throw CancellationException("The folder picker has ended")
-        }
-        return profile to opened
+    }
+
+    /**
+     * The connection standing now if it serves [profile], by default [ActiveServer]'s profile read
+     * now: the state is `Connected` and its `server.profileId` is that profile. Null otherwise,
+     * including without an active profile. A caller that has already read the active profile passes
+     * it, so that a switch between two reads cannot mix two profiles.
+     */
+    private fun serving(profile: ServerProfileId? = activeServer.id.value): ConnectionState.Connected? {
+        if (profile == null) return null
+        val connected = connection.state.value as? ConnectionState.Connected ?: return null
+        return connected.takeIf { it.server.profileId == profile }
     }
 
     private suspend fun discardClient() {
@@ -282,36 +296,6 @@ class DefaultFolderPresenter(
                 // Closing is best effort; the manager closes it with its connection anyway.
             }
         }
-    }
-
-    /**
-     * Whether [state] is a connection that may serve [profile], the active profile; it also records
-     * what it sees. The rule:
-     *
-     * - The first profile seen, when the presenter is built, is served by the connection standing
-     *   then and by any later one: the picker opens on a server already connected.
-     * - Once the active profile changes, only a `Connected` generation newer than every generation
-     *   seen before the change serves it. The connection flow sets [ActiveServer] just before it
-     *   connects, so for a moment the previous server's connection still stands under the new
-     *   profile; its generation is not new enough, and browsing shows
-     *   [FolderError.NotConnected] until the new connection stands. Generations only grow, so a
-     *   Retry then works.
-     *
-     * Generations are seen here when the presenter is built, by a collector of both flows, and on
-     * every request. A connection that came and went unseen between two of these cannot be told
-     * apart; that would need the manager to say which profile it is connected to.
-     */
-    private fun admit(profile: ServerProfileId?, state: ConnectionState): Boolean = synchronized(lock) {
-        if (!profileSeen) {
-            profileSeen = true
-            admittedProfile = profile
-        } else if (profile != admittedProfile) {
-            admittedProfile = profile
-            minGeneration = if (newestGeneration == Long.MIN_VALUE) Long.MIN_VALUE else newestGeneration + 1
-        }
-        val generation = (state as? ConnectionState.Connected)?.generation ?: return@synchronized false
-        newestGeneration = maxOf(newestGeneration, generation)
-        profile != null && generation >= minGeneration
     }
 
     /** Runs once [scope] has ended: closes the client off the screen's thread. */
@@ -343,19 +327,29 @@ class DefaultFolderPresenter(
         }
 
     /**
-     * The profile is read here, when the user picks, not after a launch: a server switch in between
-     * must not put this server's folder in another server's history. A pick made while another
-     * server is active than the one the folder shown was listed for is refused.
+     * The pick is stored under the profile of the connection that listed the folder shown, and only
+     * while that is still the active profile; after a switch to another profile it is refused with
+     * [FolderError.Failed]. Before any listing has finished (a recent folder tapped while `/` loads,
+     * or after it failed), it is stored under the profile of the connection serving the active
+     * profile now (see [serving]), and refused with [FolderError.NotConnected] when none does.
+     * Everything is read here, when the user picks, not after a launch, so a server switch in
+     * between cannot put this server's folder in another server's history.
      */
     private fun select(requested: String) {
-        val id = activeServer.id.value
-        if (id == null) {
+        val active = activeServer.id.value
+        val listedFor = synchronized(lock) { shownProfile }
+        if (active == null) {
             mutableState.update { it.copy(error = FolderError.NotConnected) }
             return
         }
-        val listedFor = synchronized(lock) { shownProfile }
-        if (listedFor != null && listedFor != id) {
+        if (listedFor != null && listedFor != active) {
             mutableState.update { it.copy(error = FolderError.Failed) }
+            return
+        }
+        // The profile read above, not read again: a switch in between must not change whose it is.
+        val id = listedFor ?: serving(active)?.server?.profileId
+        if (id == null) {
+            mutableState.update { it.copy(error = FolderError.NotConnected) }
             return
         }
         val path = canonical(requested) ?: return

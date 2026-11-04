@@ -49,13 +49,14 @@ class DefaultFolderPresenterTest {
         fun presenter(
             scope: CoroutineScope = test.backgroundScope,
             store: RecentFoldersStore = recent,
+            // Closes on the test's virtual time, so runCurrent sees them done.
+            closer: CoroutineDispatcher = StandardTestDispatcher(test.testScheduler),
         ): DefaultFolderPresenter = DefaultFolderPresenter(
             connection = connection.manager,
             activeServer = activeServer,
             recentFolders = store,
             scope = scope,
-            // Closes on the test's virtual time, so runCurrent sees them done.
-            closer = StandardTestDispatcher(test.testScheduler),
+            closer = closer,
         ).also { presenter ->
             test.backgroundScope.launch { presenter.events.collect { events += it } }
         }
@@ -92,6 +93,22 @@ class DefaultFolderPresenterTest {
             assertIs<ConnectionState.Connected>(env.connection.manager.state.value)
         }
         return env
+    }
+
+    /** Holds every task until [release], so that a close suspends for as long as a test wants. */
+    private class HeldDispatcher : CoroutineDispatcher() {
+        private val held = mutableListOf<Runnable>()
+
+        val waiting: Int get() = synchronized(held) { held.size }
+
+        override fun dispatch(context: CoroutineContext, block: Runnable) {
+            synchronized(held) { held += block }
+        }
+
+        fun release() {
+            val tasks = synchronized(held) { held.toList().also { held.clear() } }
+            tasks.forEach(Runnable::run)
+        }
     }
 
     private val DefaultFolderPresenter.names: List<String> get() = state.value.entries.map { it.name }
@@ -495,6 +512,68 @@ class DefaultFolderPresenterTest {
     }
 
     @Test
+    fun `select before any listing has finished stores under the serving connection's profile`() = runTest {
+        val env = env()
+        val presenter = env.presenter()
+
+        // A tap on a recent folder while the root is still loading.
+        presenter.onIntent(FolderIntent.Select("/srv/app"))
+        runCurrent()
+
+        assertEquals(listOf("/srv/app"), env.recent.list(PROFILE_ID))
+        assertEquals(listOf<FolderEvent>(FolderEvent.Selected("/srv/app")), env.events)
+    }
+
+    @Test
+    fun `select after the first listing failed stores under the serving connection's profile`() = runTest {
+        val env = env(connect = false)
+        val presenter = env.presenter()
+        runCurrent()
+        // The root failed, so nothing has been listed; then the connection stands.
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        assertNull(presenter.state.value.path)
+        env.connection.connect()
+        runCurrent()
+
+        presenter.onIntent(FolderIntent.Select("/data"))
+        runCurrent()
+
+        assertEquals(listOf("/data"), env.recent.list(PROFILE_ID))
+        assertEquals(listOf<FolderEvent>(FolderEvent.Selected("/data")), env.events)
+    }
+
+    @Test
+    fun `select before any listing without a connection shows NotConnected and stores nothing`() = runTest {
+        val env = env(connect = false)
+        val presenter = env.presenter()
+        runCurrent()
+        assertNull(presenter.state.value.path)
+
+        presenter.onIntent(FolderIntent.Select("/srv/app"))
+        runCurrent()
+
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        assertTrue(env.events.isEmpty())
+        assertTrue(env.recent.list(PROFILE_ID).isEmpty())
+    }
+
+    @Test
+    fun `select before any listing while another profile's connection stands shows NotConnected`() = runTest {
+        val env = env(active = false)
+        env.activeServer.set(OTHER_PROFILE_ID)
+        val presenter = env.presenter()
+        assertEquals(PROFILE_ID, assertIs<ConnectionState.Connected>(env.connection.manager.state.value).server.profileId)
+
+        presenter.onIntent(FolderIntent.Select("/srv/app"))
+        runCurrent()
+
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        assertTrue(env.events.isEmpty())
+        assertTrue(env.recent.list(PROFILE_ID).isEmpty())
+        assertTrue(env.recent.list(OTHER_PROFILE_ID).isEmpty())
+    }
+
+    @Test
     fun `a server switch while the pick is being stored keeps it in the original server's history`() = runTest {
         val env = env()
         val other = ServerProfileId("other-profile")
@@ -582,7 +661,7 @@ class DefaultFolderPresenterTest {
         runCurrent()
         assertEquals(FolderError.NotConnected, presenter.state.value.error)
 
-        env.connection.manager.connect(PROFILE)
+        env.connection.connect(OTHER_PROFILE)
         runCurrent()
         val fresh = assertIs<ConnectionState.Connected>(env.connection.manager.state.value).generation
         assertTrue(fresh > old)
@@ -602,6 +681,153 @@ class DefaultFolderPresenterTest {
         assertEquals(listOf("/srv/app"), env.recent.list(other))
         assertTrue(env.recent.list(PROFILE_ID).isEmpty())
         assertEquals(listOf<FolderEvent>(FolderEvent.Selected("/srv/app")), env.events)
+    }
+
+    @Test
+    fun `a connection to another profile does not serve the active one, even when the picker opens on it`() = runTest {
+        val env = env(active = false)
+        env.activeServer.set(OTHER_PROFILE_ID)
+        val presenter = env.presenter()
+        runCurrent()
+
+        val connected = assertIs<ConnectionState.Connected>(env.connection.manager.state.value)
+        assertEquals(PROFILE_ID, connected.server.profileId)
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        assertNull(presenter.state.value.path)
+        assertTrue(env.connection.log.roots.isEmpty(), "no client is opened on another profile's connection")
+
+        presenter.onIntent(FolderIntent.Retry)
+        runCurrent()
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        assertTrue(env.connection.log.roots.isEmpty())
+
+        presenter.onIntent(FolderIntent.Select("/srv/app"))
+        runCurrent()
+        assertTrue(env.events.isEmpty())
+        assertTrue(env.recent.list(OTHER_PROFILE_ID).isEmpty())
+        assertTrue(env.recent.list(PROFILE_ID).isEmpty())
+    }
+
+    @Test
+    fun `the new profile's connection serves on retry when it stands before the active server changes`() = runTest {
+        switchThenRetry(connectFirst = true)
+    }
+
+    @Test
+    fun `the new profile's connection serves on retry when the active server changes before it stands`() = runTest {
+        switchThenRetry(connectFirst = false)
+    }
+
+    /** Switches from [PROFILE] to [OTHER_PROFILE], the connection and [ActiveServer] in either order. */
+    private suspend fun TestScope.switchThenRetry(connectFirst: Boolean) {
+        val env = env()
+        val presenter = env.presenter()
+        runCurrent()
+        open(presenter, "/srv")
+
+        if (connectFirst) {
+            env.connection.connect(OTHER_PROFILE)
+            runCurrent()
+            // The presenter sees the new connection while the previous profile is still active.
+            presenter.onIntent(FolderIntent.Retry)
+            runCurrent()
+            assertEquals(FolderError.NotConnected, presenter.state.value.error)
+            env.activeServer.set(OTHER_PROFILE_ID)
+            runCurrent()
+        } else {
+            env.activeServer.set(OTHER_PROFILE_ID)
+            runCurrent()
+            presenter.onIntent(FolderIntent.Retry)
+            runCurrent()
+            assertEquals(FolderError.NotConnected, presenter.state.value.error)
+            env.connection.connect(OTHER_PROFILE)
+            runCurrent()
+        }
+        val connected = assertIs<ConnectionState.Connected>(env.connection.manager.state.value)
+        assertEquals(OTHER_PROFILE_ID, connected.server.profileId)
+
+        presenter.onIntent(FolderIntent.Retry)
+        runCurrent()
+
+        assertNull(presenter.state.value.error)
+        assertEquals("/srv", presenter.state.value.path)
+        assertEquals(listOf("alpha", "app", "Beta", "link-dir", "locked"), presenter.names)
+        assertEquals(0, env.connection.log.opened.last().closes.get())
+
+        presenter.onIntent(FolderIntent.Select("/srv/app"))
+        runCurrent()
+
+        assertEquals(listOf("/srv/app"), env.recent.list(OTHER_PROFILE_ID))
+        assertTrue(env.recent.list(PROFILE_ID).isEmpty())
+        assertEquals(listOf<FolderEvent>(FolderEvent.Selected("/srv/app")), env.events)
+    }
+
+    /**
+     * Lists `/srv` on [PROFILE], reconnects it so the client is stale, then asks for a Retry whose
+     * close of the stale client is held; while it is held, [OTHER_PROFILE] connects and becomes
+     * active. Returns with the close still held.
+     */
+    private suspend fun TestScope.switchWhileDiscarding(env: Env, closer: HeldDispatcher): DefaultFolderPresenter {
+        val presenter = env.presenter(closer = closer)
+        runCurrent()
+        open(presenter, "/srv")
+        assertEquals(1, env.connection.log.opened.size)
+
+        env.connection.connector.sessions.single().loseConnection()
+        runCurrent()
+        advanceTimeBy(1.seconds + 1.milliseconds)
+        runCurrent()
+        assertEquals(PROFILE_ID, assertIs<ConnectionState.Connected>(env.connection.manager.state.value).server.profileId)
+
+        presenter.onIntent(FolderIntent.Retry)
+        runCurrent()
+        assertEquals(1, closer.waiting, "the stale client's close is held")
+
+        env.activeServer.set(OTHER_PROFILE_ID)
+        env.connection.connect(OTHER_PROFILE)
+        runCurrent()
+        assertEquals(
+            OTHER_PROFILE_ID,
+            assertIs<ConnectionState.Connected>(env.connection.manager.state.value).server.profileId,
+        )
+        return presenter
+    }
+
+    @Test
+    fun `a listing made after a switch during the close of a stale client belongs to the new profile`() = runTest {
+        val env = env()
+        val closer = HeldDispatcher()
+        val presenter = switchWhileDiscarding(env, closer)
+
+        closer.release()
+        runCurrent()
+
+        assertNull(presenter.state.value.error)
+        assertEquals("/srv", presenter.state.value.path)
+        presenter.onIntent(FolderIntent.Select("/srv/app"))
+        runCurrent()
+        assertEquals(listOf("/srv/app"), env.recent.list(OTHER_PROFILE_ID))
+        assertTrue(env.recent.list(PROFILE_ID).isEmpty())
+        assertEquals(listOf<FolderEvent>(FolderEvent.Selected("/srv/app")), env.events)
+    }
+
+    @Test
+    fun `a switch during the close of a stale client cannot put the new server's listing under the previous profile`() = runTest {
+        val env = env()
+        val closer = HeldDispatcher()
+        val presenter = switchWhileDiscarding(env, closer)
+        // Back to the first profile while the other one's connection stands.
+        env.activeServer.set(PROFILE_ID)
+        runCurrent()
+
+        closer.release()
+        runCurrent()
+        closer.release()
+        runCurrent()
+
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        assertEquals(1, env.connection.log.opened.size, "no client is opened on the other profile's connection")
+        assertEquals(1, env.connection.log.opened.single().closes.get())
     }
 
     @Test
