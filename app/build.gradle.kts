@@ -20,6 +20,9 @@ android {
 dependencies {
     implementation(project(":core:navigation"))
     implementation(project(":core:storage"))
+    // P4.16: the app wires the SSH connector and the connection manager into Koin.
+    implementation(project(":core:ssh"))
+    implementation(project(":core:remote"))
     implementation(project(":core:ui"))
     implementation(project(":core:markdown"))
     implementation(project(":core:codeview"))
@@ -31,7 +34,4 @@ dependencies {
     implementation(project(":feature:git:ui"))
     implementation(project(":feature:notify:ui"))
     implementation(project(":feature:settings:ui"))
-
-    // P3.10: the instrumented tests drive the real SSH stack.
-    androidTestImplementation(project(":core:ssh"))
 }

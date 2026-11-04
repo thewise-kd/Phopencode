@@ -10,8 +10,8 @@ import io.github.thewisekd.phopencode.feature.sessions.ui.sessionsModule
 import io.github.thewisekd.phopencode.feature.settings.ui.settingsModule
 import org.koin.core.module.Module
 
-/** The Koin modules the app starts with: one per feature. */
-val appModules: List<Module> = listOf(
+/** One Koin module per feature. */
+val featureModules: List<Module> = listOf(
     connectModule,
     sessionsModule,
     chatModule,
@@ -21,3 +21,6 @@ val appModules: List<Module> = listOf(
     notifyModule,
     settingsModule,
 )
+
+/** The Koin modules the app starts with: the core objects, then the features that use them. */
+val appModules: List<Module> = coreModules + featureModules
