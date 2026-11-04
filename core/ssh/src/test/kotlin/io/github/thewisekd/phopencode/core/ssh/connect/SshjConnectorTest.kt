@@ -247,21 +247,34 @@ class SshjConnectorTest {
     @Test
     fun `time spent with the verifier does not count against the connect timeout`() = test {
         val server = server()
+        var verifierTime = Duration.ZERO
         val slow = HostKeyVerifier { _, _ ->
-            delay(SHORT_TIMEOUT * 4)
+            val started = TimeSource.Monotonic.markNow()
+            delay(SLOW_VERIFIER)
+            verifierTime = started.elapsedNow()
             HostKeyDecision.Accept
         }
-        assertTrue(connect(server.target, password(), slow, SshConnectOptions(connectTimeout = SHORT_TIMEOUT * 2)).connected.value)
+        val options = SshConnectOptions(connectTimeout = VERIFIER_CASE_TIMEOUT)
+        assertTrue(connect(server.target, password(), slow, options).connected.value)
+        // The verifier alone outlasted the whole timeout, however slow the machine: a connector that
+        // counted its time could not have passed.
+        assertTrue(verifierTime > VERIFIER_CASE_TIMEOUT, "The verifier took only $verifierTime")
     }
 
     @Test
     fun `timeouts run on real time even under a test dispatcher`() = runTest {
         val server = server()
+        var verifierTime = Duration.ZERO
         val slow = HostKeyVerifier { _, _ ->
-            withContext(Dispatchers.Default) { delay(SHORT_TIMEOUT * 3) }
+            val started = TimeSource.Monotonic.markNow()
+            withContext(Dispatchers.Default) { delay(SLOW_VERIFIER) }
+            verifierTime = started.elapsedNow()
             HostKeyDecision.Accept
         }
-        connect(server.target, password(), slow, SshConnectOptions(connectTimeout = SHORT_TIMEOUT * 2)).close()
+        // Virtual time would skip past any timeout while the connect waits on the network, so a
+        // generous one still fails if the timeouts ran on the test dispatcher.
+        connect(server.target, password(), slow, SshConnectOptions(connectTimeout = VERIFIER_CASE_TIMEOUT)).close()
+        assertTrue(verifierTime > VERIFIER_CASE_TIMEOUT, "The verifier took only $verifierTime")
     }
 
     @Test
@@ -503,6 +516,15 @@ class SshjConnectorTest {
     private companion object {
         val TEST_TIMEOUT = 30.seconds
         val SHORT_TIMEOUT = 200.milliseconds
+
+        /**
+         * The connect timeout of the verifier timing tests. It only has to cover the real network
+         * work of a connect, which on a loaded machine can take far longer than [SHORT_TIMEOUT].
+         */
+        val VERIFIER_CASE_TIMEOUT = 2.seconds
+
+        /** Longer than [VERIFIER_CASE_TIMEOUT] on its own, so the verifier's time alone uses it up. */
+        val SLOW_VERIFIER = VERIFIER_CASE_TIMEOUT + 1.seconds
         val ACCEPT = HostKeyVerifier { _, _ -> HostKeyDecision.Accept }
         val REJECT = HostKeyVerifier { _, _ -> HostKeyDecision.Reject }
 

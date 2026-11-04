@@ -3,6 +3,7 @@ package io.github.thewisekd.phopencode.core.api_http.base
 import io.github.thewisekd.phopencode.core.api.ApiError
 import io.github.thewisekd.phopencode.core.api.ApiException
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -22,14 +23,20 @@ import mockwebserver3.RecordedRequest
 class CloseRaceTest {
     private val info = ApiRequest(HttpMethod.GET, listOf("api", "info"))
 
+    /** Made only after close, on a path of its own, so the server can tell it from the racing calls. */
+    private val late = ApiRequest(HttpMethod.GET, listOf("api", "late"))
+
     @Test
     fun `close racing with many starting calls leaves every call finished or Closed`() = runTest {
         withContext(Dispatchers.IO) {
             repeat(ROUNDS) { round ->
                 TestServer().use { t ->
+                    val lateArrivals = AtomicInteger()
                     t.server.dispatcher = object : Dispatcher() {
-                        override fun dispatch(request: RecordedRequest): MockResponse =
-                            MockResponse.Builder().body("{}").headersDelay(20, TimeUnit.MILLISECONDS).build()
+                        override fun dispatch(request: RecordedRequest): MockResponse {
+                            if (request.url.encodedPath == "/api/late") lateArrivals.incrementAndGet()
+                            return MockResponse.Builder().body("{}").headersDelay(20, TimeUnit.MILLISECONDS).build()
+                        }
                     }
                     val calls = List(CALLS) {
                         async { runCatching { t.transport.execute(info) } }
@@ -48,15 +55,16 @@ class CloseRaceTest {
                         }
                     }
 
-                    // Requests written before close may still be on their way into the server; let them land.
-                    delay(SETTLE_MS)
-                    val seen = t.server.requestCount
-                    val late = List(CALLS) { async { apiError { t.transport.execute(info) } } }.awaitAll()
-                    assertTrue(late.all { it == ApiError.Closed }, "round $round: $late")
+                    // A racing call may have written its request before close and still land on the
+                    // server later, however late, so only the calls made after close are counted.
+                    val lateErrors = List(CALLS) { async { apiError { t.transport.execute(late) } } }.awaitAll()
+                    assertTrue(lateErrors.all { it == ApiError.Closed }, "round $round: $lateErrors")
+                    // Gives a wrongly sent late call time to land. The wait only decides how surely a
+                    // bug is seen: without one, nothing arrives however long this takes.
                     delay(SETTLE_MS)
                     // OkHttp counts a call as running until its callback has returned.
                     withTimeout(5_000) { while (t.transport.runningCalls() > 0) delay(5) }
-                    assertEquals(seen, t.server.requestCount, "round $round: a call reached the server after close")
+                    assertEquals(0, lateArrivals.get(), "round $round: a call made after close reached the server")
                 }
             }
         }

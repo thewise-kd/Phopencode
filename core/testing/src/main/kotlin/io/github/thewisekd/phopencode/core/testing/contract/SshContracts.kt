@@ -14,8 +14,11 @@ import io.github.thewisekd.phopencode.core.ssh.api.SshSession
 import io.github.thewisekd.phopencode.core.ssh.api.SshTarget
 import java.net.InetSocketAddress
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
@@ -158,16 +161,22 @@ fun sshConnectorContract(newHarness: suspend () -> SshConnectorHarness): List<Co
     }
     case("time spent with the verifier does not count against the connect timeout") {
         val harness = newHarness()
+        var verifierTime = Duration.ZERO
         val slow = HostKeyVerifier { _, _ ->
-            withContext(Dispatchers.Default) { delay(SHORT_TIMEOUT * 3) }
+            val started = TimeSource.Monotonic.markNow()
+            withContext(Dispatchers.Default) { delay(SLOW_VERIFIER) }
+            verifierTime = started.elapsedNow()
             HostKeyDecision.Accept
         }
         harness.connector.connect(
             harness.target,
             harness.goodCredential(),
             slow,
-            SshConnectOptions(connectTimeout = SHORT_TIMEOUT),
+            SshConnectOptions(connectTimeout = VERIFIER_CASE_TIMEOUT),
         ).close()
+        // Whatever the scheduler did, the verifier alone outlasted the whole timeout, so a connector
+        // that counted its time could not have passed.
+        expectThat(verifierTime > VERIFIER_CASE_TIMEOUT, "The verifier took only $verifierTime")
     }
     case("a refused credential fails with AuthenticationFailed") {
         val harness = newHarness()
@@ -220,6 +229,16 @@ fun sshConnectorContract(newHarness: suspend () -> SshConnectorHarness): List<Co
 }
 
 private val SHORT_TIMEOUT = 200.milliseconds
+
+/**
+ * The connect timeout of the verifier timing case. It only has to cover the real network work of a
+ * connect, which on a loaded machine can take far longer than [SHORT_TIMEOUT]; what makes the case
+ * fail for a connector that counts the verifier's time is [SLOW_VERIFIER] exceeding it.
+ */
+private val VERIFIER_CASE_TIMEOUT = 2.seconds
+
+/** Longer than [VERIFIER_CASE_TIMEOUT] on its own, so the verifier's time alone uses it up. */
+private val SLOW_VERIFIER = VERIFIER_CASE_TIMEOUT + 1.seconds
 
 // Real shell commands, so that a real implementation runs them unchanged. The fake's harness
 // scripts each one.
