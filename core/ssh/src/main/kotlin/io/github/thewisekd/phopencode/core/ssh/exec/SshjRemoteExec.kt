@@ -85,9 +85,13 @@ internal class SshjRemoteExec(
     private suspend fun execute(request: ExecRequest, sink: Sink): ExecEvent.Exited {
         val opened = AtomicReference<RemoteProcess?>()
         try {
-            val exit = timed(request.timeout) {
-                val process = blocking { RemoteProcess.open(session, opened::set) }
-                drive(process, request, sink)
+            // On IO, the timeout and the polling delays measure real time, also when the caller
+            // runs on a test dispatcher whose virtual clock would fire the timeout at once.
+            val exit = withContext(Dispatchers.IO) {
+                timed(request.timeout) {
+                    val process = blocking { RemoteProcess.open(session, opened::set) }
+                    drive(process, request, sink)
+                }
             }
             // The session closed it under us; whatever the server said after that is not the
             // command's own end.

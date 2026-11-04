@@ -4,6 +4,7 @@ import io.github.thewisekd.phopencode.core.ssh.api.SftpFailure
 import io.github.thewisekd.phopencode.core.ssh.api.SshException
 import io.github.thewisekd.phopencode.core.ssh.connect.RedactedFailure
 import io.github.thewisekd.phopencode.core.ssh.connect.SshjSession
+import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
@@ -25,7 +26,7 @@ internal suspend fun openSftpWriter(
     beforeHandOver: (SftpWriter) -> Unit = {},
 ): SftpWriter {
     // A malformed root fails here, before the channel opens.
-    WriteRoot.of(root)
+    SftpRoot.of(root)
     session.requireConnected()
     // Opening is bounded by sshj's timeouts and runs to the end. withContext hands its result back
     // only if the caller is still active, else it drops it; so the writer is kept where the catch

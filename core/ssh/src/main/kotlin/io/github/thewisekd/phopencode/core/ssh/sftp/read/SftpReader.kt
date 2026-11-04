@@ -6,6 +6,7 @@ import io.github.thewisekd.phopencode.core.model.FileEntryType
 import io.github.thewisekd.phopencode.core.ssh.api.SftpFailure
 import io.github.thewisekd.phopencode.core.ssh.api.SshException
 import io.github.thewisekd.phopencode.core.ssh.connect.RedactedFailure
+import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot
 import java.io.ByteArrayOutputStream
 import java.io.Closeable
 import java.io.IOException
@@ -32,9 +33,10 @@ import net.schmizz.sshj.transport.TransportException
  * The read side of `SftpClient` over one sshj SFTP channel: [list], [stat], [lstat], [readLink],
  * [read] and [download], with the signatures and the meaning the `SftpClient` KDoc gives them.
  *
- * Every path goes through [SftpReadPaths] first, so a rejected path never reaches the server.
- * Entries carry absolute, normalised paths, which this reader accepts back. Reads follow symlinks
- * wherever they lead, since only changes are confined by where a link points.
+ * Every path goes through [SftpRoot] first, the path policy the write side shares, so a rejected
+ * path never reaches the server. Entries carry absolute, normalised paths, which this reader
+ * accepts back. Reads follow symlinks wherever they lead, since only changes are confined by where
+ * a link points.
  *
  * Failures are [SshException.Sftp], or [SshException.Disconnected] once [connected] is false. Their
  * causes are redacted: sshj's messages can quote a path or the server's text. A failure of the
@@ -51,10 +53,10 @@ internal class SftpReader(
     private val connected: () -> Boolean = { true },
     private val onClose: () -> Unit = {},
 ) : AutoCloseable {
-    private val paths = SftpReadPaths(root)
+    private val paths = SftpRoot.of(root)
     private val closed = AtomicBoolean()
 
-    val root: String get() = paths.root
+    val root: String get() = paths.path
 
     /**
      * The direct children of a folder, without `.` and `..`. A symlink is reported as a symlink.

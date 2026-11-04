@@ -4,10 +4,11 @@ import io.github.thewisekd.phopencode.core.ssh.api.SftpClient
 import io.github.thewisekd.phopencode.core.ssh.api.SftpFailure
 import io.github.thewisekd.phopencode.core.ssh.api.SftpWriteOptions
 import io.github.thewisekd.phopencode.core.ssh.api.SshException
-import io.github.thewisekd.phopencode.core.ssh.sftp.write.WriteRoot.Companion.child
-import io.github.thewisekd.phopencode.core.ssh.sftp.write.WriteRoot.Companion.nameOf
-import io.github.thewisekd.phopencode.core.ssh.sftp.write.WriteRoot.Companion.parentOf
-import io.github.thewisekd.phopencode.core.ssh.sftp.write.WriteRoot.Companion.rejected
+import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot
+import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot.Companion.child
+import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot.Companion.nameOf
+import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot.Companion.parentOf
+import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot.Companion.rejected
 import java.io.InputStream
 import java.security.SecureRandom
 import java.util.EnumSet
@@ -36,10 +37,10 @@ import net.schmizz.sshj.sftp.SFTPException
 
 /**
  * The write half of [SftpClient] over one sshj SFTP channel: [writeAtomic], [delete], [rename] and
- * [mkdir], with the signatures and the rules of that interface. A later task composes it with the
- * read half into one [SftpClient].
+ * [mkdir], with the signatures and the rules of that interface. `SshjSftpClient` composes it with
+ * the read half into one [SftpClient] over the same channel.
  *
- * Paths: [WriteRoot] checks the text before any request. Then, on the server, [RealPaths] finds
+ * Paths: [SftpRoot] checks the text before any request. Then, on the server, [RealPaths] finds
  * where the folder that holds the changed name really is, and every symlink on the way must land
  * inside the real root, so a symlinked folder cannot lead a change outside. This costs one `lstat`
  * per path segment. [writeAtomic] also follows a symlink at the target itself, under the same rule.
@@ -70,8 +71,8 @@ import net.schmizz.sshj.sftp.SFTPException
  */
 internal class SftpWriter private constructor(
     private val engine: SFTPEngine,
-    private val paths: WriteRoot,
-    private val realRoot: WriteRoot,
+    private val paths: SftpRoot,
+    private val realRoot: SftpRoot,
     private val onClose: () -> Unit,
     private val hooks: WriteHooks,
 ) : AutoCloseable {
@@ -391,11 +392,11 @@ internal class SftpWriter private constructor(
             onClose: () -> Unit = {},
             hooks: WriteHooks = WriteHooks(),
         ): SftpWriter {
-            val paths = WriteRoot.of(root)
+            val paths = SftpRoot.of(root)
             val engine = sftp.sftpEngine
             val realRoot = withContext(Dispatchers.IO) {
                 try {
-                    val real = WriteRoot.of(RealPaths(engine, null).locate(paths.path, followLast = true))
+                    val real = SftpRoot.of(RealPaths(engine, null).locate(paths.path, followLast = true))
                     if (engine.stat(real.path).type != FileMode.Type.DIRECTORY) {
                         throw SshException.Sftp(SftpFailure.Failed)
                     }

@@ -14,14 +14,16 @@ import javax.net.SocketFactory
  *
  * Targets are restricted to loopback ([LoopbackTarget]); anything else is refused before a byte is
  * sent, so the tunnel cannot be used to reach the server's network. Every socket is tracked by the
- * session and closes when the session closes, including sockets in use.
+ * session from the moment it is created and closes when the session closes, connected or not; a
+ * socket created after that is closed at once.
  *
  * Give it to OkHttp with `OkHttpClient.Builder.socketFactory`. OkHttp resolves the URL's host
  * itself before connecting, so URLs should name `127.0.0.1` (or `localhost`, which resolves to a
  * loopback address on the phone too); a host that resolves elsewhere is refused.
  */
 internal class TunnelSocketFactory(private val session: SshjSession) : SocketFactory() {
-    override fun createSocket(): Socket = TunnelSocket(session)
+    /** Tracked from here on, so a socket that never connects still closes with the session. */
+    override fun createSocket(): Socket = TunnelSocket(session).also { session.track(it) }
 
     /** [host] is not looked up locally; the SSH server resolves it. */
     override fun createSocket(host: String, port: Int): Socket = connected(InetSocketAddress.createUnresolved(host, port))

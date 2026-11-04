@@ -4,6 +4,7 @@ import io.github.thewisekd.phopencode.core.ssh.api.SftpFailure
 import io.github.thewisekd.phopencode.core.ssh.api.SshException
 import io.github.thewisekd.phopencode.core.ssh.connect.RedactedFailure
 import io.github.thewisekd.phopencode.core.ssh.connect.SshjSession
+import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.Dispatchers
@@ -20,7 +21,7 @@ import net.schmizz.sshj.sftp.SFTPClient
  * @throws SshException.Disconnected when the session is closed or lost.
  */
 internal suspend fun openSftpReader(session: SshjSession, root: String): SftpReader {
-    val normalised = SftpReadPaths(root).root
+    val normalised = SftpRoot.of(root).path
     session.requireConnected()
     val connected = { session.connected.value && session.client.isConnected }
     val opened = AtomicReference<SFTPClient?>()

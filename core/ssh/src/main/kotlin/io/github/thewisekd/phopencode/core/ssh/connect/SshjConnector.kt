@@ -53,7 +53,7 @@ class SshjConnector internal constructor(
     private val resolver: HostResolver = HostResolver.System,
     private val beforeHandOver: (SshSession) -> Unit = {},
 ) : SshConnector {
-    constructor() : this(NoSessionFeatures)
+    constructor() : this(SshjSessionFeatures)
 
     override suspend fun connect(
         target: SshTarget,

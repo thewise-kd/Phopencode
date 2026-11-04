@@ -82,7 +82,8 @@ internal class TunnelSocket(private val session: SshjSession) : Socket(null as S
     private fun open(endpoint: InetSocketAddress, timeout: Int) {
         val host = LoopbackTarget.hostFor(endpoint) ?: throw SocketException(TARGET_REFUSED)
         session.requireConnected()
-        if (!session.track(this)) throw SocketException(SOCKET_IS_CLOSED)
+        // The factory tracked this socket when it made it; a session that closed since closed it.
+        if (closed) throw SocketException(SOCKET_IS_CLOSED)
         val opening = TunnelChannel(session.client.connection, host, endpoint.port)
         synchronized(lock) {
             if (closed) throw SocketException(SOCKET_IS_CLOSED)

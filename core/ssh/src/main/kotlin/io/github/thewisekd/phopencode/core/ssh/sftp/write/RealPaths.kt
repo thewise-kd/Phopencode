@@ -2,9 +2,10 @@ package io.github.thewisekd.phopencode.core.ssh.sftp.write
 
 import io.github.thewisekd.phopencode.core.ssh.api.SftpFailure
 import io.github.thewisekd.phopencode.core.ssh.api.SshException
-import io.github.thewisekd.phopencode.core.ssh.sftp.write.WriteRoot.Companion.child
-import io.github.thewisekd.phopencode.core.ssh.sftp.write.WriteRoot.Companion.parentOf
-import io.github.thewisekd.phopencode.core.ssh.sftp.write.WriteRoot.Companion.rejected
+import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot
+import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot.Companion.child
+import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot.Companion.parentOf
+import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot.Companion.rejected
 import net.schmizz.sshj.sftp.FileAttributes
 import net.schmizz.sshj.sftp.FileMode
 import net.schmizz.sshj.sftp.Response
@@ -34,10 +35,10 @@ import net.schmizz.sshj.sftp.SFTPException
  */
 internal class RealPaths(private val engine: SFTPEngine, private val bounds: Bounds?) {
     /** @property real The real root. @property logical The root as configured, maybe via a symlink. */
-    class Bounds(val real: WriteRoot, val logical: WriteRoot)
+    class Bounds(val real: SftpRoot, val logical: SftpRoot)
 
     /**
-     * The real location of [path], an absolute path without `.` or `..` that [WriteRoot] accepted.
+     * The real location of [path], an absolute path without `.` or `..` that [SftpRoot] accepted.
      *
      * @param followLast Whether a symlink in the last segment is followed too. Without it, the
      *   result is the real folder plus the last name as given.

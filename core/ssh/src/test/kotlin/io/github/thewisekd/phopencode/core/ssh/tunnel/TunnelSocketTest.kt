@@ -423,6 +423,34 @@ class TunnelSocketTest {
     }
 
     @Test
+    fun `closing the session closes sockets that never connected`() {
+        val factory = session.socketFactory()
+        val unconnected = List(2) { factory.createSocket().closeLater() }
+        session.close()
+        unconnected.forEach { assertTrue(it.isClosed, "An unconnected socket must close with the session") }
+        assertFailsWith<SocketException> { unconnected[0].connect(InetSocketAddress(LOOPBACK, echo.port), 1_000) }
+        assertEquals(0, server.connectsRequested())
+    }
+
+    @Test
+    fun `an unconnected socket closed by its owner still lets the others connect`() {
+        val factory = session.socketFactory()
+        factory.createSocket().close()
+        val socket = connected()
+        socket.getOutputStream().apply { write(3); flush() }
+        assertEquals(3, socket.getInputStream().read())
+        session.close()
+        assertTrue(socket.isClosed)
+    }
+
+    @Test
+    fun `a socket created after the session closed is closed at once`() {
+        val factory = session.socketFactory()
+        session.close()
+        assertTrue(factory.createSocket().closeLater().isClosed)
+    }
+
+    @Test
     fun `a dropped connection fails reads instead of hanging`() {
         val socket = connected()
         val blocked = CompletableFuture<Throwable?>()
