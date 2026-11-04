@@ -1,3 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="connect_folder_title">Proje klasörü seçin</string>
+    <string name="connect_folder_up">Üst klasöre çık</string>
+    <string name="connect_folder_select">Bu klasörü seç</string>
+    <string name="connect_folder_folders">Klasörler</string>
+    <string name="connect_folder_folder">Klasör</string>
+    <string name="connect_folder_symlink">Klasöre bağlantı</string>
+    <string name="connect_folder_open">Aç</string>
+    <string name="connect_folder_recent">Son klasörler</string>
+    <string name="connect_folder_recent_select">Seç</string>
+    <string name="connect_folder_recent_remove">%1$s klasörünü son klasörlerden kaldır</string>
+    <string name="connect_folder_loading">Klasörler yükleniyor…</string>
+    <string name="connect_folder_empty_title">Burada klasör yok</string>
+    <string name="connect_folder_empty_message">Bu klasörün alt klasörü yok. Yine de bu klasörü seçebilirsiniz.</string>
+    <string name="connect_folder_error_not_connected">Sunucuya bağlı değilsiniz. Geri dönüp yeniden bağlanın.</string>
+    <string name="connect_folder_error_permission_denied">İzin yok: bu klasör hesabınızla açılamıyor.</string>
+    <string name="connect_folder_error_not_found">Bu klasör artık yok.</string>
+    <string name="connect_folder_error_failed">Klasör listelenemedi.</string>
+    <string name="connect_folder_error_storage">Son klasörler bu telefonda okunamadı ya da kaydedilemedi.</string>
 </resources>

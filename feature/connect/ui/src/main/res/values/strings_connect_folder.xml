@@ -1,3 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="connect_folder_title">Choose a project folder</string>
+    <string name="connect_folder_up">Up to the parent folder</string>
+    <string name="connect_folder_select">Select this folder</string>
+    <string name="connect_folder_folders">Folders</string>
+    <string name="connect_folder_folder">Folder</string>
+    <string name="connect_folder_symlink">Link to a folder</string>
+    <string name="connect_folder_open">Open</string>
+    <string name="connect_folder_recent">Recent folders</string>
+    <string name="connect_folder_recent_select">Select</string>
+    <string name="connect_folder_recent_remove">Remove %1$s from recent folders</string>
+    <string name="connect_folder_loading">Loading folders…</string>
+    <string name="connect_folder_empty_title">No folders here</string>
+    <string name="connect_folder_empty_message">This folder has no subfolders. You can still select it.</string>
+    <string name="connect_folder_error_not_connected">Not connected to the server. Go back and connect again.</string>
+    <string name="connect_folder_error_permission_denied">Permission denied: this folder cannot be opened with your account.</string>
+    <string name="connect_folder_error_not_found">This folder no longer exists.</string>
+    <string name="connect_folder_error_failed">The folder could not be listed.</string>
+    <string name="connect_folder_error_storage">Recent folders could not be read or saved on this phone.</string>
 </resources>
