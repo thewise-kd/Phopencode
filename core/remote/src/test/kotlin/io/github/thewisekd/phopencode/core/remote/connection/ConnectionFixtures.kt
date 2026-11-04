@@ -20,6 +20,7 @@ import io.github.thewisekd.phopencode.core.ssh.api.SshSession
 import io.github.thewisekd.phopencode.core.ssh.api.SshTarget
 import io.github.thewisekd.phopencode.core.storage_api.HostEndpoint
 import io.github.thewisekd.phopencode.core.storage_api.HostKeyFingerprint
+import io.github.thewisekd.phopencode.core.storage_api.KnownHostsStore
 import io.github.thewisekd.phopencode.core.storage_api.SecretValue
 import io.github.thewisekd.phopencode.core.testing.api.FakeOpencodeClient
 import io.github.thewisekd.phopencode.core.testing.ssh.FakeSshConnector
@@ -61,6 +62,14 @@ internal fun profile(
 )
 
 internal val TARGET = SshTarget(HOST, SSH_PORT, USER)
+
+internal const val OTHER_HOST = "other-ssh.example"
+internal const val OTHER_PORT = 2222
+
+/** A second server, with an ID, host and port of its own. */
+internal fun otherProfile() = profile().copy(id = ServerProfileId("profile-2"), host = OTHER_HOST, port = OTHER_PORT)
+
+internal val OTHER_TARGET = SshTarget(OTHER_HOST, OTHER_PORT, USER)
 
 /** Plays server discovery and startup; each step can be held open with a gate. */
 internal class FakeServerTools : ServerTools {
@@ -137,6 +146,7 @@ internal class Fixture(
     ),
     wrapConnector: (SshConnector) -> SshConnector = { it },
     managerScope: CoroutineScope = scope.backgroundScope,
+    wrapKnownHosts: (KnownHostsStore) -> KnownHostsStore = { it },
 ) {
     val secrets = FakeSecretStore()
     val knownHosts = FakeKnownHostsStore()
@@ -146,7 +156,7 @@ internal class Fixture(
     val manager = ConnectionManager(
         connector = wrapConnector(connector),
         secrets = secrets,
-        knownHosts = knownHosts,
+        knownHosts = wrapKnownHosts(knownHosts),
         servers = ServerResolver(secrets, tools),
         clients = clients,
         scope = managerScope,

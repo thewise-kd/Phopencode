@@ -564,7 +564,10 @@ class ConnectionManagerTest {
         runCurrent()
 
         val error = assertIs<ConnectionState.Error>(fx.manager.state.value).error
-        assertEquals(ConnectionError.HostKeyChanged(SERVER_KEY, approved), error)
+        assertEquals(
+            ConnectionError.HostKeyChanged(SERVER_KEY, approved, ConnectionServer(profile().id, HostEndpoint(HOST, SSH_PORT))),
+            error,
+        )
         assertFalse(fx.states.any { it is ConnectionState.HostApproval })
         assertEquals(0, fx.connector.credentialsReceived)
         assertEquals(approved, fx.knownHosts.approved(HostEndpoint(HOST, SSH_PORT)))

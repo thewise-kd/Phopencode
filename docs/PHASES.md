@@ -377,6 +377,8 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
 |---|---|---|---|---|---|
 | P4.19 | Server form test on API 36 | P4.7 | `feature/connect/ui/…/serverform/` (main and test), `docs/PHASES.md` (this row) | The server form tests pass at API 26 and API 36 in CI | `CI` |
+| P4.20 | Connection states carry their server | P4.18, P3.13 | `core/remote/…/connection/`, `docs/PHASES.md` (P4.20 and P4.21 rows) | Connected, host-approval and host-key-changed states carry the profile and endpoint; a changed key is replaced atomically by the manager and never for a stale request | `PI` |
+| P4.21 | Folder picker uses the connection's server | P4.20, P4.12 | `feature/connect/logic/…/folder/` | The folder picker serves only a connection whose state names the active profile; the generation heuristics are removed | `PI` |
 
 `CP4`: push, CI green, `PHONE`: connect to a real server.
 

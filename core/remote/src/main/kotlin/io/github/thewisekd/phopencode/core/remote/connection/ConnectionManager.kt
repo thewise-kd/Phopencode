@@ -32,6 +32,8 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -101,6 +103,13 @@ class ConnectionManager(
     private var closed = false
     private var generation = 0L
 
+    /**
+     * Guarded by [lock]: the known-host write under way, if any, completed when it ends. A write
+     * claims it in the same locked step that checks its request is still current; a run created
+     * meanwhile starts only after it, and [disconnect] and [close] wait for the run that writes.
+     */
+    private var storeWrite: CompletableDeferred<Unit>? = null
+
     /** Completes once the manager is closed and every run has completed. */
     private val fullyClosed = CompletableDeferred<Unit>()
 
@@ -109,6 +118,13 @@ class ConnectionManager(
     private var scopeWatch: DisposableHandle? = null
 
     val state: StateFlow<ConnectionState> = mutableState.asStateFlow()
+
+    /**
+     * Test hook: runs in a connection's job just before a known-host write takes its last check
+     * that the request is still current, so a test can hold the write in that window.
+     */
+    @Volatile
+    internal var beforeStoreWrite: (suspend () -> Unit)? = null
 
     init {
         val scopeJob = requireNotNull(scope.coroutineContext[Job]) { "The scope has no Job" }
@@ -135,8 +151,42 @@ class ConnectionManager(
     }
 
     /**
+     * Approves the key of [shown], the [ConnectionState.HostApproval] the user saw, and stores it as
+     * known for [ConnectionState.HostApproval.server]'s endpoint; the connect then goes on. True
+     * once the key is stored. False, and nothing is stored, unless [shown] is the very state [state]
+     * holds now: a request from an earlier connect, one already answered, or one ended by a
+     * disconnect, connect or close is never answered, even when an equal-looking request stands
+     * now. Also false when the request ends before its store write starts, or the store refuses
+     * the key (another key was approved meanwhile, or storage failed); [state] then tells why.
+     *
+     * The last check that the request is current and the start of the store write are one step
+     * for [connect], [disconnect] and [close]: one that comes first stops the write, and one that
+     * comes after waits for it. Suspends until the write is decided, not until the connect ends.
+     */
+    suspend fun approveHostKey(shown: ConnectionState.HostApproval): Boolean {
+        val pending = synchronized(lock) {
+            current?.pending?.takeIf { it.shown === shown && mutableState.value === shown }
+        } ?: return false
+        if (!pending.decision.complete(true)) return false
+        return pending.stored.await()
+    }
+
+    /**
+     * Rejects the key of [shown]; the connection ends with [ConnectionError.HostKeyRejected]. False,
+     * and nothing happens, unless [shown] is the very state [state] holds now. Writes nothing.
+     */
+    fun rejectHostKey(shown: ConnectionState.HostApproval): Boolean {
+        val pending = synchronized(lock) {
+            current?.pending?.takeIf { it.shown === shown && mutableState.value === shown }
+        } ?: return false
+        return pending.decision.complete(false)
+    }
+
+    /**
      * Approves [key] for the host waiting in [ConnectionState.HostApproval] and stores it as known.
-     * False when no approval waits for this very key.
+     * False when no approval waits for this very key. Answers whichever request waits now, and
+     * returns before the store write, which still happens only while the request is current;
+     * prefer the overload that takes the shown state.
      */
     fun approveHostKey(key: HostKey): Boolean = decide(key, approved = true)
 
@@ -146,6 +196,55 @@ class ConnectionManager(
     private fun decide(key: HostKey, approved: Boolean): Boolean {
         val pending = synchronized(lock) { current?.pending } ?: return false
         return pending.key == key && pending.decision.complete(approved)
+    }
+
+    /**
+     * The user's explicit decision to trust the changed key that [shown] reports: a
+     * [ConnectionState.Error] holding a [ConnectionError.HostKeyChanged]. Replaces the approved key
+     * with the presented one at the endpoint the connection used,
+     * [ConnectionError.HostKeyChanged.server], whatever the profile says by now, and then connects
+     * the same profile again, as it was when the failed connect began.
+     *
+     * Bound to [shown]: under the manager's lock it checks that [state] still holds this very state
+     * object, published by the current connect, and in the same step takes over as a new connect
+     * ([ConnectionState.Ssh]). So a second call with the same state, or a call after a disconnect, a
+     * new connect, a newer error or a close, does nothing and gives [HostKeyReplacement.Stale]. The
+     * store write runs inside that new connect, and its last check that the connect is still
+     * current and the start of the write are one step for [connect], [disconnect] and [close]: one
+     * that comes first stops the write, and one that comes after waits for the write to end and
+     * finds the key stored. No reconnect follows a write that such a call interrupted. The store
+     * replaces only while the approved key is still [ConnectionError.HostKeyChanged.approved]
+     * (else [HostKeyReplacement.Mismatch]).
+     *
+     * Suspends until the replace is decided, not until the reconnect ends; [state] tells the rest.
+     * Cancelling the caller does not stop the replace.
+     */
+    suspend fun acceptChangedHostKey(shown: ConnectionState.Error): HostKeyReplacement {
+        val changed = shown.error as? ConnectionError.HostKeyChanged ?: return HostKeyReplacement.Stale
+        val server = changed.server ?: return HostKeyReplacement.Stale
+        val replacement = Replacement(
+            endpoint = server.endpoint,
+            expected = changed.approved,
+            replacement = HostKeyFingerprint(changed.key.fingerprintSha256),
+        )
+        val run: Run
+        val previous = synchronized(lock) {
+            if (closed) return HostKeyReplacement.Stale
+            val previous = current
+            if (previous == null || previous.shown !== shown || mutableState.value !== shown) {
+                return HostKeyReplacement.Stale
+            }
+            if (previous.profile.id != server.profileId) return HostKeyReplacement.Stale
+            run = Run(previous.profile, replacement)
+            // As in [connect]: a scope that ended just now cancels the job at once.
+            if (closed) return HostKeyReplacement.Stale
+            current = run
+            mutableState.value = ConnectionState.Ssh()
+            previous
+        }
+        previous.stop()
+        run.start()
+        return replacement.outcome.await()
     }
 
     /**
@@ -243,9 +342,29 @@ class ConnectionManager(
         }
     }
 
-    private class PendingApproval(val key: HostKey, val decision: CompletableDeferred<Boolean>)
+    private class PendingApproval(val key: HostKey, val decision: CompletableDeferred<Boolean>) {
+        /** Guarded by [lock]: the [ConnectionState.HostApproval] published for this request. */
+        var shown: ConnectionState? = null
 
-    private class Live(val session: SshSession, val client: OpencodeClient, val info: ServerInfo) {
+        /** True once an approved key is stored; false when it is not, whyever. */
+        val stored = CompletableDeferred<Boolean>()
+    }
+
+    /** A changed key to store before a [Run] connects; [outcome] completes once it is decided. */
+    private class Replacement(
+        val endpoint: HostEndpoint,
+        val expected: HostKeyFingerprint,
+        val replacement: HostKeyFingerprint,
+    ) {
+        val outcome = CompletableDeferred<HostKeyReplacement>()
+    }
+
+    private class Live(
+        val session: SshSession,
+        val client: OpencodeClient,
+        val info: ServerInfo,
+        val server: ConnectionServer,
+    ) {
         /** Guarded by the run's held lock: the [openSftp] clients still open on this connection. */
         val sftp = ArrayList<TrackedSftp>()
 
@@ -284,10 +403,16 @@ class ConnectionManager(
     /** Why a connection that was published as connected ended, and whether its event stream opened. */
     private class Drop(val cause: ConnectionError, val stood: Boolean)
 
-    /** One [connect]: its job, what it holds open, and its waiting approval. */
-    private inner class Run(profile: ServerProfile) {
+    /**
+     * One [connect], or one [acceptChangedHostKey], which first stores [replacement]: its job, what
+     * it holds open, and its waiting approval.
+     */
+    private inner class Run(val profile: ServerProfile, private val replacement: Replacement? = null) {
         private val held = ArrayList<AutoCloseable>()
         private var stopped = false
+
+        /** Guarded by [lock]: the last state this run published, as [state] holds it. */
+        var shown: ConnectionState? = null
 
         @Volatile
         var pending: PendingApproval? = null
@@ -297,19 +422,29 @@ class ConnectionManager(
 
         val kicks = Channel<Unit>(Channel.CONFLATED)
 
+        /** The known-host write under way when this run was made; the run starts after it ends. */
+        private val after: CompletableDeferred<Unit>?
+
         /** Lazy, so that a [stop] before [start] means it never runs. */
         private val job: Job = scope.launch(start = CoroutineStart.LAZY) {
             try {
-                execute(profile)
+                // A connect never reads known hosts while an older run still writes them.
+                after?.await()
+                if (replacement == null || replaceKey(replacement)) execute(profile)
             } finally {
                 releaseAll()
             }
         }
 
         init {
-            synchronized(lock) { runs += this }
+            after = synchronized(lock) {
+                runs += this
+                storeWrite
+            }
             job.invokeOnCompletion { cause ->
                 if (cause != null) ended(cause)
+                // A replace that was stopped, or never started, has decided nothing yet.
+                replacement?.outcome?.complete(HostKeyReplacement.Stale)
                 completed(this)
             }
         }
@@ -335,9 +470,86 @@ class ConnectionManager(
             job.start()
         }
 
-        /** Publishes [state] unless a newer [connect], [disconnect] or [close] took over. */
-        fun publish(state: ConnectionState) {
-            synchronized(lock) { if (current === this) mutableState.value = state }
+        /**
+         * Publishes [state] unless a newer [connect], [disconnect] or [close] took over. Before the
+         * write, under [lock], it records and passes to [published] the object [state] will hold:
+         * a state flow keeps an equal earlier object instead of a new one. Recording first matters
+         * because the write may resume an unconfined collector on this very thread, which may answer
+         * the state at once.
+         */
+        fun publish(state: ConnectionState, published: (ConnectionState) -> Unit = {}) {
+            synchronized(lock) {
+                if (current === this) {
+                    val before = mutableState.value
+                    val held = if (before == state) before else state
+                    shown = held
+                    published(held)
+                    mutableState.value = held
+                }
+            }
+        }
+
+        /**
+         * Runs [write], a known-host store call, only while this run is current; null when it is
+         * not. The check and the claim of [storeWrite] are one locked step, which [connect],
+         * [disconnect] and [close] also take to end a run: one that comes first makes the check
+         * fail, so nothing is written; one that comes after finds the write claimed. The write then
+         * runs to its end whatever stops the run, outside the lock, so that [disconnect] and
+         * [close], which wait for the run, and a new run, which waits for the claim, see its result.
+         *
+         * The end of the manager's scope cancels the run's job before [closeNow] runs, so the check
+         * also needs the job active: a cancelled run never starts a write. A cancellation that
+         * comes just after the check finds the write started, and the scope completes only after
+         * it, as for a [close].
+         */
+        suspend fun <T> writeKnownHost(write: suspend () -> T): T? {
+            beforeStoreWrite?.invoke()
+            val done = CompletableDeferred<Unit>()
+            val earlier = synchronized(lock) {
+                if (current !== this || !job.isActive) return null
+                val earlier = storeWrite
+                storeWrite = done
+                earlier
+            }
+            try {
+                return withContext(NonCancellable) {
+                    earlier?.await()
+                    write()
+                }
+            } finally {
+                synchronized(lock) { if (storeWrite === done) storeWrite = null }
+                done.complete(Unit)
+            }
+        }
+
+        /**
+         * Stores [replacement] at its endpoint, unless this run was stopped first. True when the
+         * profile is to connect next; false when the run ends here.
+         */
+        private suspend fun replaceKey(replacement: Replacement): Boolean {
+            val update = try {
+                // Null: a disconnect, connect or close since the take-over; the store is left alone.
+                writeKnownHost {
+                    knownHosts.replace(replacement.endpoint, replacement.expected, replacement.replacement)
+                } ?: return false
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                val error = if (failure is IOException) ConnectionError.StorageUnavailable else ConnectionError.Unexpected
+                // The state first, so that a caller who resumes at once finds it told.
+                publish(ConnectionState.Error(error))
+                replacement.outcome.complete(HostKeyReplacement.Failed(error))
+                return false
+            }
+            replacement.outcome.complete(
+                when (update) {
+                    HostKeyUpdate.Stored -> HostKeyReplacement.Replaced
+                    is HostKeyUpdate.Rejected -> HostKeyReplacement.Mismatch(update.current)
+                },
+            )
+            // A stop during the write: the write stands, but no connect follows it.
+            currentCoroutineContext().ensureActive()
+            return synchronized(lock) { current === this }
         }
 
         /** Takes [resource] into this run; one arriving after [stop] is closed at once. */
@@ -377,7 +589,10 @@ class ConnectionManager(
             synchronized(lock) {
                 if (current === this) {
                     this.live = live
-                    mutableState.value = ConnectionState.Connected(live.client, live.info, generation)
+                    // Recorded first, as in [publish]; a new generation is never equal to the state held.
+                    val connected = ConnectionState.Connected(live.client, live.info, generation, live.server)
+                    shown = connected
+                    mutableState.value = connected
                 }
             }
         }
@@ -524,6 +739,7 @@ class ConnectionManager(
             } catch (_: IllegalArgumentException) {
                 throw ConnectionException(ConnectionError.InvalidProfile)
             }
+            val identity = ConnectionServer(profile.id, HostEndpoint(target.host, target.port))
             val session = connectSsh(target, profile, attempt)
             try {
                 publish(ConnectionState.Server(attempt))
@@ -532,7 +748,7 @@ class ConnectionManager(
                     for ((index, password) in server.passwords.withIndex()) {
                         val client = hold(mapFailures { clients.create(server.baseUrl, password, session.socketFactory()) })
                         try {
-                            return Live(session, client, mapFailures { client.serverInfo() })
+                            return Live(session, client, mapFailures { client.serverInfo() }, identity)
                         } catch (failure: Throwable) {
                             release(client)
                             val refused = failure is ConnectionException &&
@@ -556,7 +772,7 @@ class ConnectionManager(
         private suspend fun connectSsh(target: SshTarget, profile: ServerProfile, attempt: Int): SshSession {
             var retried = false
             while (true) {
-                val verifier = Verifier(attempt)
+                val verifier = Verifier(attempt, profile)
                 val credential = secrets.sshCredential(profile.auth)
                 try {
                     return hold(connector.connect(target, credential, verifier, options.ssh))
@@ -582,7 +798,7 @@ class ConnectionManager(
         }
 
         /** The app's host key policy: known is accepted, new asks the user, changed is refused. */
-        private inner class Verifier(private val attempt: Int) : HostKeyVerifier {
+        private inner class Verifier(private val attempt: Int, private val profile: ServerProfile) : HostKeyVerifier {
             @Volatile
             var reason: ConnectionError? = null
 
@@ -591,12 +807,13 @@ class ConnectionManager(
 
             override suspend fun verify(target: SshTarget, key: HostKey): HostKeyDecision {
                 val endpoint = HostEndpoint(target.host, target.port)
+                val server = ConnectionServer(profile.id, endpoint)
                 val fingerprint = HostKeyFingerprint(key.fingerprintSha256)
                 return try {
                     when (val check = knownHosts.check(endpoint, fingerprint)) {
                         HostKeyCheck.Trusted -> HostKeyDecision.Accept
-                        is HostKeyCheck.Changed -> refuse(ConnectionError.HostKeyChanged(key, check.approved))
-                        HostKeyCheck.Unknown -> ask(endpoint, fingerprint, key)
+                        is HostKeyCheck.Changed -> refuse(ConnectionError.HostKeyChanged(key, check.approved, server))
+                        HostKeyCheck.Unknown -> ask(server, fingerprint, key)
                     }
                 } catch (cancelled: CancellationException) {
                     throw cancelled
@@ -605,28 +822,67 @@ class ConnectionManager(
                 }
             }
 
-            private suspend fun ask(endpoint: HostEndpoint, fingerprint: HostKeyFingerprint, key: HostKey): HostKeyDecision {
+            private suspend fun ask(server: ConnectionServer, fingerprint: HostKeyFingerprint, key: HostKey): HostKeyDecision {
                 val waiting = PendingApproval(key, CompletableDeferred())
+                try {
+                    return askAndStore(waiting, server, fingerprint, key)
+                } finally {
+                    // Whatever ended the request without storing the key, the approver learns of it.
+                    waiting.stored.complete(false)
+                }
+            }
+
+            private suspend fun askAndStore(
+                waiting: PendingApproval,
+                server: ConnectionServer,
+                fingerprint: HostKeyFingerprint,
+                key: HostKey,
+            ): HostKeyDecision {
                 pending = waiting
                 val approved = try {
-                    publish(ConnectionState.HostApproval(key, attempt))
+                    publish(ConnectionState.HostApproval(key, attempt, server)) { waiting.shown = it }
                     waiting.decision.await()
                 } finally {
                     pending = null
                 }
                 if (!approved) return refuse(ConnectionError.HostKeyRejected(key))
-                return when (val update = knownHosts.approve(endpoint, fingerprint)) {
+                val update = try {
+                    // Null: the request ended (disconnect, connect or close) before the write could
+                    // start; the state already belongs to whoever ended it.
+                    writeKnownHost { knownHosts.approve(server.endpoint, fingerprint) }
+                        ?: return refuse(ConnectionError.HostKeyRejected(key))
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: IOException) {
+                    return refuseApproved(waiting, ConnectionError.StorageUnavailable)
+                }
+                return when (update) {
                     HostKeyUpdate.Stored -> {
                         approvedNow = true
                         publish(ConnectionState.Ssh(attempt))
+                        waiting.stored.complete(true)
+                        // A stop during the write: the key stands, but the login does not go on.
+                        currentCoroutineContext().ensureActive()
                         HostKeyDecision.Accept
                     }
                     // Another key was approved meanwhile; this decision does not cover it.
-                    is HostKeyUpdate.Rejected -> refuse(
-                        update.current?.let { ConnectionError.HostKeyChanged(key, it) }
+                    is HostKeyUpdate.Rejected -> refuseApproved(
+                        waiting,
+                        update.current?.let { ConnectionError.HostKeyChanged(key, it, server) }
                             ?: ConnectionError.HostKeyRejected(key),
                     )
                 }
+            }
+
+            /**
+             * An approved key that was not stored ends the connect with [error]. The error is
+             * published before the approver hears false, so it finds [state] telling why; the
+             * connect's own end publishes the same error again, which changes nothing.
+             */
+            private fun refuseApproved(waiting: PendingApproval, error: ConnectionError): HostKeyDecision {
+                publish(ConnectionState.Error(error))
+                waiting.stored.complete(false)
+                return refuse(error)
             }
 
             private fun refuse(error: ConnectionError): HostKeyDecision {

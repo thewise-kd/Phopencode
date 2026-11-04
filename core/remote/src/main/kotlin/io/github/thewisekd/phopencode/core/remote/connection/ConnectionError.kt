@@ -75,9 +75,17 @@ sealed interface ConnectionError {
 
     /**
      * The server presented [key], not the [approved] one. This may be an attack, so the connection
-     * stops without asking; replacing the approved key is a separate, explicit user decision.
+     * stops without asking; replacing the approved key is a separate, explicit user decision, made
+     * with [ConnectionManager.acceptChangedHostKey] on the [ConnectionState.Error] that carries this.
+     *
+     * @property server The profile and the endpoint whose approved key differs. [ConnectionManager]
+     *   always sets it; it is null only on a value made elsewhere, which no replace accepts.
      */
-    data class HostKeyChanged(val key: HostKey, val approved: HostKeyFingerprint) : ConnectionError
+    data class HostKeyChanged(
+        val key: HostKey,
+        val approved: HostKeyFingerprint,
+        val server: ConnectionServer? = null,
+    ) : ConnectionError
 
     /** No `opencode serve` runs and no opencode binary was found. */
     data object OpencodeMissing : ConnectionError
