@@ -1,3 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="connect_serverform_title_new">Add server</string>
+    <string name="connect_serverform_title_edit">Edit server</string>
+    <string name="connect_serverform_loading">Loading server…</string>
+    <string name="connect_serverform_name">Name</string>
+    <string name="connect_serverform_host">Host</string>
+    <string name="connect_serverform_port">SSH port</string>
+    <string name="connect_serverform_username">User name</string>
+    <string name="connect_serverform_auth">Log in</string>
+    <string name="connect_serverform_auth_password">Log in with a password</string>
+    <string name="connect_serverform_auth_key">Log in with an SSH key</string>
+    <string name="connect_serverform_password">Password</string>
+    <string name="connect_serverform_password_keep">Leave empty to keep the saved password</string>
+    <string name="connect_serverform_password_entered">A password is entered. Type to replace it.</string>
+    <string name="connect_serverform_keys_empty">No SSH keys yet. Add one to log in with a key.</string>
+    <string name="connect_serverform_key_detail">%1$s, %2$s</string>
+    <string name="connect_serverform_manage_keys">Manage keys</string>
+    <string name="connect_serverform_opencode_password">opencode serve password</string>
+    <string name="connect_serverform_opencode_password_help">Optional. Only for a server already running opencode serve with a password.</string>
+    <string name="connect_serverform_opencode_password_keep">Leave empty to keep the saved opencode serve password</string>
+    <string name="connect_serverform_opencode_password_entered">An opencode serve password is entered. Type to replace it.</string>
+    <string name="connect_serverform_opencode_password_clear">Remove the saved opencode serve password</string>
+    <string name="connect_serverform_save">Save</string>
+    <string name="connect_serverform_saving">Saving…</string>
+    <string name="connect_serverform_cancel">Cancel</string>
+
+    <string name="connect_serverform_error_name_required">Enter a name</string>
+    <string name="connect_serverform_error_name_invalid">This name cannot be used</string>
+    <string name="connect_serverform_error_host_required">Enter a host name or address</string>
+    <string name="connect_serverform_error_host_invalid">Not a valid host name or address</string>
+    <string name="connect_serverform_error_port_required">Enter a port</string>
+    <string name="connect_serverform_error_port_invalid">Enter a port from 1 to 65535</string>
+    <string name="connect_serverform_error_username_required">Enter a user name</string>
+    <string name="connect_serverform_error_username_invalid">Not a valid SSH user name</string>
+    <string name="connect_serverform_error_password_required">Enter the password</string>
+    <string name="connect_serverform_error_password_invalid">This password cannot be used</string>
+    <string name="connect_serverform_error_key_required">Choose a key</string>
+    <string name="connect_serverform_error_key_invalid">This key can no longer be used</string>
+
+    <string name="connect_serverform_error_load_failed">Could not read the server or the keys</string>
+    <string name="connect_serverform_error_not_found">This server no longer exists</string>
+    <string name="connect_serverform_error_save_failed">Could not save the server. Nothing was changed.</string>
 </resources>

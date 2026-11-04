@@ -1,3 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="connect_serverform_title_new">Sunucu ekle</string>
+    <string name="connect_serverform_title_edit">Sunucuyu düzenle</string>
+    <string name="connect_serverform_loading">Sunucu yükleniyor…</string>
+    <string name="connect_serverform_name">Ad</string>
+    <string name="connect_serverform_host">Sunucu adresi</string>
+    <string name="connect_serverform_port">SSH bağlantı noktası</string>
+    <string name="connect_serverform_username">Kullanıcı adı</string>
+    <string name="connect_serverform_auth">Giriş</string>
+    <string name="connect_serverform_auth_password">Parolayla giriş yap</string>
+    <string name="connect_serverform_auth_key">SSH anahtarıyla giriş yap</string>
+    <string name="connect_serverform_password">Parola</string>
+    <string name="connect_serverform_password_keep">Kayıtlı parolayı korumak için boş bırakın</string>
+    <string name="connect_serverform_password_entered">Bir parola girildi. Değiştirmek için yazın.</string>
+    <string name="connect_serverform_keys_empty">Henüz SSH anahtarı yok. Anahtarla giriş için bir tane ekleyin.</string>
+    <string name="connect_serverform_key_detail">%1$s, %2$s</string>
+    <string name="connect_serverform_manage_keys">Anahtarları yönet</string>
+    <string name="connect_serverform_opencode_password">opencode serve parolası</string>
+    <string name="connect_serverform_opencode_password_help">İsteğe bağlı. Yalnızca opencode serve zaten parolayla çalışan bir sunucu için.</string>
+    <string name="connect_serverform_opencode_password_keep">Kayıtlı opencode serve parolasını korumak için boş bırakın</string>
+    <string name="connect_serverform_opencode_password_entered">Bir opencode serve parolası girildi. Değiştirmek için yazın.</string>
+    <string name="connect_serverform_opencode_password_clear">Kayıtlı opencode serve parolasını kaldır</string>
+    <string name="connect_serverform_save">Kaydet</string>
+    <string name="connect_serverform_saving">Kaydediliyor…</string>
+    <string name="connect_serverform_cancel">İptal</string>
+
+    <string name="connect_serverform_error_name_required">Bir ad girin</string>
+    <string name="connect_serverform_error_name_invalid">Bu ad kullanılamaz</string>
+    <string name="connect_serverform_error_host_required">Bir sunucu adı ya da adresi girin</string>
+    <string name="connect_serverform_error_host_invalid">Geçerli bir sunucu adı ya da adresi değil</string>
+    <string name="connect_serverform_error_port_required">Bir bağlantı noktası girin</string>
+    <string name="connect_serverform_error_port_invalid">1 ile 65535 arasında bir bağlantı noktası girin</string>
+    <string name="connect_serverform_error_username_required">Bir kullanıcı adı girin</string>
+    <string name="connect_serverform_error_username_invalid">Geçerli bir SSH kullanıcı adı değil</string>
+    <string name="connect_serverform_error_password_required">Parolayı girin</string>
+    <string name="connect_serverform_error_password_invalid">Bu parola kullanılamaz</string>
+    <string name="connect_serverform_error_key_required">Bir anahtar seçin</string>
+    <string name="connect_serverform_error_key_invalid">Bu anahtar artık kullanılamaz</string>
+
+    <string name="connect_serverform_error_load_failed">Sunucu ya da anahtarlar okunamadı</string>
+    <string name="connect_serverform_error_not_found">Bu sunucu artık yok</string>
+    <string name="connect_serverform_error_save_failed">Sunucu kaydedilemedi. Hiçbir şey değişmedi.</string>
 </resources>
