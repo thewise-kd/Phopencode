@@ -34,6 +34,7 @@ import org.apache.sshd.server.forward.AcceptAllForwardingFilter
 import org.apache.sshd.server.forward.ForwardingFilter
 import org.apache.sshd.server.forward.TcpForwardingFilter
 import org.apache.sshd.sftp.server.SftpEventListener
+import org.apache.sshd.sftp.server.SftpSubsystem
 import org.apache.sshd.sftp.server.SftpSubsystemFactory
 
 /**
@@ -48,6 +49,14 @@ internal class WiringServer : AutoCloseable {
     val home: Path = Files.createTempDirectory("phopencode-wiring").toRealPath()
 
     val hostKeyPair: KeyPair = TestKeys.hostKeyPair()
+
+    /**
+     * The folder SFTP starts in, which it reports for `realpath(".")`: the login home. Null keeps
+     * MINA's default, the test's working folder. Read whenever a client asks, so a change reaches
+     * clients already open too.
+     */
+    @Volatile
+    var sftpHome: Path? = null
 
     private val credentials = AtomicInteger()
     private val tunnels = AtomicInteger()
@@ -79,7 +88,7 @@ internal class WiringServer : AutoCloseable {
         keyboardInteractiveAuthenticator = null
         commandFactory = CommandFactory { _, command -> ProcessCommand(command) }
         fileSystemFactory = NativeFileSystemFactory()
-        subsystemFactories = listOf(SftpSubsystemFactory().apply { addSftpEventListener(sftpListener) })
+        subsystemFactories = listOf(HomeSftpFactory().apply { addSftpEventListener(sftpListener) })
         forwardingFilter = object : ForwardingFilter by AcceptAllForwardingFilter.INSTANCE {
             override fun canListen(address: SshdSocketAddress?, session: Session?): Boolean = false
 
@@ -247,6 +256,17 @@ internal class WiringServer : AutoCloseable {
 
         override fun destroy(channel: ChannelSession) {
             destroyed.set(true)
+        }
+    }
+
+    /** MINA's SFTP, starting in [sftpHome] when one is set. */
+    private inner class HomeSftpFactory : SftpSubsystemFactory() {
+        override fun createSubsystem(channel: ChannelSession): Command {
+            val subsystem = object : SftpSubsystem(channel, this) {
+                override fun getDefaultDirectory(): Path = sftpHome ?: super.getDefaultDirectory()
+            }
+            registeredListeners.forEach(subsystem::addSftpEventListener)
+            return subsystem
         }
     }
 }

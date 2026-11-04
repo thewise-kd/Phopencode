@@ -116,6 +116,15 @@ class FakeSftpClient(
         else -> failure(SftpFailure.Failed)
     }
 
+    /** See [FakeRemoteFiles.home]. A home whose real location is outside the real root gives [root]. */
+    override suspend fun home(): String {
+        request()
+        val real = files.realPath(FakeRemoteFiles.segments(files.home), followLast = true)
+        val realRoot = realRoot()
+        val inside = if (real.take(realRoot.size) == realRoot) rootSegments + real.drop(realRoot.size) else rootSegments
+        return inside.joinToString("/", prefix = "/")
+    }
+
     override suspend fun list(path: String): List<FileEntry> {
         val segments = confined(path)
         request()

@@ -23,6 +23,18 @@ class FakeRemoteFiles {
     internal class Temporary(val path: List<String>, val file: File)
 
     private val top = Directory()
+
+    /**
+     * The login folder, absolute, which every client reports for `realpath(".")`, as OpenSSH does:
+     * with symlinks resolved. Nothing needs to exist there.
+     */
+    @Volatile
+    var home: String = "/"
+        set(value) {
+            require(value.startsWith('/')) { "The home folder must be absolute" }
+            field = value
+        }
+
     private val denied = HashSet<List<String>>()
     private var temporaries = 0
 

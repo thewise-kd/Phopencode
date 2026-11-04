@@ -74,6 +74,50 @@ internal class SftpReader(
     val root: String get() = paths.path
 
     /**
+     * The login folder, from the server's `realpath(".")`, in the form [list] gives: under the root
+     * as configured. An answer that is not an absolute path fails with [SftpFailure.Failed].
+     *
+     * OpenSSH resolves symlinks in that answer and MINA only tidies the text, so it may name the
+     * real root, the root as configured, or a path whose symlinks lead into the root. So:
+     * - text under either root is walked with the bounds of [RealPaths]; a walk that leaves the root
+     *   gives the root, and any other SFTP failure of the walk keeps the text, for the next [list]
+     *   to report;
+     * - other text is walked without bounds; a real location under the real root is taken, and
+     *   anything else, a failed walk included, gives the root.
+     */
+    suspend fun home(): String = remote {
+        val reported = sftpCall { sftp.sftpEngine.canonicalize(".") }
+        val absolute = try {
+            SftpRoot.of(reported).path
+        } catch (_: SshException.Sftp) {
+            throw SshException.Sftp(SftpFailure.Failed)
+        }
+        val checkpoint = { ensureActive() }
+        val bounded = sftpCall { realPaths ?: bind(checkpoint) }
+        val real = checkNotNull(bounded.bounds).real
+        val inside = underRoot(absolute, real) ?: try {
+            underRoot(sftpCall { RealPaths(sftp.sftpEngine, null).locate(absolute, followLast = true, checkpoint) }, real)
+        } catch (_: SshException.Sftp) {
+            null
+        } ?: return@remote paths.path
+        try {
+            sftpCall { bounded.locate(inside, followLast = true, checkpoint) }
+            inside
+        } catch (failure: SshException.Sftp) {
+            // Only the confinement counts here; a home that cannot be reached is the next list's
+            // to report, and that list walks the path again.
+            if (failure.failure == SftpFailure.PathRejected) paths.path else inside
+        }
+    }
+
+    /** [absolute] under the root as configured, if its text is under that root or under [real]. */
+    private fun underRoot(absolute: String, real: SftpRoot): String? = when {
+        paths.contains(absolute) -> absolute
+        real.contains(absolute) -> real.segments(absolute).fold(paths.path, ::child)
+        else -> null
+    }
+
+    /**
      * The direct children of a folder, without `.` and `..`. A symlink is reported as a symlink.
      *
      * The server sends a large folder in batches. Cancellation is checked before each entry of a

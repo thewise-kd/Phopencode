@@ -47,6 +47,8 @@ internal class SshjSftpClient private constructor(
 
     override val root: String get() = writer.root
 
+    override suspend fun home(): String = open().home()
+
     override suspend fun list(path: String): List<FileEntry> = open().list(path)
 
     override suspend fun stat(path: String): FileEntry = open().stat(path)

@@ -18,6 +18,7 @@ import io.github.thewisekd.phopencode.core.ssh.api.ExecEvent
 import io.github.thewisekd.phopencode.core.ssh.api.ExecRequest
 import io.github.thewisekd.phopencode.core.ssh.api.HostKeyVerifier
 import io.github.thewisekd.phopencode.core.ssh.api.RemoteExec
+import io.github.thewisekd.phopencode.core.ssh.api.SftpClient
 import io.github.thewisekd.phopencode.core.ssh.api.SshConnectOptions
 import io.github.thewisekd.phopencode.core.ssh.api.SshConnector
 import io.github.thewisekd.phopencode.core.ssh.api.SshCredential
@@ -37,6 +38,7 @@ import io.github.thewisekd.phopencode.core.testing.contract.ContractCase
 import io.github.thewisekd.phopencode.core.testing.contract.RemoteExecHarness
 import io.github.thewisekd.phopencode.core.testing.contract.SecretStoreHarness
 import io.github.thewisekd.phopencode.core.testing.contract.SettingsHarness
+import io.github.thewisekd.phopencode.core.testing.contract.SftpHarness
 import io.github.thewisekd.phopencode.core.testing.contract.SshConnectorHarness
 import io.github.thewisekd.phopencode.core.testing.contract.knownHostsStoreContract
 import io.github.thewisekd.phopencode.core.testing.contract.opencodeClientContract
@@ -44,6 +46,7 @@ import io.github.thewisekd.phopencode.core.testing.contract.recentFoldersStoreCo
 import io.github.thewisekd.phopencode.core.testing.contract.remoteExecContract
 import io.github.thewisekd.phopencode.core.testing.contract.secretStoreContract
 import io.github.thewisekd.phopencode.core.testing.contract.settingsRepositoryContract
+import io.github.thewisekd.phopencode.core.testing.contract.sftpClientContract
 import io.github.thewisekd.phopencode.core.testing.contract.sshConnectorContract
 import io.github.thewisekd.phopencode.core.testing.contract.sshKeyIndexContract
 import io.github.thewisekd.phopencode.core.testing.storage.FakeKnownHostsStore
@@ -293,6 +296,33 @@ class ContractTeethTest {
         }
         assertCaught("a rejection fails with the presented key and sends no credential", cases)
         assertCaught("no credential is sent while the verifier is deciding", cases)
+    }
+
+    @Test
+    fun `an SFTP home that ignores the root is caught`() {
+        fun casesWith(home: suspend (FakeSftpHarness, SftpClient) -> String) = sftpClientContract {
+            val fake = FakeSftpHarness()
+            fun wrap(client: SftpClient): SftpClient = object : SftpClient by client {
+                override suspend fun home(): String = home(fake, client)
+            }
+            object : SftpHarness by fake {
+                override val client: SftpClient = wrap(fake.client)
+
+                override suspend fun clientAt(root: String): SftpClient = wrap(fake.clientAt(root))
+            }
+        }
+        val unconfined = casesWith { fake, _ -> fake.files.home }
+        assertCaught("home gives the root when the login folder is outside it", unconfined)
+        assertCaught("home gives the root when the login folder leaves it through a symlink", unconfined)
+        val byPrefix = casesWith { fake, client ->
+            fake.files.home.takeIf { it.startsWith(client.root) } ?: client.root
+        }
+        assertCaught("home gives the root when the login folder is outside it", byPrefix)
+        val alwaysRoot = casesWith { _, client -> client.root }
+        assertCaught("home gives the login folder when it is inside the root", alwaysRoot)
+        assertCaught("home of a client rooted at slash is the login folder itself", alwaysRoot)
+        val realForm = casesWith { _, client -> client.home().replace("/linked/", "/real/") }
+        assertCaught("home is under the root as configured when the root is a symlink", realForm)
     }
 
     @Test

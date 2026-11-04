@@ -15,10 +15,13 @@ import org.apache.sshd.common.file.virtualfs.VirtualFileSystemFactory
 import org.apache.sshd.common.keyprovider.KeyPairProvider
 import org.apache.sshd.server.SshServer
 import org.apache.sshd.server.auth.password.PasswordAuthenticator
+import org.apache.sshd.server.channel.ChannelSession
+import org.apache.sshd.server.command.Command
 import org.apache.sshd.server.session.ServerSession
 import org.apache.sshd.sftp.SftpModuleProperties
 import org.apache.sshd.sftp.server.Handle
 import org.apache.sshd.sftp.server.SftpEventListener
+import org.apache.sshd.sftp.server.SftpSubsystem
 import org.apache.sshd.sftp.server.SftpSubsystemFactory
 
 /**
@@ -34,6 +37,14 @@ internal class TestSftpServer(
     private val vetoMove: (Path, Path) -> Boolean = { _, _ -> false },
 ) : AutoCloseable {
     val home: Path = Files.createTempDirectory("phopencode-sftp-write").toRealPath()
+
+    /**
+     * The folder SFTP starts in, a path of the server's file system such as `/work/user`, which it
+     * reports for `realpath(".")`. Null keeps MINA's default, the server's `/`. Read whenever a
+     * client asks.
+     */
+    @Volatile
+    var sftpHome: String? = null
 
     private val requests = AtomicInteger()
     private val handles = AtomicInteger()
@@ -79,7 +90,7 @@ internal class TestSftpServer(
         }
         keyboardInteractiveAuthenticator = null
         fileSystemFactory = VirtualFileSystemFactory(home)
-        subsystemFactories = listOf(SftpSubsystemFactory().apply { addSftpEventListener(listener) })
+        subsystemFactories = listOf(HomeSftpFactory().apply { addSftpEventListener(listener) })
         if (openSshExtensions != null) SftpModuleProperties.OPENSSH_EXTENSIONS.set(this, openSshExtensions)
         start()
     }
@@ -99,5 +110,19 @@ internal class TestSftpServer(
     override fun close() {
         server.stop(true)
         home.deleteRecursively()
+    }
+
+    /** MINA's SFTP, starting in [sftpHome] when one is set. */
+    private inner class HomeSftpFactory : SftpSubsystemFactory() {
+        override fun createSubsystem(channel: ChannelSession): Command {
+            val subsystem = object : SftpSubsystem(channel, this) {
+                override fun getDefaultDirectory(): Path {
+                    val default = super.getDefaultDirectory()
+                    return sftpHome?.let { default.fileSystem.getPath(it) } ?: default
+                }
+            }
+            registeredListeners.forEach(subsystem::addSftpEventListener)
+            return subsystem
+        }
     }
 }

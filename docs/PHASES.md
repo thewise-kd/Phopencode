@@ -379,6 +379,7 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | P4.19 | Server form test on API 36 | P4.7 | `feature/connect/ui/…/serverform/` (main and test), `docs/PHASES.md` (this row) | The server form tests pass at API 26 and API 36 in CI | `CI` |
 | P4.20 | Connection states carry their server | P4.18, P3.13 | `core/remote/…/connection/`, `docs/PHASES.md` (P4.20 and P4.21 rows) | Connected, host-approval and host-key-changed states carry the profile and endpoint; a changed key is replaced atomically by the manager and never for a stale request | `PI` |
 | P4.21 | Folder picker uses the connection's server | P4.20, P4.12 | `feature/connect/logic/…/folder/` | The folder picker serves only a connection whose state names the active profile; the generation heuristics are removed | `PI` |
+| P4.22 | Folder picker starts at home | P3.12, P4.21 | `core/ssh/…/api/SftpClient.kt`, `core/ssh/…/sftp/`, `core/testing/…` (SFTP fake and contract cases), `core/remote/…/connection/` (wrappers only), `core/remote/…/wiring/` (test SFTP harness), `feature/connect/logic/…/folder/`, `docs/PHASES.md` (this row) | `SftpClient` reports the login home inside its root; the folder picker opens there and falls back to `/` | `PI` |
 
 `CP4`: push, CI green, `PHONE`: connect to a real server.
 

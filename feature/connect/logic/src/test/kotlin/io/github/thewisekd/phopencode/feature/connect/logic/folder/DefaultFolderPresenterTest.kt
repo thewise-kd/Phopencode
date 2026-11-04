@@ -135,6 +135,127 @@ class DefaultFolderPresenterTest {
         assertFalse(state.canGoUp)
     }
 
+    /** The login home `/home/tester`, holding `notes` and `projects`. */
+    private fun Env.givenHome() {
+        connection.files.addDirectory("/home/tester/notes")
+        connection.files.addDirectory("/home/tester/projects")
+        connection.files.home = "/home/tester"
+    }
+
+    @Test
+    fun `the first listing starts at the login home, and up still reaches the root`() = runTest {
+        val env = env()
+        env.givenHome()
+        val presenter = env.presenter()
+
+        runCurrent()
+
+        val state = presenter.state.value
+        assertEquals("/home/tester", state.path)
+        assertEquals(listOf("notes", "projects"), presenter.names)
+        assertEquals(listOf("/home/tester/notes", "/home/tester/projects"), state.entries.map { it.path })
+        assertNull(state.error)
+        assertTrue(state.canGoUp)
+        assertEquals(listOf("/"), env.connection.log.roots, "the client still browses the whole server")
+
+        presenter.onIntent(FolderIntent.Up)
+        runCurrent()
+        assertEquals("/home", presenter.state.value.path)
+        assertEquals(listOf("tester"), presenter.names)
+        presenter.onIntent(FolderIntent.Up)
+        runCurrent()
+        assertEquals("/", presenter.state.value.path)
+        assertEquals(listOf("data", "home", "srv"), presenter.names)
+
+        presenter.onIntent(FolderIntent.Retry)
+        runCurrent()
+        assertEquals("/", presenter.state.value.path, "retry lists the folder shown, not home")
+        assertEquals(1, env.connection.log.opened.single().homeCalls.get())
+    }
+
+    @Test
+    fun `a home that cannot be found falls back to the root without an error`() = runTest {
+        for (failure in listOf(
+            SshException.Sftp(SftpFailure.PermissionDenied),
+            SshException.Sftp(SftpFailure.Failed),
+            SshException.Disconnected(),
+        )) {
+            val env = env()
+            env.givenHome()
+            env.connection.log.failFirstRequest = failure
+            val presenter = env.presenter()
+
+            runCurrent()
+
+            val state = presenter.state.value
+            assertEquals("/", state.path, "after $failure")
+            assertNull(state.error, "after $failure")
+            assertFalse(state.loading)
+            assertEquals(listOf("data", "home", "srv"), presenter.names)
+            assertEquals(1, env.connection.log.opened.first().homeCalls.get())
+        }
+    }
+
+    @Test
+    fun `the home is shown in canonical form`() = runTest {
+        val env = env()
+        env.givenHome()
+        env.connection.log.reportedHome = "/home//tester/./"
+        val presenter = env.presenter()
+
+        runCurrent()
+
+        assertEquals("/home/tester", presenter.state.value.path)
+        assertEquals(listOf("/home/tester/notes", "/home/tester/projects"), presenter.state.value.entries.map { it.path })
+    }
+
+    @Test
+    fun `a home the picker cannot take falls back to the root`() = runTest {
+        val env = env()
+        env.givenHome()
+        env.connection.log.reportedHome = "/home/a\u0000b"
+        val presenter = env.presenter()
+
+        runCurrent()
+
+        assertEquals("/", presenter.state.value.path)
+        assertNull(presenter.state.value.error)
+    }
+
+    @Test
+    fun `a missing home shows NotFound, and retry asks for home again`() = runTest {
+        val env = env()
+        env.connection.files.home = "/home/gone"
+        val presenter = env.presenter()
+        runCurrent()
+        assertEquals(FolderError.NotFound, presenter.state.value.error)
+        assertNull(presenter.state.value.path)
+
+        env.givenHome()
+        presenter.onIntent(FolderIntent.Retry)
+        runCurrent()
+
+        assertEquals("/home/tester", presenter.state.value.path)
+        assertNull(presenter.state.value.error)
+    }
+
+    @Test
+    fun `retry after a first listing without a connection starts at home`() = runTest {
+        val env = env(connect = false)
+        env.givenHome()
+        val presenter = env.presenter()
+        runCurrent()
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+
+        env.connection.connect()
+        runCurrent()
+        presenter.onIntent(FolderIntent.Retry)
+        runCurrent()
+
+        assertEquals("/home/tester", presenter.state.value.path)
+        assertNull(presenter.state.value.error)
+    }
+
     @Test
     fun `loading does not run in the constructor even on an immediate dispatcher`() = runTest {
         val env = env()

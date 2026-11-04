@@ -188,6 +188,12 @@ class SshContractsTest {
             Files.createSymbolicLink(local(path), Path.of(target))
         }
 
+        override suspend fun givenHome(path: String) {
+            val home = Path.of(path)
+            if (!Files.exists(home, NOFOLLOW_LINKS)) home.createDirectories()
+            server.sftpHome = home
+        }
+
         override suspend fun givenDenied(path: String) {
             Files.setPosixFilePermissions(local(path), emptySet())
         }

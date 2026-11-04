@@ -49,10 +49,13 @@ import kotlinx.coroutines.yield
  * Browses the server of the active connection over SFTP and picks the project folder (P4.12).
  *
  * Browsing: one [SftpClient] with root `/`, so the whole server can be browsed; the server's own
- * permissions decide what can be read. The listing starts at `/`: the SFTP client offers no way to
- * learn the home folder (no `realpath`, and paths are relative to the root, not to the login
- * folder), and the presenter is not told the user name. A folder shows its subfolders and the
- * symlinks that lead to a folder, by name ignoring case; files and broken links are left out.
+ * permissions decide what can be read. The first listing starts at the login user's home, as
+ * [SftpClient.home] reports it, in the canonical form of [FolderPaths] (P4.22). When asking for it
+ * fails, or its answer has no canonical form, the listing starts at `/` instead, and that alone
+ * shows no error. A home that is reported but cannot be listed shows the listing's error, like any
+ * other folder. Until a listing has finished, [FolderIntent.Retry] starts at home again. A folder
+ * shows its subfolders and the symlinks that lead to a folder, by name ignoring case; files and
+ * broken links are left out.
  *
  * Paths are kept and stored in the canonical form of [FolderPaths]. `Up` takes the parent by the
  * text of the path, and stops at `/`.
@@ -139,7 +142,7 @@ class DefaultFolderPresenter(
             yield()
             followRecent()
         }
-        browse(FolderPaths.ROOT)
+        browse(null)
     }
 
     override fun onIntent(intent: FolderIntent) {
@@ -151,7 +154,7 @@ class DefaultFolderPresenter(
             }
             is FolderIntent.Select -> select(intent.path)
             is FolderIntent.RemoveRecent -> removeRecent(intent.path)
-            FolderIntent.Retry -> browse(mutableState.value.path ?: FolderPaths.ROOT)
+            FolderIntent.Retry -> browse(mutableState.value.path)
             FolderIntent.DismissError -> mutableState.update { it.copy(error = null) }
             FolderIntent.Close -> eventChannel.trySend(FolderEvent.Close)
         }
@@ -164,7 +167,8 @@ class DefaultFolderPresenter(
         return canonical
     }
 
-    private fun browse(path: String) {
+    /** Lists [path], or the login home when null. */
+    private fun browse(path: String?) {
         synchronized(lock) {
             navigation?.cancel()
             navigation = scope.launch {
@@ -174,10 +178,10 @@ class DefaultFolderPresenter(
         }
     }
 
-    private suspend fun show(path: String) {
+    private suspend fun show(requested: String?) {
         mutableState.update { it.copy(loading = true) }
         try {
-            val (profile, entries) = list(path)
+            val (profile, path, entries) = list(requested)
             currentCoroutineContext().ensureActive()
             synchronized(lock) { shownProfile = profile }
             mutableState.update { current ->
@@ -198,13 +202,29 @@ class DefaultFolderPresenter(
         }
     }
 
-    /** The folders in [path], and the profile of the client that listed them. */
-    private suspend fun list(path: String): Pair<ServerProfileId, List<FileEntry>> {
+    /**
+     * The profile of the client that listed, the folder listed ([requested], or the login home when
+     * null), and the folders in it.
+     */
+    private suspend fun list(requested: String?): Triple<ServerProfileId, String, List<FileEntry>> {
         val (profile, sftp) = client()
+        val path = requested ?: home(sftp)
         val entries = sftp.list(path)
             .mapNotNull { entry -> navigable(sftp, path, entry) }
             .sortedWith(BY_NAME)
-        return profile to entries
+        return Triple(profile, path, entries)
+    }
+
+    /**
+     * The login home in canonical form, or `/` when asking fails or the answer has no canonical
+     * form. A failure that broke the client shows on the listing that follows.
+     */
+    private suspend fun home(sftp: SftpClient): String = try {
+        FolderPaths.canonical(sftp.home()) ?: FolderPaths.ROOT
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        FolderPaths.ROOT
     }
 
     /** [entry] with its canonical path if it can be opened as a folder, else null. */
@@ -329,8 +349,8 @@ class DefaultFolderPresenter(
     /**
      * The pick is stored under the profile of the connection that listed the folder shown, and only
      * while that is still the active profile; after a switch to another profile it is refused with
-     * [FolderError.Failed]. Before any listing has finished (a recent folder tapped while `/` loads,
-     * or after it failed), it is stored under the profile of the connection serving the active
+     * [FolderError.Failed]. Before any listing has finished (a recent folder tapped while the first
+     * folder loads, or after it failed), it is stored under the profile of the connection serving the active
      * profile now (see [serving]), and refused with [FolderError.NotConnected] when none does.
      * Everything is read here, when the user picks, not after a launch, so a server switch in
      * between cannot put this server's folder in another server's history.

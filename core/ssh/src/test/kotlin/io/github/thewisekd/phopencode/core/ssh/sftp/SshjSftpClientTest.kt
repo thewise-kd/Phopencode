@@ -114,6 +114,52 @@ class SshjSftpClientTest {
     }
 
     @Test
+    fun `home is the login folder inside the root, and the root otherwise`() = test {
+        val session = session()
+        // MINA starts at the server's `/` unless told otherwise.
+        assertEquals("/", session.openSftp("/").closeLater().home())
+        assertEquals("/work", session.openSftp("/work").closeLater().home())
+
+        work.resolve("user").createDirectory()
+        server.sftpHome = "/work/user"
+        assertEquals("/work/user", session.openSftp("/work").closeLater().home())
+        assertEquals("/work/user", session.openSftp("/").closeLater().home())
+        assertEquals("/work/user", session.openSftp("/work/user").closeLater().home())
+    }
+
+    @Test
+    fun `home through a symlinked root is given under the root as configured`() = test {
+        work.resolve("user").createDirectory()
+        server.home.resolve("linked").createSymbolicLinkPointingTo(work)
+        server.sftpHome = "/work/user"
+        val session = session()
+        assertEquals("/linked/user", session.openSftp("/linked").closeLater().home())
+        server.sftpHome = "/linked/user"
+        assertEquals("/linked/user", session.openSftp("/linked").closeLater().home())
+        assertEquals("/work/user", session.openSftp("/work").closeLater().home())
+    }
+
+    @Test
+    fun `a home that leaves the root through a symlink gives the root`() = test {
+        val outside = server.home.resolve("outside").createDirectory()
+        work.resolve("out").createSymbolicLinkPointingTo(outside)
+        server.sftpHome = "/work/out"
+        assertEquals("/work", session().openSftp("/work").closeLater().home())
+    }
+
+    @Test
+    fun `home of a closed client fails, and of a closed session reports Disconnected`() = test {
+        val session = session()
+        val closed = session.openSftp("/work")
+        closed.close()
+        assertFailsWith<IllegalStateException> { closed.home() }
+        val client = session.openSftp("/work").closeLater()
+        session.close()
+        eventually("the channel closed") { server.openSubsystems() == 0 }
+        assertFailsWith<SshException.Disconnected> { client.home() }
+    }
+
+    @Test
     fun `a missing root fails with NotFound and leaves no channel`() = test {
         val session = session()
         assertFailure(SftpFailure.NotFound) { session.openSftp("/missing") }

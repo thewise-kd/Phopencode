@@ -221,7 +221,7 @@ internal class FakeSshSessionHarness : SshSessionHarness {
 }
 
 internal class FakeSftpHarness : SftpHarness {
-    private val files = FakeRemoteFiles().apply {
+    val files = FakeRemoteFiles().apply {
         addDirectory(ROOT)
         addDirectory("$ROOT-sibling")
         addDirectory(OUTSIDE)
@@ -244,6 +244,11 @@ internal class FakeSftpHarness : SftpHarness {
     override suspend fun givenFolder(path: String) = files.addDirectory(inRoot(path))
 
     override suspend fun givenSymlink(path: String, target: String) = files.addSymlink(inRoot(path), target)
+
+    override suspend fun givenHome(path: String) {
+        if (!files.exists(path)) files.addDirectory(path)
+        files.home = path
+    }
 
     override suspend fun givenDenied(path: String) = files.deny(inRoot(path))
 

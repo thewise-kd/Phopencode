@@ -23,6 +23,20 @@ interface SftpClient : AutoCloseable {
     val root: String
 
     /**
+     * The login user's home folder: where the server starts the session, which SFTP reports for
+     * `realpath(".")`. Absolute and normalised, in the form [list] gives its entries: under [root]
+     * as configured, even when [root] is reached through a symlink.
+     *
+     * Inside means as for every other path: the real location, after every symlink hop, is in
+     * [root]. A home outside [root] gives [root] itself; that is not a failure. A home inside [root]
+     * may still be missing or not be a folder, which the next [list] reports.
+     *
+     * Fails like the other calls; an answer that is not an absolute path fails with
+     * [SftpFailure.Failed].
+     */
+    suspend fun home(): String
+
+    /**
      * The direct children of a folder, without `.` and `..`, in no particular order. A symlink is
      * reported as a symlink.
      */

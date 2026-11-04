@@ -33,6 +33,12 @@ interface SftpHarness {
 
     suspend fun givenSymlink(path: String, target: String)
 
+    /**
+     * The login folder of every client opened from now on, the one `realpath(".")` reports: [path],
+     * absolute and maybe outside [root]. A missing folder there is created; a symlink there stays.
+     */
+    suspend fun givenHome(path: String)
+
     /** The server refuses this client access to [path]. */
     suspend fun givenDenied(path: String)
 
@@ -134,6 +140,7 @@ fun sftpClientContract(newHarness: suspend () -> SftpHarness): List<ContractCase
     reading(newHarness)
     writing(newHarness)
     changing(newHarness)
+    home(newHarness)
     connection(newHarness)
 }
 
@@ -457,6 +464,53 @@ private fun ContractCases.changing(newHarness: suspend () -> SftpHarness) {
         harness.givenFolder("folder")
         expectSftpFailure(SftpFailure.AlreadyExists, "mkdir") { harness.client.mkdir("folder") }
         harness.client.mkdir("folder", parents = true)
+    }
+}
+
+private fun ContractCases.home(newHarness: suspend () -> SftpHarness) {
+    case("home gives the login folder when it is inside the root") {
+        val harness = newHarness()
+        harness.givenFolder("user/projects")
+        harness.givenHome("${harness.root}/user")
+        val client = harness.clientAt(harness.root)
+        val home = client.home()
+        expectEqual("${harness.root}/user", home, "home")
+        expectEqual(setOf("projects"), client.list(home).map { it.name }.toSet(), "listing at home")
+    }
+    case("home gives the root when the login folder is the root") {
+        val harness = newHarness()
+        harness.givenHome(harness.root)
+        expectEqual(harness.root, harness.clientAt(harness.root).home(), "home")
+    }
+    case("home gives the root when the login folder is outside it") {
+        val harness = newHarness()
+        harness.givenHome(harness.outside)
+        expectEqual(harness.root, harness.clientAt(harness.root).home(), "outside")
+        harness.givenHome("${harness.root}-sibling/user")
+        expectEqual(harness.root, harness.clientAt(harness.root).home(), "sibling that starts like the root")
+    }
+    case("home gives the root when the login folder leaves it through a symlink") {
+        val harness = newHarness()
+        harness.givenSymlink("out", harness.outside)
+        harness.givenHome("${harness.root}/out")
+        expectEqual(harness.root, harness.clientAt(harness.root).home(), "home")
+    }
+    case("home of a client rooted at slash is the login folder itself") {
+        val harness = newHarness()
+        harness.givenHome(harness.outside)
+        expectEqual(harness.outside, harness.clientAt("/").home(), "home")
+    }
+    case("home is under the root as configured when the root is a symlink") {
+        val harness = newHarness()
+        harness.givenFolder("real/user")
+        harness.givenSymlink("linked", "${harness.root}/real")
+        harness.givenHome("${harness.root}/real/user")
+        expectEqual("${harness.root}/linked/user", harness.clientAt("${harness.root}/linked").home(), "home")
+    }
+    case("home fails with Disconnected once the connection ended") {
+        val harness = newHarness()
+        harness.disconnect()
+        expectThrows<SshException.Disconnected>("home") { harness.client.home() }
     }
 }
 

@@ -34,7 +34,7 @@ import net.schmizz.sshj.sftp.SFTPException
  * reports it missing; a `..` after a missing segment fails with [SftpFailure.NotFound], as in the
  * kernel.
  */
-internal class RealPaths(private val engine: SFTPEngine, private val bounds: Bounds?) {
+internal class RealPaths(private val engine: SFTPEngine, val bounds: Bounds?) {
     /** @property real The real root. @property logical The root as configured, maybe via a symlink. */
     class Bounds(val real: SftpRoot, val logical: SftpRoot)
 

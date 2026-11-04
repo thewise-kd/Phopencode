@@ -78,9 +78,17 @@ private object RunningServer : ServerTools {
         error("Not used")
 }
 
-/** An SFTP client that counts its closes. */
-internal class TrackedSftp(val inner: FakeSftpClient) : SftpClient by inner {
+/** An SFTP client that counts its closes, and reports [SftpLog.reportedHome] when one is set. */
+internal class TrackedSftp(val inner: FakeSftpClient, private val log: SftpLog) : SftpClient by inner {
     val closes = AtomicInteger()
+
+    val homeCalls = AtomicInteger()
+
+    override suspend fun home(): String {
+        homeCalls.incrementAndGet()
+        val reported = inner.home()
+        return log.reportedHome ?: reported
+    }
 
     override fun close() {
         closes.incrementAndGet()
@@ -92,13 +100,22 @@ internal class TrackedSftp(val inner: FakeSftpClient) : SftpClient by inner {
 internal class SftpLog {
     val opened = mutableListOf<TrackedSftp>()
     val roots = mutableListOf<String>()
+
+    /** Replaces the fake's answer to `home()`, to report text the fake would not. */
+    @Volatile
+    var reportedHome: String? = null
+
+    /** The first request of every client opened from now on fails with this. */
+    @Volatile
+    var failFirstRequest: SshException? = null
 }
 
 private class LoggingSession(private val inner: FakeSshSession, private val log: SftpLog) : SshSession by inner {
     override suspend fun openSftp(root: String): SftpClient {
         synchronized(log) { log.roots += root }
         val client = inner.openSftp(root) as FakeSftpClient
-        return TrackedSftp(client).also { synchronized(log) { log.opened += it } }
+        log.failFirstRequest?.let(client::failNext)
+        return TrackedSftp(client, log).also { synchronized(log) { log.opened += it } }
     }
 
     override fun close() = inner.close()
