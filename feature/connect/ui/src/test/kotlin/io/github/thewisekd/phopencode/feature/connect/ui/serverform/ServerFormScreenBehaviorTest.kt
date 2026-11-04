@@ -162,7 +162,10 @@ class ServerFormScreenBehaviorTest {
         compose.setForm({ state }) { intents += it }
 
         compose.onNodeWithTag(ServerFormTags.AUTH_PASSWORD_OPTION).assertIsSelected()
-        compose.onNodeWithTag(ServerFormTags.AUTH_KEY_OPTION).performClick()
+        // The auth rows sit at the bottom edge of Robolectric's 320x470dp screen, and how far down depends on
+        // the SDK's window insets. A tap lands at the node's on-screen center, so a row below the fold gets no
+        // tap at all: scroll each one into view first.
+        compose.onNodeWithTag(ServerFormTags.AUTH_KEY_OPTION).performScrollTo().performClick()
         assertEquals(listOf<ServerFormIntent>(ServerFormIntent.AuthMethodChanged(ServerFormAuthMethod.Key)), intents)
 
         state = state.copy(authMethod = ServerFormAuthMethod.Key)
@@ -170,7 +173,7 @@ class ServerFormScreenBehaviorTest {
         compose.onNodeWithTag(ServerFormTags.AUTH_KEY_OPTION).assertIsSelected()
         compose.onAllNodesWithTag(ServerFormTags.PASSWORD_FIELD).assertCountEquals(0)
 
-        compose.onNodeWithTag(ServerFormTags.AUTH_PASSWORD_OPTION).performClick()
+        compose.onNodeWithTag(ServerFormTags.AUTH_PASSWORD_OPTION).performScrollTo().performClick()
         assertEquals(ServerFormIntent.AuthMethodChanged(ServerFormAuthMethod.Password), intents.last())
     }
 

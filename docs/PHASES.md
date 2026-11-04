@@ -372,6 +372,12 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | P4.14 | Connection flow logic | P4.3 | `feature/connect/logic/…/progress/` | Connect if running, otherwise start; ask for a password on a foreign server; short, actionable errors | `PI` |
 | P4.15 | Connection flow screen | P4.3 | `feature/connect/ui/…/progress/`, `strings_connect_progress.xml` | Step indicator; retry; cancel | `CI` |
 
+**G4 (fixes from CI)**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P4.19 | Server form test on API 36 | P4.7 | `feature/connect/ui/…/serverform/` (main and test), `docs/PHASES.md` (this row) | The server form tests pass at API 26 and API 36 in CI | `CI` |
+
 `CP4`: push, CI green, `PHONE`: connect to a real server.
 
 ### P5: Session management
