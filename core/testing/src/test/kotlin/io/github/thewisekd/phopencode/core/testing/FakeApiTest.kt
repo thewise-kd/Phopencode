@@ -237,9 +237,18 @@ class FakeApiTest {
     }
 
     @Test
-    fun `a version the fake cannot read is a malformed reply`() = runTest {
-        client.serverVersion = "not a version"
-        assertEquals(ApiError.MalformedResponse, assertFailsWith<ApiException> { client.serverInfo() }.error)
+    fun `a version the fake cannot read is accepted with isVersionUnknown`() = runTest {
+        listOf("", "local", "dev", "v", "not a version").forEach { raw ->
+            client.serverVersion = raw
+            val info = client.serverInfo()
+            assertTrue(info.isVersionUnknown, "<$raw> is an unknown version")
+            assertTrue(!info.isNewerMajor)
+            assertEquals(raw, info.version)
+        }
+        client.serverVersion = "x".repeat(10_000)
+        assertEquals("x".repeat(200), client.serverInfo().version)
+        client.serverVersion = "2.2.0"
+        assertTrue(!client.serverInfo().isVersionUnknown)
     }
 
     @Test

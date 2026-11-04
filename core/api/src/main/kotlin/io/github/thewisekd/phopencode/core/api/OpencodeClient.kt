@@ -25,7 +25,10 @@ interface OpencodeClient : AutoCloseable {
     val fs: FsApi
     val events: EventApi
 
-    /** Throws [ApiException] with [ApiError.VersionTooOld] below [MIN_SERVER_VERSION]. */
+    /**
+     * Throws [ApiException] with [ApiError.VersionTooOld] below [MIN_SERVER_VERSION]. A version that
+     * cannot be read is accepted with [ServerInfo.isVersionUnknown] set.
+     */
     suspend fun serverInfo(): ServerInfo
 
     /**
@@ -51,9 +54,12 @@ interface OpencodeClient : AutoCloseable {
  * @property isNewerMajor The major version is newer than this app knows. It may work, so this is a
  *   warning to show, not an error.
  * @property capabilities In the server's own shape.
+ * @property isVersionUnknown The version could not be read, as with `local` from a source build.
+ *   Compatibility is not checked then, so the UI shows a warning; [version] still holds the text.
  */
 data class ServerInfo(
     val version: String,
     val isNewerMajor: Boolean = false,
     val capabilities: DataValue? = null,
+    val isVersionUnknown: Boolean = false,
 )

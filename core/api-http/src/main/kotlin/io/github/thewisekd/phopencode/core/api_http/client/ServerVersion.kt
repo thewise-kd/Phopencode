@@ -45,19 +45,25 @@ internal data class ServerVersion(val major: Int, val minor: Int, val patch: Int
  *
  * - Below [OpencodeClient.MIN_SERVER_VERSION]: [ApiError.VersionTooOld] with the version's numbers.
  * - A major above the minimum's: accepted, with [ServerInfo.isNewerMajor] set, as a warning to show.
- * - A version that does not parse (see [ServerVersion]), such as `local` from a development build:
- *   [ApiError.VersionTooOld] with [UNKNOWN_VERSION]. There is no telling whether the server speaks
- *   the V2 API this app needs, and its text is never quoted, since an error's message may be logged.
+ * - A version that does not parse (see [ServerVersion]), such as `local` from a source build:
+ *   accepted, with [ServerInfo.isVersionUnknown] set, as a warning to show. Compatibility is not
+ *   checked. Its trimmed text, cut to [MAX_UNKNOWN_LENGTH] characters, goes only into
+ *   [ServerInfo.version], never into an error or a log.
  */
 internal object VersionGate {
-    /** What [ApiError.VersionTooOld.found] says when the server's version did not parse. */
-    const val UNKNOWN_VERSION: String = "unknown"
+    /** The most of an unparseable version's text that is kept in [ServerInfo.version]. */
+    const val MAX_UNKNOWN_LENGTH: Int = 200
 
     private val MINIMUM: ServerVersion = checkNotNull(ServerVersion.parse(OpencodeClient.MIN_SERVER_VERSION))
 
     /** The [ServerInfo] for [raw], or throws [ApiException]; see [VersionGate]. */
     fun check(raw: String, capabilities: DataValue?): ServerInfo {
-        val version = ServerVersion.parse(raw) ?: throw ApiException(ApiError.VersionTooOld(UNKNOWN_VERSION))
+        val version = ServerVersion.parse(raw) ?: return ServerInfo(
+            version = raw.trim().take(MAX_UNKNOWN_LENGTH),
+            isNewerMajor = false,
+            capabilities = capabilities,
+            isVersionUnknown = true,
+        )
         if (version < MINIMUM) throw ApiException(ApiError.VersionTooOld(version.numbers))
         return ServerInfo(
             version = raw.trim(),

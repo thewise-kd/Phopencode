@@ -196,6 +196,61 @@ fun opencodeClientContract(newHarness: suspend () -> ApiHarness): List<ContractC
         harness.givenServerVersion("99.0.0")
         expectThat(harness.client.serverInfo().isNewerMajor, "99.0.0 is a newer major version")
     }
+    case("an unparseable version connects with isVersionUnknown") {
+        val harness = newHarness()
+        harness.givenServerVersion("local")
+        val info = harness.client.serverInfo()
+        expectThat(info.isVersionUnknown, "local is an unknown version")
+        expectThat(!info.isNewerMajor, "an unknown version is not a newer major")
+        expectEqual("local", info.version, "version")
+    }
+    case("every version text gets the same outcome as the real parser gives it") {
+        val harness = newHarness()
+        val tooOld = mapOf("v2.1.9" to "2.1.9", "2.1" to "2.1", "v2.01.9-rc" to "2.1.9", " 1.14.0 " to "1.14.0")
+        tooOld.forEach { (raw, found) ->
+            harness.givenServerVersion(raw)
+            expectApiError(ApiError.VersionTooOld(found), "serverInfo of <$raw>") { harness.client.serverInfo() }
+        }
+        // Raw text -> the version reported, and whether it is a newer major.
+        val accepted = mapOf(
+            "v2.2.0" to ("v2.2.0" to false),
+            "2.2" to ("2.2" to false),
+            "2.2.0-beta" to ("2.2.0-beta" to false),
+            "2.2.0-beta.1+build.7" to ("2.2.0-beta.1+build.7" to false),
+            " 2.2.5 " to ("2.2.5" to false),
+            "v3.0.0" to ("v3.0.0" to true),
+            "3.0" to ("3.0" to true),
+        )
+        accepted.forEach { (raw, expected) ->
+            harness.givenServerVersion(raw)
+            val info = harness.client.serverInfo()
+            expectEqual(expected.first, info.version, "version of <$raw>")
+            expectEqual(expected.second, info.isNewerMajor, "isNewerMajor of <$raw>")
+            expectThat(!info.isVersionUnknown, "<$raw> is a known version")
+        }
+        // Raw text -> the version reported; each is unknown.
+        val unknown = mapOf(
+            "local" to "local",
+            "" to "",
+            "v" to "v",
+            "2" to "2",
+            "V2.2.0" to "V2.2.0",
+            "2.2.0.1" to "2.2.0.1",
+            "2.2.0-" to "2.2.0-",
+            "2.2.0-beta_1" to "2.2.0-beta_1",
+            "1234567890.0.0" to "1234567890.0.0",
+            "2.2.0-${"a".repeat(65)}" to "2.2.0-${"a".repeat(65)}",
+            "${" ".repeat(200)}2.2.5" to "2.2.5",
+            "x".repeat(300) to "x".repeat(200),
+        )
+        unknown.forEach { (raw, version) ->
+            harness.givenServerVersion(raw)
+            val info = harness.client.serverInfo()
+            expectThat(info.isVersionUnknown, "<${raw.take(80)}> is an unknown version")
+            expectThat(!info.isNewerMajor, "<${raw.take(80)}> is not a newer major")
+            expectEqual(version, info.version, "version of <${raw.take(80)}>")
+        }
+    }
     case("a server failure arrives as ApiException with its typed error") {
         val harness = newHarness()
         harness.givenFailure(ApiError.Unauthorized)

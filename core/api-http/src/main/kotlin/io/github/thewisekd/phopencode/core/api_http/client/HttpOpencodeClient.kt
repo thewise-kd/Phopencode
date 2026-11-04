@@ -41,8 +41,9 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
  * after it.
  *
  * The version gate is [serverInfo]: it reads `GET /api/info` and fails with
- * [ApiError.VersionTooOld] below [OpencodeClient.MIN_SERVER_VERSION], or when the version does not
- * parse; a newer major passes with [ServerInfo.isNewerMajor] set. The other calls do not check the
+ * [ApiError.VersionTooOld] below [OpencodeClient.MIN_SERVER_VERSION]; a newer major passes with
+ * [ServerInfo.isNewerMajor] set, and a version that does not parse passes with
+ * [ServerInfo.isVersionUnknown] set. The other calls do not check the
  * version, so a caller asks [serverInfo] first, as the connection manager does. The rules are on
  * [VersionGate].
  *

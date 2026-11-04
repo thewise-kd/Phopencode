@@ -77,17 +77,40 @@ class ServerVersionTest {
     }
 
     @Test
-    fun `an unparseable version fails with VersionTooOld of unknown, and its text appears nowhere`() {
+    fun `an unparseable version is accepted with isVersionUnknown, its text kept only as the version`() {
         val hostile = "local build on private-host.example.invalid"
-        listOf("local", "", "dev", "2", hostile, "x".repeat(10_000)).forEach { raw ->
-            val failure = assertFailsWith<ApiException> { VersionGate.check(raw, null) }
-            assertEquals(ApiError.VersionTooOld(VersionGate.UNKNOWN_VERSION), failure.error)
-            // A short text such as "2" appears in any message by chance; long ones must not.
-            if (raw.length > 3) {
-                assertFalse(failure.error.message.contains(raw), "the message must not quote <$raw>")
-                assertFalse(failure.toString().contains(raw))
-            }
+        listOf("", "local", "dev", "v", "2", " local ", hostile, "%%garbage\u0000!!").forEach { raw ->
+            val info = VersionGate.check(raw, null)
+            assertTrue(info.isVersionUnknown, "<$raw> is an unknown version")
+            assertFalse(info.isNewerMajor, "<$raw> is not a newer major")
+            assertEquals(raw.trim(), info.version)
         }
+    }
+
+    @Test
+    fun `an over-long unparseable version is capped at 200 characters`() {
+        val info = VersionGate.check("x".repeat(10_000), null)
+        assertTrue(info.isVersionUnknown)
+        assertEquals("x".repeat(200), info.version)
+    }
+
+    @Test
+    fun `a parseable version is never marked unknown`() {
+        assertFalse(VersionGate.check("2.2.0", null).isVersionUnknown)
+        assertFalse(VersionGate.check("2.2.0", null).isNewerMajor)
+        assertEquals("2.2.0", VersionGate.check("2.2.0", null).version)
+        assertTrue(VersionGate.check("3.0.0", null).isNewerMajor)
+        assertFalse(VersionGate.check("3.0.0", null).isVersionUnknown)
+        assertEquals(
+            ApiError.VersionTooOld("2.1.9"),
+            assertFailsWith<ApiException> { VersionGate.check("2.1.9", null) }.error,
+        )
+    }
+
+    @Test
+    fun `an unknown version keeps its capabilities`() {
+        val capabilities = DataValue.Fields(mapOf("persistentPty" to DataValue.Bool(true)))
+        assertEquals(capabilities, VersionGate.check("local", capabilities).capabilities)
     }
 
     @Test

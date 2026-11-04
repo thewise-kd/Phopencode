@@ -88,10 +88,13 @@ class HttpOpencodeClientTest {
     }
 
     @Test
-    fun `an unparseable version fails with VersionTooOld of unknown`() = runTest {
+    fun `an unparseable version is accepted with isVersionUnknown`() = runTest {
         TestServer().use { s ->
             s.enqueue(body = """{"version":"local","pid":1,"urls":[],"paths":{"tmp":"/t"}}""")
-            assertApiError(ApiError.VersionTooOld(VersionGate.UNKNOWN_VERSION)) { s.client().serverInfo() }
+            val info = s.client().serverInfo()
+            assertTrue(info.isVersionUnknown)
+            assertFalse(info.isNewerMajor)
+            assertEquals("local", info.version)
         }
     }
 
