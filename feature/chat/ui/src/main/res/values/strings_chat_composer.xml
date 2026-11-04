@@ -1,3 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="chat_composer_field_label">Message</string>
+    <string name="chat_composer_send">Send</string>
+    <string name="chat_composer_stop">Stop</string>
+    <string name="chat_composer_sending">Sending the message…</string>
+    <string name="chat_composer_stopping">Stopping the work…</string>
+    <string name="chat_composer_delivery_label">Send while it works:</string>
+    <string name="chat_composer_delivery_steer">Steer now</string>
+    <string name="chat_composer_delivery_queue">Queue</string>
+    <string name="chat_composer_error">%1$s %2$s</string>
+    <string name="chat_composer_failed_send">The message could not be sent.</string>
+    <string name="chat_composer_failed_stop">The work could not be stopped.</string>
+    <string name="chat_composer_reason_not_connected">There is no connection to the server. Go back and connect again.</string>
+    <string name="chat_composer_reason_unreachable">The server could not be reached. Check the connection and try again.</string>
+    <string name="chat_composer_reason_unauthorized">The server refused the credentials.</string>
+    <string name="chat_composer_reason_not_found">The session no longer exists; it may have been deleted on another device.</string>
+    <string name="chat_composer_reason_conflict">The session is busy or was changed meanwhile.</string>
+    <string name="chat_composer_reason_rejected">The server refused the request.</string>
+    <string name="chat_composer_reason_server_failed">The server ran into an error.</string>
+    <string name="chat_composer_reason_unknown">An unexpected error occurred.</string>
 </resources>

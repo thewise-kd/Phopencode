@@ -1,3 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="chat_composer_field_label">Mesaj</string>
+    <string name="chat_composer_send">Gönder</string>
+    <string name="chat_composer_stop">Durdur</string>
+    <string name="chat_composer_sending">Mesaj gönderiliyor…</string>
+    <string name="chat_composer_stopping">Çalışma durduruluyor…</string>
+    <string name="chat_composer_delivery_label">Çalışırken gönderim:</string>
+    <string name="chat_composer_delivery_steer">Hemen yönlendir</string>
+    <string name="chat_composer_delivery_queue">Sıraya koy</string>
+    <string name="chat_composer_error">%1$s %2$s</string>
+    <string name="chat_composer_failed_send">Mesaj gönderilemedi.</string>
+    <string name="chat_composer_failed_stop">Çalışma durdurulamadı.</string>
+    <string name="chat_composer_reason_not_connected">Sunucuyla bağlantı yok. Geri dönüp yeniden bağlanın.</string>
+    <string name="chat_composer_reason_unreachable">Sunucuya ulaşılamadı. Bağlantıyı denetleyip yeniden deneyin.</string>
+    <string name="chat_composer_reason_unauthorized">Sunucu kimlik bilgilerini reddetti.</string>
+    <string name="chat_composer_reason_not_found">Oturum artık yok; başka bir cihazdan silinmiş olabilir.</string>
+    <string name="chat_composer_reason_conflict">Oturum meşgul ya da bu arada değiştirildi.</string>
+    <string name="chat_composer_reason_rejected">Sunucu isteği reddetti.</string>
+    <string name="chat_composer_reason_server_failed">Sunucuda bir hata oluştu.</string>
+    <string name="chat_composer_reason_unknown">Beklenmeyen bir hata oluştu.</string>
 </resources>

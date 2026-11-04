@@ -1,0 +1,243 @@
+package io.github.thewisekd.phopencode.feature.chat.ui.composer
+
+import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.unit.dp
+import io.github.thewisekd.phopencode.core.api.PromptDelivery
+import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatFailure
+import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerAction
+import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerError
+import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerIntent
+import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerState
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+private const val SEND = "Send"
+private const val STOP = "Stop"
+private const val STEER = "Steer now"
+private const val QUEUE = "Queue"
+private const val DISMISS = "Dismiss error"
+
+/** What the composer sends, in English: the texts of both languages are in `ComposerLanguageContract`. */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [26, 36], qualifiers = "en")
+class ComposerBehaviorTest {
+    @get:Rule
+    val compose = createComposeRule()
+
+    /** Scrolled into view first: at API 35+ the insets push the content down. */
+    private fun button(text: String): SemanticsNodeInteraction = compose.onNodeWithText(text).performScrollTo()
+
+    private fun field(): SemanticsNodeInteraction = compose.onNodeWithTag(COMPOSER_FIELD_TAG).performScrollTo()
+
+    private fun action(): SemanticsNodeInteraction = compose.onNodeWithTag(COMPOSER_ACTION_TAG).performScrollTo()
+
+    // Typing
+
+    @Test
+    fun `the field shows the draft as typed`() {
+        compose.setComposer(ready(DRAFT))
+
+        field().assertTextContains(DRAFT)
+    }
+
+    @Test
+    fun `typing sends DraftChanged and nothing else`() {
+        val harness = compose.setComposer(ready())
+
+        field().performTextReplacement(DRAFT)
+
+        assertEquals(listOf<ComposerIntent>(ComposerIntent.DraftChanged(DRAFT)), harness.intents)
+    }
+
+    @Test
+    fun `the field is disabled while the session is not usable or a prompt is on its way`() {
+        val harness = compose.setComposer(ComposerState(draft = DRAFT))
+        field().assertIsNotEnabled()
+
+        harness.state.value = ready(DRAFT).copy(sending = true)
+        field().assertIsNotEnabled()
+
+        harness.state.value = ready(DRAFT)
+        field().assertIsEnabled()
+    }
+
+    // Send
+
+    @Test
+    fun `Send sends Send when there is something to send`() {
+        val harness = compose.setComposer(ready(DRAFT))
+
+        button(SEND).assertIsEnabled().performClick()
+
+        assertEquals(listOf<ComposerIntent>(ComposerIntent.Send), harness.intents)
+    }
+
+    @Test
+    fun `Send follows canSend`() {
+        val cases = listOf(
+            ready(),
+            ready("   \n "),
+            ComposerState(draft = DRAFT, enabled = false),
+            ready(DRAFT).copy(sending = true),
+        )
+        val harness = compose.setComposer(cases.first())
+
+        for (state in cases) {
+            harness.state.value = state
+            assertTrue(!state.canSend)
+            button(SEND).assertIsNotEnabled().performClick()
+        }
+
+        assertTrue(harness.intents.isEmpty())
+    }
+
+    @Test
+    fun `the button keeps one place whether it sends or stops`() {
+        val harness = compose.setComposer(ready(DRAFT))
+        action().assertTextContains(SEND)
+
+        harness.state.value = running()
+        action().assertTextContains(STOP)
+
+        harness.state.value = running(DRAFT)
+        action().assertTextContains(SEND)
+    }
+
+    // Stop
+
+    @Test
+    fun `with nothing typed, running work offers Stop, which sends Stop`() {
+        val harness = compose.setComposer(running())
+
+        compose.onNodeWithText(SEND).assertDoesNotExist()
+        button(STOP).assertIsEnabled().performClick()
+
+        assertEquals(listOf<ComposerIntent>(ComposerIntent.Stop), harness.intents)
+    }
+
+    @Test
+    fun `Stop follows canStop`() {
+        val harness = compose.setComposer(running().copy(stopping = true))
+        button(STOP).assertIsNotEnabled().performClick()
+
+        harness.state.value = running().copy(enabled = false)
+        button(STOP).assertIsNotEnabled().performClick()
+
+        assertTrue(harness.intents.isEmpty())
+    }
+
+    @Test
+    fun `while running, a typed prompt is sent instead of stopping`() {
+        val harness = compose.setComposer(running(DRAFT))
+
+        compose.onNodeWithText(STOP).assertDoesNotExist()
+        button(SEND).assertIsEnabled().performClick()
+
+        assertEquals(listOf<ComposerIntent>(ComposerIntent.Send), harness.intents)
+    }
+
+    @Test
+    fun `nothing is offered to stop when nothing runs`() {
+        compose.setComposer(ready())
+
+        compose.onNodeWithText(STOP).assertDoesNotExist()
+    }
+
+    // Delivery
+
+    @Test
+    fun `the delivery choice shows only while running`() {
+        val harness = compose.setComposer(ready(DRAFT))
+        compose.onNodeWithText(STEER).assertDoesNotExist()
+        compose.onNodeWithText(QUEUE).assertDoesNotExist()
+
+        harness.state.value = running(DRAFT)
+        button(STEER).assertExists()
+        button(QUEUE).assertExists()
+    }
+
+    @Test
+    fun `the delivery choice shows the state's choice`() {
+        val harness = compose.setComposer(running(DRAFT))
+        button(STEER).assertIsSelected()
+        button(QUEUE).assertIsNotSelected()
+
+        harness.state.value = running(DRAFT).copy(delivery = PromptDelivery.Queue)
+        button(STEER).assertIsNotSelected()
+        button(QUEUE).assertIsSelected()
+    }
+
+    @Test
+    fun `choosing a delivery sends DeliveryChanged`() {
+        val harness = compose.setComposer(running(DRAFT))
+
+        button(QUEUE).performClick()
+
+        assertEquals(listOf<ComposerIntent>(ComposerIntent.DeliveryChanged(PromptDelivery.Queue)), harness.intents)
+    }
+
+    @Test
+    fun `the delivery cannot change while a prompt is on its way`() {
+        val harness = compose.setComposer(running(DRAFT).copy(sending = true))
+
+        button(QUEUE).assertIsNotEnabled().performClick()
+
+        assertTrue(harness.intents.isEmpty())
+    }
+
+    // Errors
+
+    @Test
+    fun `an error can be dismissed`() {
+        val harness = compose.setComposer(ready(DRAFT).copy(error = ComposerError(ComposerAction.Send, ChatFailure.Unreachable)))
+
+        compose.onNodeWithContentDescription(DISMISS).performScrollTo().performClick()
+
+        assertEquals(listOf<ComposerIntent>(ComposerIntent.DismissError), harness.intents)
+    }
+
+    @Test
+    fun `a failed send keeps the draft in the field`() {
+        compose.setComposer(ready(DRAFT).copy(error = ComposerError(ComposerAction.Send, ChatFailure.ServerFailed)))
+
+        field().assertTextContains(DRAFT)
+        button(SEND).assertIsEnabled()
+    }
+
+    @Test
+    fun `no error shows without one`() {
+        compose.setComposer(ready(DRAFT))
+
+        compose.onNodeWithContentDescription(DISMISS).assertDoesNotExist()
+    }
+
+    // Touch targets
+
+    @Test
+    fun `the buttons are large enough to touch`() {
+        val harness = compose.setComposer(ready(DRAFT))
+        action().assertTouchSizeIsAtLeast(48.dp)
+
+        harness.state.value = running()
+        action().assertTouchSizeIsAtLeast(48.dp)
+        button(STEER).assertTouchSizeIsAtLeast(48.dp)
+        button(QUEUE).assertTouchSizeIsAtLeast(48.dp)
+    }
+}
