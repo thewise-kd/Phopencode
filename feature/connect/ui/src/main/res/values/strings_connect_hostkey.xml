@@ -1,3 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="connect_hostkey_title">Server key</string>
+    <string name="connect_hostkey_loading">Waiting for the server\'s key…</string>
+    <string name="connect_hostkey_none">There is no server key to check.</string>
+    <string name="connect_hostkey_deciding">Saving your decision…</string>
+    <string name="connect_hostkey_type">Key type: %1$s</string>
+    <string name="connect_hostkey_fingerprint_label">SHA-256 fingerprint</string>
+    <string name="connect_hostkey_first_title">Check this server\'s key</string>
+    <string name="connect_hostkey_first_message">This is the first connection to this server. Compare the fingerprint below with the one the server\'s administrator gives you, for example the output of ssh-keygen -l on the server. Approving saves this key: if the server later presents another key, the connection stops.</string>
+    <string name="connect_hostkey_approve">Approve and connect</string>
+    <string name="connect_hostkey_reject">Reject</string>
+    <string name="connect_hostkey_changed_title">Warning: this server\'s key has changed</string>
+    <string name="connect_hostkey_changed_message">The server presented a different key from the one you approved. Someone may be intercepting the connection (a man-in-the-middle attack). It can also happen after the server was reinstalled or its keys were replaced. The connection has been stopped. Accept the new key only if the server\'s administrator confirms the change.</string>
+    <string name="connect_hostkey_previous_label">Previously approved fingerprint (SHA-256)</string>
+    <string name="connect_hostkey_new_label">New fingerprint (SHA-256)</string>
+    <string name="connect_hostkey_changed_reject">Reject and stay disconnected</string>
+    <string name="connect_hostkey_changed_accept">Trust the new key…</string>
+    <string name="connect_hostkey_confirm_title">Replace the approved key?</string>
+    <string name="connect_hostkey_confirm_message">Do this only if you have checked the new fingerprint with the server\'s administrator. An attacker in the middle could read everything you send to this server, passwords included.</string>
+    <string name="connect_hostkey_confirm_accept">Replace key</string>
+    <string name="connect_hostkey_error_no_request">The connection no longer waits for a decision on this key. Connect again to check it.</string>
+    <string name="connect_hostkey_error_server_missing">This server\'s profile no longer exists, so its key cannot be checked.</string>
+    <string name="connect_hostkey_error_storage_failed">The approved server keys could not be read or saved. Nothing was changed.</string>
+    <string name="connect_hostkey_error_superseded">The approved key changed while you were deciding. Nothing was replaced; connect again to check the key.</string>
 </resources>

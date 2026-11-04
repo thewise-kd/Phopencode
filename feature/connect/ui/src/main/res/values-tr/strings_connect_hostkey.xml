@@ -1,3 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="connect_hostkey_title">Sunucu anahtarı</string>
+    <string name="connect_hostkey_loading">Sunucunun anahtarı bekleniyor…</string>
+    <string name="connect_hostkey_none">Denetlenecek bir sunucu anahtarı yok.</string>
+    <string name="connect_hostkey_deciding">Kararınız kaydediliyor…</string>
+    <string name="connect_hostkey_type">Anahtar türü: %1$s</string>
+    <string name="connect_hostkey_fingerprint_label">SHA-256 parmak izi</string>
+    <string name="connect_hostkey_first_title">Bu sunucunun anahtarını denetleyin</string>
+    <string name="connect_hostkey_first_message">Bu sunucuya ilk kez bağlanıyorsunuz. Aşağıdaki parmak izini sunucu yöneticisinin verdiğiyle, örneğin sunucuda ssh-keygen -l çıktısıyla karşılaştırın. Onaylarsanız bu anahtar kaydedilir: sunucu ileride başka bir anahtar gösterirse bağlantı durdurulur.</string>
+    <string name="connect_hostkey_approve">Onayla ve bağlan</string>
+    <string name="connect_hostkey_reject">Reddet</string>
+    <string name="connect_hostkey_changed_title">Uyarı: bu sunucunun anahtarı değişti</string>
+    <string name="connect_hostkey_changed_message">Sunucu, onayladığınızdan farklı bir anahtar gösterdi. Biri bağlantının arasına girmiş olabilir (ortadaki adam saldırısı). Sunucu yeniden kurulduysa ya da anahtarları değiştirildiyse de bu olabilir. Bağlantı durduruldu. Yeni anahtarı yalnızca sunucu yöneticisi değişikliği doğrularsa kabul edin.</string>
+    <string name="connect_hostkey_previous_label">Önceden onaylanan parmak izi (SHA-256)</string>
+    <string name="connect_hostkey_new_label">Yeni parmak izi (SHA-256)</string>
+    <string name="connect_hostkey_changed_reject">Reddet ve bağlanma</string>
+    <string name="connect_hostkey_changed_accept">Yeni anahtara güven…</string>
+    <string name="connect_hostkey_confirm_title">Onaylı anahtar değiştirilsin mi?</string>
+    <string name="connect_hostkey_confirm_message">Bunu yalnızca yeni parmak izini sunucu yöneticisiyle doğruladıysanız yapın. Araya giren bir saldırgan, parolalar dahil bu sunucuya gönderdiğiniz her şeyi okuyabilir.</string>
+    <string name="connect_hostkey_confirm_accept">Anahtarı değiştir</string>
+    <string name="connect_hostkey_error_no_request">Bağlantı artık bu anahtar için bir karar beklemiyor. Denetlemek için yeniden bağlanın.</string>
+    <string name="connect_hostkey_error_server_missing">Bu sunucunun profili artık yok, bu yüzden anahtarı denetlenemiyor.</string>
+    <string name="connect_hostkey_error_storage_failed">Onaylı sunucu anahtarları okunamadı ya da kaydedilemedi. Hiçbir şey değişmedi.</string>
+    <string name="connect_hostkey_error_superseded">Siz karar verirken onaylı anahtar değişti. Hiçbir şey değiştirilmedi; anahtarı denetlemek için yeniden bağlanın.</string>
 </resources>
