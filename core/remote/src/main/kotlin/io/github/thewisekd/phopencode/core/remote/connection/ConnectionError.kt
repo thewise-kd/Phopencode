@@ -5,6 +5,7 @@ import io.github.thewisekd.phopencode.core.remote.detect.DetectFailure
 import io.github.thewisekd.phopencode.core.remote.start.ServerStartException
 import io.github.thewisekd.phopencode.core.ssh.api.HostKey
 import io.github.thewisekd.phopencode.core.storage_api.HostKeyFingerprint
+import java.io.IOException
 
 /**
  * Why a connection failed or ended. None of these holds an address, a secret or server output.
@@ -127,3 +128,10 @@ enum class ServerStartFailure {
 
 /** Carries a [ConnectionError] out of a step. Its message is fixed text. */
 class ConnectionException(val error: ConnectionError) : Exception("Connection failed: ${error::class.simpleName}")
+
+/**
+ * No connection stands right now: [ConnectionManager] is idle, connecting, waiting to reconnect,
+ * stopped by an error or closed, or the connection ended while the call was under way. Its message
+ * is fixed text.
+ */
+class NotConnectedException : IOException("No live connection")

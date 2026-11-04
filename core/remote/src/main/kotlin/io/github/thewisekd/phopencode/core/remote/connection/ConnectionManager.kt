@@ -9,6 +9,7 @@ import io.github.thewisekd.phopencode.core.model.ServerProfile
 import io.github.thewisekd.phopencode.core.ssh.api.HostKey
 import io.github.thewisekd.phopencode.core.ssh.api.HostKeyDecision
 import io.github.thewisekd.phopencode.core.ssh.api.HostKeyVerifier
+import io.github.thewisekd.phopencode.core.ssh.api.SftpClient
 import io.github.thewisekd.phopencode.core.ssh.api.SshConnector
 import io.github.thewisekd.phopencode.core.ssh.api.SshException
 import io.github.thewisekd.phopencode.core.ssh.api.SshSession
@@ -63,10 +64,10 @@ import kotlinx.coroutines.withTimeoutOrNull
  * serve` running at all does it start a new one, exactly as a first connect would; a server that
  * runs but does not answer is just tried again with backoff.
  *
- * Resources: everything a connection opens (the SSH session, with its processes and tunnels, and
- * the API client with the manager's event stream) belongs to it, and is closed when the
- * connection drops or fails, and when [connect] replaces it. Login secrets are wiped right after
- * use.
+ * Resources: everything a connection opens (the SSH session, with its processes and tunnels, the
+ * API client with the manager's event stream, and every client [openSftp] gave out on it) belongs
+ * to it, and is closed when the connection drops or fails, and when [connect] replaces it. Login
+ * secrets are wiped right after use.
  *
  * Closing: [disconnect] and [close] suspend until every connection this manager started has
  * finished, its cleanup included: credentials wiped, client and session closed. Concurrent calls
@@ -158,6 +159,33 @@ class ConnectionManager(
     }
 
     /**
+     * Opens an SFTP client confined to [root] (see [SftpClient]) on the SSH session of the
+     * connection that stands right now, that is while [state] is [ConnectionState.Connected].
+     *
+     * The client belongs to that connection: it is closed when the connection drops, when
+     * [reconnect], [disconnect], [connect] or [close] ends it, or when the manager's scope ends, and
+     * a later connection needs a new one. The caller may close it earlier; it is closed only once
+     * either way. An open that finishes after its connection ended closes the client and fails.
+     * Cancelling the call leaves nothing open.
+     *
+     * @throws NotConnectedException When no connection stands, or it ended during the open.
+     * @throws io.github.thewisekd.phopencode.core.ssh.api.SshException.Sftp When [root] is refused,
+     *   missing or not readable; the connection stays.
+     * @throws io.github.thewisekd.phopencode.core.ssh.api.SshException.Disconnected When the SSH
+     *   session ends during the open.
+     */
+    suspend fun openSftp(root: String): SftpClient {
+        val (run, live) = synchronized(lock) {
+            val run = current
+            val live = run?.live ?: throw NotConnectedException()
+            run to live
+        }
+        // Cancellation inside the session's open closes its half-open channel; after it returns
+        // there is no suspension point before the client is tracked.
+        return run.track(live, live.session.openSftp(root))
+    }
+
+    /**
      * Ends the connection and returns to [ConnectionState.Idle] once every connection has finished
      * its cleanup. After [close], it waits for the close to finish instead.
      */
@@ -217,7 +245,41 @@ class ConnectionManager(
 
     private class PendingApproval(val key: HostKey, val decision: CompletableDeferred<Boolean>)
 
-    private class Live(val session: SshSession, val client: OpencodeClient, val info: ServerInfo)
+    private class Live(val session: SshSession, val client: OpencodeClient, val info: ServerInfo) {
+        /** Guarded by the run's held lock: the [openSftp] clients still open on this connection. */
+        val sftp = ArrayList<TrackedSftp>()
+
+        /** Guarded by the run's held lock: the connection dropped; no client is added any more. */
+        var ended = false
+    }
+
+    /**
+     * An [openSftp] client, handed to the caller. Its first [close], by the caller or the manager,
+     * takes it out of the connection's resources with [untrack] and closes the real client; later
+     * ones do nothing.
+     *
+     * Deciding and closing both happen under [lock], the run's held lock, which the manager's
+     * cleanup also holds while it closes. So whichever side comes first closes the real client
+     * completely before the other goes on: a cleanup never returns while a caller's close of this
+     * client is still under way, and the real client is closed once.
+     */
+    private class TrackedSftp(
+        private val inner: SftpClient,
+        private val lock: Any,
+        private val untrack: (TrackedSftp) -> Unit,
+    ) : SftpClient by inner {
+        /** Guarded by [lock]. */
+        private var closed = false
+
+        override fun close() {
+            synchronized(lock) {
+                if (closed) return
+                closed = true
+                untrack(this)
+                inner.close()
+            }
+        }
+    }
 
     /** Why a connection that was published as connected ended, and whether its event stream opened. */
     private class Drop(val cause: ConnectionError, val stood: Boolean)
@@ -229,6 +291,9 @@ class ConnectionManager(
 
         @Volatile
         var pending: PendingApproval? = null
+
+        /** Guarded by [lock]: the connection published as [ConnectionState.Connected], while it stands. */
+        var live: Live? = null
 
         val kicks = Channel<Unit>(Channel.CONFLATED)
 
@@ -287,6 +352,47 @@ class ConnectionManager(
             throw CancellationException("The connection was stopped")
         }
 
+        /**
+         * Takes [client], just opened on [live]'s session, into this run and [live]. One arriving
+         * after a stop or after [live] dropped is closed at once, and the open fails.
+         */
+        fun track(live: Live, client: SftpClient): SftpClient {
+            val tracked = TrackedSftp(client, held) { self ->
+                held.remove(self)
+                live.sftp.remove(self)
+            }
+            synchronized(held) {
+                if (!stopped && !live.ended) {
+                    held += tracked
+                    live.sftp += tracked
+                    return tracked
+                }
+            }
+            closeQuietly(client)
+            throw NotConnectedException()
+        }
+
+        /** Publishes [live] as connected, unless a newer [connect], [disconnect] or [close] took over. */
+        private fun publishConnected(live: Live, generation: Long) {
+            synchronized(lock) {
+                if (current === this) {
+                    this.live = live
+                    mutableState.value = ConnectionState.Connected(live.client, live.info, generation)
+                }
+            }
+        }
+
+        /** [live] dropped: [openSftp] no longer reaches it, and its SFTP clients close, newest first. */
+        private fun endLive(live: Live) {
+            synchronized(lock) { if (this.live === live) this.live = null }
+            synchronized(held) {
+                live.ended = true
+                val clients = live.sftp.toList()
+                live.sftp.clear()
+                clients.asReversed().forEach(::closeQuietly)
+            }
+        }
+
         /*
          * Resources are closed under the [held] lock, never just taken out of the list first: a
          * [stop] from another thread then waits for a close in progress, so that [close] and
@@ -304,8 +410,10 @@ class ConnectionManager(
         /** Newest first, so the client closes before the session that carries it. */
         private fun releaseAll() {
             synchronized(held) {
-                held.asReversed().forEach(::closeQuietly)
+                // A copy: closing an SFTP client takes it out of [held].
+                val all = held.toList()
                 held.clear()
+                all.asReversed().forEach(::closeQuietly)
             }
         }
 
@@ -327,8 +435,9 @@ class ConnectionManager(
                     // A request made before this connection stood is about an older one. Dropped
                     // before the state is published, so a request answering that state counts.
                     while (kicks.tryReceive().isSuccess) Unit
-                    publish(ConnectionState.Connected(live.client, live.info, nextGeneration()))
+                    publishConnected(live, nextGeneration())
                     val dropped = awaitDrop(live)
+                    endLive(live)
                     release(live.client)
                     release(live.session)
                     // Only a connection that really stood starts the attempts over. One whose event
