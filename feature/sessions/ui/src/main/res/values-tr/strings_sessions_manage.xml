@@ -1,3 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="sessions_manage_title">Oturumu yönet</string>
+    <string name="sessions_manage_loading">Oturum yükleniyor…</string>
+    <string name="sessions_manage_title_label">Oturum başlığı</string>
+    <string name="sessions_manage_save">Başlığı kaydet</string>
+    <string name="sessions_manage_folder">Klasör: %1$s</string>
+    <string name="sessions_manage_archived_note">Bu oturum arşivde.</string>
+    <string name="sessions_manage_archive">Arşivle</string>
+    <string name="sessions_manage_unarchive">Arşivden çıkar</string>
+    <string name="sessions_manage_delete">Oturumu sil…</string>
+    <string name="sessions_manage_confirm_title">Bu oturum silinsin mi?</string>
+    <string name="sessions_manage_confirm_irreversible">Silme işlemi geri alınamaz.</string>
+    <string name="sessions_manage_confirm_children">Alt oturumları da silinir.</string>
+    <string name="sessions_manage_confirm_children_unknown">Varsa alt oturumları da silinebilir.</string>
+    <string name="sessions_manage_confirm_delete">Sil</string>
+    <string name="sessions_manage_cancel">İptal</string>
+    <string name="sessions_manage_busy_rename">Oturumun adı değiştiriliyor…</string>
+    <string name="sessions_manage_busy_archive">Oturum arşivleniyor…</string>
+    <string name="sessions_manage_busy_unarchive">Oturum arşivden çıkarılıyor…</string>
+    <string name="sessions_manage_busy_delete">Oturum siliniyor…</string>
+    <!-- What failed (%1$s), then why (%2$s): two whole sentences. -->
+    <string name="sessions_manage_error">%1$s %2$s</string>
+    <string name="sessions_manage_load_failed">Oturum yüklenemedi.</string>
+    <string name="sessions_manage_failed_rename">Oturumun adı değiştirilemedi.</string>
+    <string name="sessions_manage_failed_archive">Oturum arşivlenemedi.</string>
+    <string name="sessions_manage_failed_unarchive">Oturum arşivden çıkarılamadı.</string>
+    <string name="sessions_manage_failed_delete">Oturum silinemedi.</string>
+    <string name="sessions_manage_reason_not_connected">Sunucuyla bağlantı yok. Geri dönüp yeniden bağlanın.</string>
+    <string name="sessions_manage_reason_unreachable">Sunucuya ulaşılamadı. Bağlantıyı denetleyip yeniden deneyin.</string>
+    <string name="sessions_manage_reason_unauthorized">Sunucu kimlik bilgilerini reddetti.</string>
+    <string name="sessions_manage_reason_not_found">Oturum artık yok; başka bir cihazdan silinmiş olabilir.</string>
+    <string name="sessions_manage_reason_conflict">Oturum meşgul ya da bu arada değiştirildi.</string>
+    <string name="sessions_manage_reason_rejected">Sunucu isteği reddetti.</string>
+    <string name="sessions_manage_reason_server_failed">Sunucuda bir hata oluştu.</string>
+    <string name="sessions_manage_reason_unknown">Beklenmeyen bir hata oluştu.</string>
 </resources>
