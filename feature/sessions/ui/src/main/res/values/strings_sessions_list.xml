@@ -1,3 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="sessions_list_title">Sessions</string>
+    <string name="sessions_list_loading">Loading sessions…</string>
+    <string name="sessions_list_refreshing">Refreshing sessions…</string>
+    <string name="sessions_list_loading_more">Loading more sessions…</string>
+    <string name="sessions_list_empty_title">No sessions yet</string>
+    <string name="sessions_list_empty_message">Start a session to work with opencode on this server.</string>
+    <string name="sessions_list_no_match_title">No matching sessions</string>
+    <string name="sessions_list_no_match_message">No session title matches your search.</string>
+    <string name="sessions_list_create">New session</string>
+    <string name="sessions_list_refresh">Refresh sessions</string>
+    <string name="sessions_list_search">Search sessions</string>
+    <string name="sessions_list_show_archived">Show archived</string>
+    <string name="sessions_list_archived">Archived</string>
+    <string name="sessions_list_untitled">Untitled session</string>
+    <string name="sessions_list_open">Open</string>
+    <!-- %1$s: the session's title. -->
+    <string name="sessions_list_manage">Manage %1$s</string>
+    <string name="sessions_list_retry">Try again</string>
+    <string name="sessions_list_load_more_error">More sessions could not be loaded.</string>
+    <string name="sessions_list_badge_waiting">Waiting for you</string>
+    <string name="sessions_list_badge_running">Running</string>
+    <string name="sessions_list_badge_failed">Failed</string>
+    <string name="sessions_list_badge_interrupted">Interrupted</string>
+    <!-- %1$s: the token count, already formatted for the language. -->
+    <plurals name="sessions_list_tokens">
+        <item quantity="one">%1$s token</item>
+        <item quantity="other">%1$s tokens</item>
+    </plurals>
+    <!-- %1$s: an amount in US dollars, already formatted for the language. -->
+    <string name="sessions_list_cost">$%1$s</string>
+    <!-- Some steps reported no cost, so the amount is a lower bound. -->
+    <string name="sessions_list_cost_at_least">at least $%1$s</string>
+    <!-- A lower bound below a cent. %1$s: zero, formatted for the language. -->
+    <string name="sessions_list_cost_more_than">more than $%1$s</string>
+    <!-- %1$s: the smallest amount shown, one cent. -->
+    <string name="sessions_list_cost_under">under $%1$s</string>
+    <!-- %1$s: the tokens; %2$s: the cost. -->
+    <string name="sessions_list_usage">%1$s · %2$s</string>
+    <string name="sessions_list_error_not_connected">Not connected to the server. Go back and connect again.</string>
+    <string name="sessions_list_error_unreachable">The server could not be reached.</string>
+    <string name="sessions_list_error_unauthorized">The server refused the login. Connect again with the right password.</string>
+    <string name="sessions_list_error_not_found">The sessions could not be found on the server.</string>
+    <string name="sessions_list_error_conflict">The sessions changed meanwhile. Try again.</string>
+    <string name="sessions_list_error_rejected">The server refused to list the sessions.</string>
+    <string name="sessions_list_error_server">The server failed while listing the sessions.</string>
+    <string name="sessions_list_error_unknown">The sessions could not be loaded.</string>
 </resources>

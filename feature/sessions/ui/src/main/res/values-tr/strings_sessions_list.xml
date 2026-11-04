@@ -1,3 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="sessions_list_title">Oturumlar</string>
+    <string name="sessions_list_loading">Oturumlar yükleniyor…</string>
+    <string name="sessions_list_refreshing">Oturumlar yenileniyor…</string>
+    <string name="sessions_list_loading_more">Daha fazla oturum yükleniyor…</string>
+    <string name="sessions_list_empty_title">Henüz oturum yok</string>
+    <string name="sessions_list_empty_message">Bu sunucuda opencode ile çalışmak için bir oturum başlatın.</string>
+    <string name="sessions_list_no_match_title">Eşleşen oturum yok</string>
+    <string name="sessions_list_no_match_message">Aramanızla eşleşen bir oturum başlığı yok.</string>
+    <string name="sessions_list_create">Yeni oturum</string>
+    <string name="sessions_list_refresh">Oturumları yenile</string>
+    <string name="sessions_list_search">Oturum ara</string>
+    <string name="sessions_list_show_archived">Arşivdekileri göster</string>
+    <string name="sessions_list_archived">Arşivde</string>
+    <string name="sessions_list_untitled">Adsız oturum</string>
+    <string name="sessions_list_open">Aç</string>
+    <!-- %1$s: the session's title. -->
+    <string name="sessions_list_manage">Yönet: %1$s</string>
+    <string name="sessions_list_retry">Tekrar dene</string>
+    <string name="sessions_list_load_more_error">Daha fazla oturum yüklenemedi.</string>
+    <string name="sessions_list_badge_waiting">Yanıtınızı bekliyor</string>
+    <string name="sessions_list_badge_running">Çalışıyor</string>
+    <string name="sessions_list_badge_failed">Başarısız</string>
+    <string name="sessions_list_badge_interrupted">Kesildi</string>
+    <!-- %1$s: the token count, already formatted for the language. -->
+    <plurals name="sessions_list_tokens">
+        <item quantity="one">%1$s token</item>
+        <item quantity="other">%1$s token</item>
+    </plurals>
+    <!-- %1$s: an amount in US dollars, already formatted for the language. -->
+    <string name="sessions_list_cost">$%1$s</string>
+    <!-- Some steps reported no cost, so the amount is a lower bound. -->
+    <string name="sessions_list_cost_at_least">en az $%1$s</string>
+    <!-- A lower bound below a cent. %1$s: zero, formatted for the language. -->
+    <string name="sessions_list_cost_more_than">$%1$s üzeri</string>
+    <!-- %1$s: the smallest amount shown, one cent. -->
+    <string name="sessions_list_cost_under">$%1$s altı</string>
+    <!-- %1$s: the tokens; %2$s: the cost. -->
+    <string name="sessions_list_usage">%1$s · %2$s</string>
+    <string name="sessions_list_error_not_connected">Sunucuya bağlı değil. Geri dönüp yeniden bağlanın.</string>
+    <string name="sessions_list_error_unreachable">Sunucuya ulaşılamadı.</string>
+    <string name="sessions_list_error_unauthorized">Sunucu girişi reddetti. Doğru parolayla yeniden bağlanın.</string>
+    <string name="sessions_list_error_not_found">Oturumlar sunucuda bulunamadı.</string>
+    <string name="sessions_list_error_conflict">Oturumlar bu arada değişti. Tekrar deneyin.</string>
+    <string name="sessions_list_error_rejected">Sunucu oturumları listelemeyi reddetti.</string>
+    <string name="sessions_list_error_server">Sunucu oturumları listelerken hata verdi.</string>
+    <string name="sessions_list_error_unknown">Oturumlar yüklenemedi.</string>
 </resources>
