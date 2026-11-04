@@ -324,6 +324,12 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 |---|---|---|---|---|---|
 | P3.10 | SSH verification on Android | P3.9 | `app/…/security/`, `app/src/main/res/xml/network_security_config.xml`, `app/proguard-rules.pro`, `app/src/androidTest/`, `.github/workflows/emulator.yml`, `feature/connect/ui/src/main/AndroidManifest.xml` (INTERNET permission), `app/…/PhopencodeApplication.kt` (`BouncyCastle.install()` at start), `app/build.gradle.kts` (`androidTestImplementation` of `:core:ssh`, release R8 rules file, BouncyCastle OSGi manifest packaging exclude) | BouncyCastle provider replacement; ed25519 connection, SFTP and tunnel from the emulator to sshd on the runner; cleartext only to 127.0.0.1 | `EMU` |
 
+**G6 (fixes after the CP3 push)**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P3.14 | Emulator disk space | P3.10 | `.github/workflows/emulator.yml`, `docs/PHASES.md` (this row) | The emulator jobs free enough disk for the AVD and boot; `df -h` is logged before the build and before the emulator | `CI` |
+
 `CP3`: push, emulator job green. At this point the plan closes its biggest technical risk.
 
 ### P4: Storage and connection screens

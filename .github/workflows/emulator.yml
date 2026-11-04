@@ -32,6 +32,26 @@ jobs:
       ECHO_PORT: "7777"
       STATS_PORT: "7778"
     steps:
+      # The runner image leaves too little free on / for the Gradle build plus an AVD whose default
+      # userdata partition wants more than 7 GB. Toolchains this job never uses go first. The
+      # Android SDK (/usr/local/lib/android), the JDKs in /opt/hostedtoolcache/Java_* and the
+      # system Python stay.
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /usr/local/.ghcup \
+            /usr/local/share/boost \
+            /usr/share/swift \
+            /opt/hostedtoolcache/CodeQL \
+            /opt/hostedtoolcache/go \
+            /opt/hostedtoolcache/PyPy \
+            /usr/local/share/powershell \
+            /opt/az
+          sudo docker image prune --all --force || true
+          df -h /
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -191,12 +211,18 @@ jobs:
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$dir/known_hosts" \
             "$(id -un)@127.0.0.1" true
 
+      - name: Disk space before the emulator
+        run: df -h / "$HOME"
+
       - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
           api-level: ${{ matrix.api-level }}
           target: google_apis
           arch: x86_64
           disable-animations: true
+          # Written to the AVD's config.ini as disk.dataPartition.size. The default asks for about
+          # 7.2 GB; the app and its test APK need a few tens of MB on top of the image's own data.
+          disk-size: 4000M
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           script: bash $RUNNER_TEMP/test-sshd/connected-tests.sh
 
