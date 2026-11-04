@@ -1,3 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="connect_keys_title">SSH anahtarları</string>
+    <string name="connect_keys_loading">Anahtarlar yükleniyor…</string>
+    <string name="connect_keys_busy">İşleniyor…</string>
+    <string name="connect_keys_empty_title">Henüz SSH anahtarı yok</string>
+    <string name="connect_keys_empty_message">Yeni bir anahtar oluşturun ya da bir özel anahtar dosyası içe aktarın.</string>
+    <string name="connect_keys_import">İçe aktar</string>
+    <string name="connect_keys_generate">Oluştur</string>
+    <string name="connect_keys_import_default_name">İçe aktarılan anahtar</string>
+    <string name="connect_keys_type">Tür: %1$s</string>
+    <string name="connect_keys_fingerprint">SHA-256 parmak izi: %1$s</string>
+    <string name="connect_keys_copy">Açık anahtarı kopyala</string>
+    <string name="connect_keys_copy_description">%1$s açık anahtarını kopyala</string>
+    <string name="connect_keys_delete">Sil</string>
+    <string name="connect_keys_delete_description">%1$s anahtarını sil</string>
+    <string name="connect_keys_delete_title">Bu anahtar silinsin mi?</string>
+    <string name="connect_keys_delete_message">%1$s bu telefondan kaldırılacak. Açık anahtarına güvenen sunucular değişmez.</string>
+    <string name="connect_keys_generate_title">Anahtar oluştur</string>
+    <string name="connect_keys_generate_message">Bu telefonda yeni bir ed25519 anahtarı oluşturur.</string>
+    <string name="connect_keys_generate_name">Ad</string>
+    <string name="connect_keys_generate_passphrase">Parola (isteğe bağlı)</string>
+    <string name="connect_keys_generate_confirm">Anahtarı oluştur</string>
+    <string name="connect_keys_passphrase_title">Anahtar parolası</string>
+    <string name="connect_keys_passphrase_message">Bu anahtar dosyası şifreli. İçe aktarmak için parolasını girin.</string>
+    <string name="connect_keys_passphrase_label">Parola</string>
+    <string name="connect_keys_passphrase_submit">Kilidi aç</string>
+    <string name="connect_keys_error_load_failed">Anahtarlar yüklenemedi.</string>
+    <string name="connect_keys_error_generate_failed">Anahtar oluşturulamadı. Tekrar deneyin.</string>
+    <string name="connect_keys_error_import_malformed">Bu dosya bir özel anahtar değil ya da bozuk.</string>
+    <string name="connect_keys_error_import_unsupported">Bu anahtar türü ya da şifrelemesi desteklenmiyor.</string>
+    <string name="connect_keys_error_wrong_passphrase">Parola yanlış. Tekrar deneyin.</string>
+    <string name="connect_keys_error_key_in_use">Kayıtlı bir sunucu hâlâ bu anahtarla giriş yapıyor. Önce o sunucu için başka bir anahtar seçin.</string>
+    <string name="connect_keys_error_save_failed">Anahtar bu telefona kaydedilemedi.</string>
+    <string name="connect_keys_error_delete_failed">Anahtar silinemedi. Tekrar deneyin.</string>
+    <string name="connect_keys_error_file_too_large">Dosya bir özel anahtar olamayacak kadar büyük.</string>
+    <string name="connect_keys_error_file_empty">Dosya boş.</string>
+    <string name="connect_keys_error_file_unreadable">Dosya okunamadı.</string>
 </resources>

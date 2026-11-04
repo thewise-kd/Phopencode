@@ -1,3 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="connect_keys_title">SSH keys</string>
+    <string name="connect_keys_loading">Loading keys…</string>
+    <string name="connect_keys_busy">Working…</string>
+    <string name="connect_keys_empty_title">No SSH keys yet</string>
+    <string name="connect_keys_empty_message">Generate a new key or import a private key file.</string>
+    <string name="connect_keys_import">Import</string>
+    <string name="connect_keys_generate">Generate</string>
+    <string name="connect_keys_import_default_name">Imported key</string>
+    <string name="connect_keys_type">Type: %1$s</string>
+    <string name="connect_keys_fingerprint">SHA-256 fingerprint: %1$s</string>
+    <string name="connect_keys_copy">Copy public key</string>
+    <string name="connect_keys_copy_description">Copy the public key of %1$s</string>
+    <string name="connect_keys_delete">Delete</string>
+    <string name="connect_keys_delete_description">Delete %1$s</string>
+    <string name="connect_keys_delete_title">Delete this key?</string>
+    <string name="connect_keys_delete_message">%1$s will be removed from this phone. Servers that trust its public key are not changed.</string>
+    <string name="connect_keys_generate_title">Generate a key</string>
+    <string name="connect_keys_generate_message">Creates a new ed25519 key on this phone.</string>
+    <string name="connect_keys_generate_name">Name</string>
+    <string name="connect_keys_generate_passphrase">Passphrase (optional)</string>
+    <string name="connect_keys_generate_confirm">Create key</string>
+    <string name="connect_keys_passphrase_title">Key passphrase</string>
+    <string name="connect_keys_passphrase_message">This key file is encrypted. Enter its passphrase to import it.</string>
+    <string name="connect_keys_passphrase_label">Passphrase</string>
+    <string name="connect_keys_passphrase_submit">Unlock</string>
+    <string name="connect_keys_error_load_failed">The keys could not be loaded.</string>
+    <string name="connect_keys_error_generate_failed">The key could not be generated. Try again.</string>
+    <string name="connect_keys_error_import_malformed">This file is not a private key, or it is damaged.</string>
+    <string name="connect_keys_error_import_unsupported">This key type or encryption is not supported.</string>
+    <string name="connect_keys_error_wrong_passphrase">Wrong passphrase. Try again.</string>
+    <string name="connect_keys_error_key_in_use">A saved server still logs in with this key. Choose another key for that server first.</string>
+    <string name="connect_keys_error_save_failed">The key could not be saved on this phone.</string>
+    <string name="connect_keys_error_delete_failed">The key could not be deleted. Try again.</string>
+    <string name="connect_keys_error_file_too_large">The file is too large to be a private key.</string>
+    <string name="connect_keys_error_file_empty">The file is empty.</string>
+    <string name="connect_keys_error_file_unreadable">The file could not be read.</string>
 </resources>
