@@ -1,3 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- What screen readers say for the status icon of a tool call. -->
+    <string name="chat_tool_status_pending">Bekliyor</string>
+    <string name="chat_tool_status_running">Çalışıyor</string>
+    <string name="chat_tool_status_done">Bitti</string>
+    <string name="chat_tool_status_failed">Başarısız</string>
+    <string name="chat_tool_status_unknown">Bilinmeyen durum</string>
+    <!-- %1$s: the shell command. -->
+    <string name="chat_tool_summary_shell">Komut: %1$s</string>
+    <!-- %1$s: the path of the edited file. -->
+    <string name="chat_tool_summary_edit">Düzenleme: %1$s</string>
+    <!-- %1$s: the path of the read file. -->
+    <string name="chat_tool_summary_read">Okuma: %1$s</string>
+    <!-- %1$s: the search pattern. -->
+    <string name="chat_tool_summary_search">Arama: %1$s</string>
+    <!-- %1$s: the search pattern; %2$s: the path searched in. -->
+    <string name="chat_tool_summary_search_in">Arama: %1$s (%2$s içinde)</string>
+    <!-- %1$s: the tool's name as the server gave it. -->
+    <string name="chat_tool_summary_generic">Araç: %1$s</string>
+    <!-- %1$d: lines an edit added. -->
+    <string name="chat_tool_additions">+%1$d</string>
+    <!-- %1$d: lines an edit removed. -->
+    <string name="chat_tool_deletions">−%1$d</string>
+    <string name="chat_tool_input">Girdi</string>
+    <string name="chat_tool_output">Çıktı</string>
+    <string name="chat_tool_expanded">Açık</string>
+    <string name="chat_tool_collapsed">Kapalı</string>
+    <string name="chat_tool_show_input">Girdiyi göster</string>
+    <string name="chat_tool_hide_input">Girdiyi gizle</string>
+    <string name="chat_tool_show_output">Çıktıyı göster</string>
+    <string name="chat_tool_hide_output">Çıktıyı gizle</string>
+    <!-- After a shortened input or output: the whole lines not shown. -->
+    <plurals name="chat_tool_more_lines">
+        <item quantity="one">%1$d satır daha</item>
+        <item quantity="other">%1$d satır daha</item>
+    </plurals>
+    <!-- After a shortened input or output cut inside its last line: the characters not shown. -->
+    <plurals name="chat_tool_more_characters">
+        <item quantity="one">%1$d karakter daha</item>
+        <item quantity="other">%1$d karakter daha</item>
+    </plurals>
+    <!-- %1$s: the server's description of why the call failed. -->
+    <string name="chat_tool_error">Hata: %1$s</string>
 </resources>

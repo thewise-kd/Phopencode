@@ -1,3 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- What screen readers say for the status icon of a tool call. -->
+    <string name="chat_tool_status_pending">Pending</string>
+    <string name="chat_tool_status_running">Running</string>
+    <string name="chat_tool_status_done">Done</string>
+    <string name="chat_tool_status_failed">Failed</string>
+    <string name="chat_tool_status_unknown">Unknown status</string>
+    <!-- %1$s: the shell command. -->
+    <string name="chat_tool_summary_shell">Command: %1$s</string>
+    <!-- %1$s: the path of the edited file. -->
+    <string name="chat_tool_summary_edit">Edit: %1$s</string>
+    <!-- %1$s: the path of the read file. -->
+    <string name="chat_tool_summary_read">Read: %1$s</string>
+    <!-- %1$s: the search pattern. -->
+    <string name="chat_tool_summary_search">Search: %1$s</string>
+    <!-- %1$s: the search pattern; %2$s: the path searched in. -->
+    <string name="chat_tool_summary_search_in">Search: %1$s in %2$s</string>
+    <!-- %1$s: the tool's name as the server gave it. -->
+    <string name="chat_tool_summary_generic">Tool: %1$s</string>
+    <!-- %1$d: lines an edit added. -->
+    <string name="chat_tool_additions">+%1$d</string>
+    <!-- %1$d: lines an edit removed. -->
+    <string name="chat_tool_deletions">−%1$d</string>
+    <string name="chat_tool_input">Input</string>
+    <string name="chat_tool_output">Output</string>
+    <string name="chat_tool_expanded">Expanded</string>
+    <string name="chat_tool_collapsed">Collapsed</string>
+    <string name="chat_tool_show_input">Show the input</string>
+    <string name="chat_tool_hide_input">Hide the input</string>
+    <string name="chat_tool_show_output">Show the output</string>
+    <string name="chat_tool_hide_output">Hide the output</string>
+    <!-- After a shortened input or output: the whole lines not shown. -->
+    <plurals name="chat_tool_more_lines">
+        <item quantity="one">%1$d more line</item>
+        <item quantity="other">%1$d more lines</item>
+    </plurals>
+    <!-- After a shortened input or output cut inside its last line: the characters not shown. -->
+    <plurals name="chat_tool_more_characters">
+        <item quantity="one">%1$d more character</item>
+        <item quantity="other">%1$d more characters</item>
+    </plurals>
+    <!-- %1$s: the server's description of why the call failed. -->
+    <string name="chat_tool_error">Error: %1$s</string>
 </resources>
