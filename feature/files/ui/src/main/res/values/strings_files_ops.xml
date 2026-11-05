@@ -1,3 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="files_ops_edit">Edit</string>
+    <string name="files_ops_download">Download</string>
+    <string name="files_ops_rename">Rename</string>
+    <string name="files_ops_delete">Delete</string>
+    <string name="files_ops_cancel">Cancel</string>
+    <string name="files_ops_ok">OK</string>
+    <string name="files_ops_rename_title">Rename</string>
+    <string name="files_ops_rename_label">New name</string>
+    <string name="files_ops_new_folder_title">New folder</string>
+    <string name="files_ops_new_folder_label">Folder name</string>
+    <string name="files_ops_create">Create</string>
+    <string name="files_ops_problem_blank">Enter a name.</string>
+    <string name="files_ops_problem_separator">A name cannot contain /.</string>
+    <string name="files_ops_problem_reserved">\".\" and \"..\" cannot be used as names.</string>
+    <string name="files_ops_problem_too_long">The name is too long.</string>
+    <string name="files_ops_problem_control">The name contains a character that is not allowed.</string>
+    <string name="files_ops_name_taken">Something in this folder already has that name.</string>
+    <string name="files_ops_delete_file_title">Delete file?</string>
+    <string name="files_ops_delete_file_message">%1$s will be deleted from the server. This cannot be undone.</string>
+    <string name="files_ops_delete_folder_title">Delete folder?</string>
+    <string name="files_ops_delete_folder_message">The folder %1$s and everything in it will be deleted from the server. This cannot be undone.</string>
+    <string name="files_ops_renaming">Renaming…</string>
+    <string name="files_ops_deleting">Deleting…</string>
+    <string name="files_ops_creating">Creating the folder…</string>
+    <string name="files_ops_rename_error">The item could not be renamed. %1$s</string>
+    <string name="files_ops_delete_error">The item could not be deleted. %1$s</string>
+    <string name="files_ops_create_error">The folder could not be created. %1$s</string>
+    <string name="files_ops_reason_not_connected">There is no connection to the server.</string>
+    <string name="files_ops_reason_unreachable">The server could not be reached.</string>
+    <string name="files_ops_reason_unauthorized">The server refused the login.</string>
+    <string name="files_ops_reason_not_found">It is no longer there; it may have been moved or deleted.</string>
+    <string name="files_ops_reason_permission_denied">The server\'s user lacks permission for this.</string>
+    <string name="files_ops_reason_not_empty">The folder is not empty.</string>
+    <string name="files_ops_reason_path_rejected">The path is outside the project or not valid.</string>
+    <string name="files_ops_reason_too_large">It is too large.</string>
+    <string name="files_ops_reason_tool_missing">A tool it needs is not installed on the server.</string>
+    <string name="files_ops_reason_rejected">The server refused the request.</string>
+    <string name="files_ops_reason_server_failed">The server ran into an error.</string>
+    <string name="files_ops_reason_unsupported">This is not supported yet.</string>
+    <string name="files_ops_reason_unknown">An unexpected error occurred.</string>
 </resources>

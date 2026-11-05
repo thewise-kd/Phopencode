@@ -1,3 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="files_ops_edit">Düzenle</string>
+    <string name="files_ops_download">İndir</string>
+    <string name="files_ops_rename">Yeniden adlandır</string>
+    <string name="files_ops_delete">Sil</string>
+    <string name="files_ops_cancel">İptal</string>
+    <string name="files_ops_ok">Tamam</string>
+    <string name="files_ops_rename_title">Yeniden adlandır</string>
+    <string name="files_ops_rename_label">Yeni ad</string>
+    <string name="files_ops_new_folder_title">Yeni klasör</string>
+    <string name="files_ops_new_folder_label">Klasör adı</string>
+    <string name="files_ops_create">Oluştur</string>
+    <string name="files_ops_problem_blank">Bir ad girin.</string>
+    <string name="files_ops_problem_separator">Ad / içeremez.</string>
+    <string name="files_ops_problem_reserved">\".\" ve \"..\" ad olarak kullanılamaz.</string>
+    <string name="files_ops_problem_too_long">Ad çok uzun.</string>
+    <string name="files_ops_problem_control">Ad, izin verilmeyen bir karakter içeriyor.</string>
+    <string name="files_ops_name_taken">Bu klasörde bu adı taşıyan bir öğe zaten var.</string>
+    <string name="files_ops_delete_file_title">Dosya silinsin mi?</string>
+    <string name="files_ops_delete_file_message">%1$s sunucudan silinecek. Bu işlem geri alınamaz.</string>
+    <string name="files_ops_delete_folder_title">Klasör silinsin mi?</string>
+    <string name="files_ops_delete_folder_message">%1$s klasörü ve içindeki her şey sunucudan silinecek. Bu işlem geri alınamaz.</string>
+    <string name="files_ops_renaming">Yeniden adlandırılıyor…</string>
+    <string name="files_ops_deleting">Siliniyor…</string>
+    <string name="files_ops_creating">Klasör oluşturuluyor…</string>
+    <string name="files_ops_rename_error">Öğe yeniden adlandırılamadı. %1$s</string>
+    <string name="files_ops_delete_error">Öğe silinemedi. %1$s</string>
+    <string name="files_ops_create_error">Klasör oluşturulamadı. %1$s</string>
+    <string name="files_ops_reason_not_connected">Sunucuyla bağlantı yok.</string>
+    <string name="files_ops_reason_unreachable">Sunucuya ulaşılamadı.</string>
+    <string name="files_ops_reason_unauthorized">Sunucu girişi reddetti.</string>
+    <string name="files_ops_reason_not_found">Artık orada değil; taşınmış ya da silinmiş olabilir.</string>
+    <string name="files_ops_reason_permission_denied">Sunucudaki kullanıcının buna izni yok.</string>
+    <string name="files_ops_reason_not_empty">Klasör boş değil.</string>
+    <string name="files_ops_reason_path_rejected">Yol projenin dışında ya da geçersiz.</string>
+    <string name="files_ops_reason_too_large">Çok büyük.</string>
+    <string name="files_ops_reason_tool_missing">Gereken bir araç sunucuda kurulu değil.</string>
+    <string name="files_ops_reason_rejected">Sunucu isteği reddetti.</string>
+    <string name="files_ops_reason_server_failed">Sunucu bir hatayla karşılaştı.</string>
+    <string name="files_ops_reason_unsupported">Bu henüz desteklenmiyor.</string>
+    <string name="files_ops_reason_unknown">Beklenmeyen bir hata oluştu.</string>
 </resources>
