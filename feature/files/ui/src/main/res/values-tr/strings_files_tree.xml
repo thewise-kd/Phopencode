@@ -1,3 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="files_tree_title">Dosyalar</string>
+    <string name="files_tree_up">Üst klasöre çık</string>
+    <string name="files_tree_open">Aç</string>
+    <string name="files_tree_search">Dosyalarda ara</string>
+    <string name="files_tree_transfers">Aktarımlar</string>
+    <string name="files_tree_more">Klasör seçenekleri</string>
+    <string name="files_tree_actions_for">%1$s için işlemler</string>
+    <string name="files_tree_show_actions">İşlemleri göster</string>
+
+    <string name="files_tree_type_folder">Klasör</string>
+    <string name="files_tree_type_file">Dosya</string>
+    <string name="files_tree_type_symlink">Bağlantı</string>
+    <string name="files_tree_type_other">Diğer</string>
+    <string name="files_tree_ignored">Yok sayılıyor</string>
+
+    <string name="files_tree_badge_added">Eklendi</string>
+    <string name="files_tree_badge_modified">Değiştirildi</string>
+    <string name="files_tree_badge_deleted">Silindi</string>
+    <string name="files_tree_badge_renamed">Yeniden adlandırıldı</string>
+    <string name="files_tree_badge_untracked">İzlenmiyor</string>
+    <string name="files_tree_badge_contains_changes">Değişiklik içeriyor</string>
+
+    <string name="files_tree_loading">Dosyalar yükleniyor…</string>
+    <string name="files_tree_refreshing">Yenileniyor…</string>
+    <string name="files_tree_empty_title">Bu klasör boş</string>
+    <string name="files_tree_empty_hidden">Gizli dosyalar gösterilmiyor.</string>
+    <string name="files_tree_empty_show_hidden">Gizlileri göster</string>
+
+    <string name="files_tree_options_title">Klasör seçenekleri</string>
+    <string name="files_tree_new_folder">Yeni klasör</string>
+    <string name="files_tree_refresh">Yenile</string>
+    <string name="files_tree_show_hidden">Gizli dosyaları göster</string>
+    <string name="files_tree_sort_heading">Sıralama</string>
+    <string name="files_tree_sort_name">Ad</string>
+    <string name="files_tree_sort_modified">Son değişiklik</string>
+    <string name="files_tree_sort_size">Boyut</string>
+    <string name="files_tree_options_close">Kapat</string>
+
+    <string name="files_tree_error_not_connected">Sunucuya bağlı değilsiniz. Geri dönüp yeniden bağlanın.</string>
+    <string name="files_tree_error_unreachable">Sunucuya ulaşılamadı.</string>
+    <string name="files_tree_error_unauthorized">Sunucu girişi reddetti. Geri dönüp yeniden bağlanın.</string>
+    <string name="files_tree_error_not_found">Bu klasör artık yok.</string>
+    <string name="files_tree_error_permission_denied">İzin yok: bu klasör hesabınızla açılamıyor.</string>
+    <string name="files_tree_error_path_rejected">Bu klasör proje klasörünün dışında.</string>
+    <string name="files_tree_error_server_failed">Sunucu bu klasörü listeleyemedi.</string>
+    <string name="files_tree_error_unsupported">Bu bağlantıda dosyalara göz atılamıyor.</string>
+    <string name="files_tree_error_unknown">Klasör listelenemedi.</string>
 </resources>

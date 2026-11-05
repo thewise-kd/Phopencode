@@ -1,3 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="files_tree_title">Files</string>
+    <string name="files_tree_up">Up to the parent folder</string>
+    <string name="files_tree_open">Open</string>
+    <string name="files_tree_search">Search files</string>
+    <string name="files_tree_transfers">Transfers</string>
+    <string name="files_tree_more">Folder options</string>
+    <string name="files_tree_actions_for">Actions for %1$s</string>
+    <string name="files_tree_show_actions">Show actions</string>
+
+    <string name="files_tree_type_folder">Folder</string>
+    <string name="files_tree_type_file">File</string>
+    <string name="files_tree_type_symlink">Link</string>
+    <string name="files_tree_type_other">Other</string>
+    <string name="files_tree_ignored">Ignored</string>
+
+    <string name="files_tree_badge_added">Added</string>
+    <string name="files_tree_badge_modified">Modified</string>
+    <string name="files_tree_badge_deleted">Deleted</string>
+    <string name="files_tree_badge_renamed">Renamed</string>
+    <string name="files_tree_badge_untracked">Untracked</string>
+    <string name="files_tree_badge_contains_changes">Contains changes</string>
+    <!-- The one-letter marks git itself prints; the same in every language. -->
+    <string name="files_tree_badge_mark_added" translatable="false">A</string>
+    <string name="files_tree_badge_mark_modified" translatable="false">M</string>
+    <string name="files_tree_badge_mark_deleted" translatable="false">D</string>
+    <string name="files_tree_badge_mark_renamed" translatable="false">R</string>
+    <string name="files_tree_badge_mark_untracked" translatable="false">U</string>
+    <string name="files_tree_badge_mark_contains_changes" translatable="false">•</string>
+
+    <string name="files_tree_loading">Loading files…</string>
+    <string name="files_tree_refreshing">Refreshing…</string>
+    <string name="files_tree_empty_title">This folder is empty</string>
+    <string name="files_tree_empty_hidden">Hidden files are not shown.</string>
+    <string name="files_tree_empty_show_hidden">Show hidden</string>
+
+    <string name="files_tree_options_title">Folder options</string>
+    <string name="files_tree_new_folder">New folder</string>
+    <string name="files_tree_refresh">Refresh</string>
+    <string name="files_tree_show_hidden">Show hidden files</string>
+    <string name="files_tree_sort_heading">Sort by</string>
+    <string name="files_tree_sort_name">Name</string>
+    <string name="files_tree_sort_modified">Last modified</string>
+    <string name="files_tree_sort_size">Size</string>
+    <string name="files_tree_options_close">Close</string>
+
+    <string name="files_tree_error_not_connected">Not connected to the server. Go back and connect again.</string>
+    <string name="files_tree_error_unreachable">The server could not be reached.</string>
+    <string name="files_tree_error_unauthorized">The server refused the login. Go back and connect again.</string>
+    <string name="files_tree_error_not_found">This folder no longer exists.</string>
+    <string name="files_tree_error_permission_denied">Permission denied: this folder cannot be opened with your account.</string>
+    <string name="files_tree_error_path_rejected">This folder is outside the project folder.</string>
+    <string name="files_tree_error_server_failed">The server failed to list this folder.</string>
+    <string name="files_tree_error_unsupported">Browsing files is not available on this connection.</string>
+    <string name="files_tree_error_unknown">The folder could not be listed.</string>
 </resources>
