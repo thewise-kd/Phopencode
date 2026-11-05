@@ -26,8 +26,9 @@ import io.github.thewisekd.phopencode.feature.chat.logic.contract.Presenter
  *
  * Checking ([FieldProblem]), on every change: `required` with no answer; choices outside
  * `minSelected`..`maxSelected`; a number that does not parse, is not whole when `integerOnly`, or is
- * outside `min`..`max`; text outside `minLength`..`maxLength`, not matching `pattern` or its
- * `format`; an `External` step not opened yet; an unknown field type that is required.
+ * outside `min`..`max`; text outside `minLength`..`maxLength` or not matching its `format`; an
+ * `External` step not opened yet; an unknown field type that is required. A field's `pattern` is
+ * enforced by the server only: the app never runs it.
  *
  * Replying: `InteractionApi.replyForm(card.sessionId, card.formId, answers)` through
  * `ChatSession.call`, to the session the form names, which may be a subagent's. Each shown field
@@ -202,7 +203,7 @@ enum class FieldProblem {
     /** Longer than `maxLength`. */
     TooLong,
 
-    /** Does not match `pattern` or `format`. */
+    /** Does not match `format`. A `pattern` is enforced by the server only. */
     WrongFormat,
 
     /** An `External` step whose URL was not opened yet. */
