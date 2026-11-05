@@ -2,6 +2,7 @@ package io.github.thewisekd.phopencode.feature.chat.ui
 
 import io.github.thewisekd.phopencode.core.model.SessionId
 import io.github.thewisekd.phopencode.core.navigation.ChatRoute
+import io.github.thewisekd.phopencode.feature.chat.logic.actions.DefaultActionsPresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.composer.DefaultComposerPresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ActiveChatSession
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatSession
@@ -11,8 +12,21 @@ import io.github.thewisekd.phopencode.feature.chat.logic.contract.StatusPresente
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.TimelinePresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ToolPresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.UsagePresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.form.DefaultFormPresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.ActionsPresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.FormPresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PalettePresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PermissionPresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.RevertPresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SubagentPresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SwitcherPresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.palette.DefaultPalettePresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.permission.DefaultPermissionPresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.reasoning.DefaultReasoningPresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.revert.DefaultRevertPresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.status.DefaultStatusPresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.subagent.DefaultSubagentPresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.switcher.DefaultSwitcherPresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.timeline.DefaultTimelinePresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.tool.DefaultToolPresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.usage.DefaultUsagePresenter
@@ -31,7 +45,9 @@ import org.koin.dsl.module
  * - [ChatSession] takes `(route, scope)`: one per destination, bound to the active connection's
  *   server.
  * - Each presenter takes `(route, scope, session)`: the third is that destination's [ChatSession],
- *   so that all the parts of one chat share one event stream and one resync.
+ *   so that all the parts of one chat share one event stream and one resync. The interaction
+ *   presenters of P7 are built with exactly these three, so their logic tasks never change this
+ *   file.
  */
 val chatModule: Module = module {
     factory<ChatSession> { (route: ChatRoute, scope: CoroutineScope) ->
@@ -58,6 +74,27 @@ val chatModule: Module = module {
     }
     factory<ComposerPresenter> { (_: ChatRoute, scope: CoroutineScope, session: ChatSession) ->
         DefaultComposerPresenter(session = session, scope = scope)
+    }
+    factory<FormPresenter> { (route: ChatRoute, scope: CoroutineScope, session: ChatSession) ->
+        DefaultFormPresenter(route = route, scope = scope, session = session)
+    }
+    factory<PermissionPresenter> { (route: ChatRoute, scope: CoroutineScope, session: ChatSession) ->
+        DefaultPermissionPresenter(route = route, scope = scope, session = session)
+    }
+    factory<SubagentPresenter> { (route: ChatRoute, scope: CoroutineScope, session: ChatSession) ->
+        DefaultSubagentPresenter(route = route, scope = scope, session = session)
+    }
+    factory<PalettePresenter> { (route: ChatRoute, scope: CoroutineScope, session: ChatSession) ->
+        DefaultPalettePresenter(route = route, scope = scope, session = session)
+    }
+    factory<SwitcherPresenter> { (route: ChatRoute, scope: CoroutineScope, session: ChatSession) ->
+        DefaultSwitcherPresenter(route = route, scope = scope, session = session)
+    }
+    factory<RevertPresenter> { (route: ChatRoute, scope: CoroutineScope, session: ChatSession) ->
+        DefaultRevertPresenter(route = route, scope = scope, session = session)
+    }
+    factory<ActionsPresenter> { (route: ChatRoute, scope: CoroutineScope, session: ChatSession) ->
+        DefaultActionsPresenter(route = route, scope = scope, session = session)
     }
 }
 

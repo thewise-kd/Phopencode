@@ -1,8 +1,10 @@
 package io.github.thewisekd.phopencode.feature.chat.ui.timeline
 
 import androidx.compose.foundation.MutatePriority
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,9 +34,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.semantics
 import io.github.thewisekd.phopencode.core.ui.component.EmptyState
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.TimelineIntent
@@ -81,6 +86,10 @@ internal const val FOLLOW_STEPS_PER_FRAME = 1_000
  * Progress is shown as still messages, never core/ui's `Loading`: its spinner never stops, and the
  * app's ActivityScenario tests would never come to rest.
  *
+ * A long press on a delivered prompt, or the long click accessibility action, opens [userActions]
+ * under it, which the chat fills with the prompt's actions; the slot's `onDismiss` closes it.
+ * A prompt still waiting in the inbox has none.
+ *
  * Message text is user data: it is drawn, never logged.
  */
 @Composable
@@ -90,8 +99,9 @@ fun Timeline(
     reasoningCard: @Composable (TimelineItem.Reasoning) -> Unit,
     toolCard: @Composable (TimelineItem.Tool) -> Unit,
     modifier: Modifier = Modifier,
+    userActions: UserActionsSlot = NoUserActions,
 ) {
-    TimelineContent(state, onIntent, reasoningCard, toolCard, modifier, FOLLOW_STEPS_PER_FRAME)
+    TimelineContent(state, onIntent, reasoningCard, toolCard, modifier, FOLLOW_STEPS_PER_FRAME, userActions)
 }
 
 /** [Timeline], with how far one catch-up with the end may go open for tests. */
@@ -103,10 +113,12 @@ internal fun TimelineContent(
     toolCard: @Composable (TimelineItem.Tool) -> Unit,
     modifier: Modifier,
     followStepsPerFrame: Int,
+    userActions: UserActionsSlot = NoUserActions,
 ) {
     Box(modifier) {
         when {
-            state.items.isNotEmpty() -> TimelineList(state, onIntent, reasoningCard, toolCard, followStepsPerFrame)
+            state.items.isNotEmpty() ->
+                TimelineList(state, onIntent, reasoningCard, toolCard, followStepsPerFrame, userActions)
             state.loading -> StillProgress(stringResource(R.string.chat_timeline_loading), Modifier.fillMaxSize())
             else -> EmptyState(
                 modifier = Modifier.fillMaxSize(),
@@ -125,6 +137,7 @@ private fun BoxScope.TimelineList(
     reasoningCard: @Composable (TimelineItem.Reasoning) -> Unit,
     toolCard: @Composable (TimelineItem.Tool) -> Unit,
     followStepsPerFrame: Int,
+    userActions: UserActionsSlot,
 ) {
     val listState = rememberLazyListState()
     val tracker = remember { FollowTracker() }
@@ -146,13 +159,60 @@ private fun BoxScope.TimelineList(
                     .testTag(timelineItemTag(item.key))
                     .padding(horizontal = spacing.lg, vertical = spacing.xs),
             ) {
-                TimelineEntry(item, reasoningCard, toolCard)
+                if (item is TimelineItem.User) {
+                    UserRow(item, reasoningCard, toolCard, userActions)
+                } else {
+                    TimelineEntry(item, reasoningCard, toolCard)
+                }
             }
         }
     }
     OlderStatus(state, Modifier.align(Alignment.TopCenter)) { send(TimelineIntent.LoadOlder) }
     if (!state.followLatest) {
         JumpToLatest(state.unseenCount, Modifier.align(Alignment.BottomCenter)) { send(TimelineIntent.JumpToLatest) }
+    }
+}
+
+/**
+ * What the timeline draws under a prompt whose actions were opened: the prompt, and how to close
+ * them.
+ */
+typealias UserActionsSlot = @Composable (item: TimelineItem.User, onDismiss: () -> Unit) -> Unit
+
+/** No actions on prompts. */
+val NoUserActions: UserActionsSlot = { _, _ -> }
+
+/** A prompt's row, which takes the long press that opens its actions. */
+internal const val TIMELINE_USER_ROW_TAG = "chat_timeline:user_row"
+
+/**
+ * A prompt's row: the prompt, and once a long press or the long click accessibility action opened
+ * them, its [userActions] under it. A prompt still waiting in the inbox has no actions.
+ */
+@Composable
+private fun UserRow(
+    item: TimelineItem.User,
+    reasoningCard: @Composable (TimelineItem.Reasoning) -> Unit,
+    toolCard: @Composable (TimelineItem.Tool) -> Unit,
+    userActions: UserActionsSlot,
+) {
+    val canAct = item.pending == null
+    var actionsOpen by remember(item.key) { mutableStateOf(false) }
+    val actions = if (canAct) {
+        Modifier
+            .pointerInput(item.key) { detectTapGestures(onLongPress = { actionsOpen = true }) }
+            .semantics {
+                onLongClick {
+                    actionsOpen = true
+                    true
+                }
+            }
+    } else {
+        Modifier
+    }
+    Column(Modifier.fillMaxWidth().testTag(TIMELINE_USER_ROW_TAG).then(actions)) {
+        TimelineEntry(item, reasoningCard, toolCard)
+        if (canAct && actionsOpen) userActions(item) { actionsOpen = false }
     }
 }
 

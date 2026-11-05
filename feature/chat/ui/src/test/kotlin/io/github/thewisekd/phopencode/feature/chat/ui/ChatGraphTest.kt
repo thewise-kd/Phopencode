@@ -2,7 +2,10 @@ package io.github.thewisekd.phopencode.feature.chat.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -15,6 +18,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import io.github.thewisekd.phopencode.core.api.OpencodeClient
+import io.github.thewisekd.phopencode.core.model.MessageId
 import io.github.thewisekd.phopencode.core.model.SessionId
 import io.github.thewisekd.phopencode.core.navigation.ChatRoute
 import io.github.thewisekd.phopencode.core.navigation.ConnectRoute
@@ -26,6 +30,7 @@ import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerEvent
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerIntent
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerPresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerState
+import io.github.thewisekd.phopencode.feature.chat.logic.contract.Presenter
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ReasoningIntent
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ReasoningPresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ReasoningState
@@ -43,6 +48,33 @@ import io.github.thewisekd.phopencode.feature.chat.logic.contract.UsageEvent
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.UsageIntent
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.UsagePresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.UsageState
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.ActionsEvent
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.ActionsIntent
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.ActionsPresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.ActionsState
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.FormEvent
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.FormIntent
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.FormPresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.FormsState
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteEvent
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteIntent
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PalettePresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteState
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PermissionIntent
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PermissionPresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PermissionsState
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PromptAttachment
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.RevertEvent
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.RevertIntent
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.RevertPresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.RevertState
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SubagentEvent
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SubagentIntent
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SubagentPresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SubagentState
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SwitcherIntent
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SwitcherPresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SwitcherState
 import java.util.Collections
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
@@ -65,6 +97,22 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 private const val SESSION = "ses_1"
+
+/**
+ * A presenter the test drives: its state is set by hand, its events are sent by hand, and every
+ * intent it gets is recorded.
+ */
+private class Fake<S, I, E>(initial: S) : Presenter<S, I, E> {
+    val mutableState = MutableStateFlow(initial)
+    override val state: StateFlow<S> = mutableState
+    val eventChannel = Channel<E>(Channel.UNLIMITED)
+    override val events: Flow<E> = eventChannel.receiveAsFlow()
+    val intents: MutableList<I> = Collections.synchronizedList(mutableListOf<I>())
+
+    override fun onIntent(intent: I) {
+        intents += intent
+    }
+}
 
 /**
  * How the graph builds a chat's presenters and turns their events into navigation. The start
@@ -131,10 +179,31 @@ class ChatGraphTest {
         override fun onIntent(intent: ToolIntent) = Unit
     }
 
+    private val composerState = MutableStateFlow(ComposerState())
+    private val composerIntents = Collections.synchronizedList(mutableListOf<ComposerIntent>())
+
     private val composer = object : ComposerPresenter {
-        override val state: StateFlow<ComposerState> = MutableStateFlow(ComposerState())
+        override val state: StateFlow<ComposerState> = composerState
         override val events: Flow<ComposerEvent> = composerEvents.receiveAsFlow()
-        override fun onIntent(intent: ComposerIntent) = Unit
+        override fun onIntent(intent: ComposerIntent) {
+            composerIntents += intent
+        }
+    }
+
+    // One of each per route, so that each destination's events and intents stay apart.
+    private val forms = HashMap<ChatRoute, Fake<FormsState, FormIntent, FormEvent>>()
+    private val permissions = HashMap<ChatRoute, Fake<PermissionsState, PermissionIntent, Nothing>>()
+    private val subagents = HashMap<ChatRoute, Fake<SubagentState, SubagentIntent, SubagentEvent>>()
+    private val palettes = HashMap<ChatRoute, Fake<PaletteState, PaletteIntent, PaletteEvent>>()
+    private val switchers = HashMap<ChatRoute, Fake<SwitcherState, SwitcherIntent, Nothing>>()
+    private val reverts = HashMap<ChatRoute, Fake<RevertState, RevertIntent, RevertEvent>>()
+    private val actions = HashMap<ChatRoute, Fake<ActionsState, ActionsIntent, ActionsEvent>>()
+
+    private val opened = Collections.synchronizedList(mutableListOf<String>())
+    private val uriHandler = object : UriHandler {
+        override fun openUri(uri: String) {
+            opened += uri
+        }
     }
 
     @Before
@@ -169,6 +238,41 @@ class ChatGraphTest {
                         built += Built("composer", route, session)
                         composer
                     }
+                    factory<FormPresenter> { (route: ChatRoute, _: CoroutineScope, session: ChatSession) ->
+                        built += Built("form", route, session)
+                        val fake = synchronized(forms) { forms.getOrPut(route) { Fake(FormsState()) } }
+                        object : FormPresenter, Presenter<FormsState, FormIntent, FormEvent> by fake {}
+                    }
+                    factory<PermissionPresenter> { (route: ChatRoute, _: CoroutineScope, session: ChatSession) ->
+                        built += Built("permission", route, session)
+                        val fake = synchronized(permissions) { permissions.getOrPut(route) { Fake(PermissionsState()) } }
+                        object : PermissionPresenter, Presenter<PermissionsState, PermissionIntent, Nothing> by fake {}
+                    }
+                    factory<SubagentPresenter> { (route: ChatRoute, _: CoroutineScope, session: ChatSession) ->
+                        built += Built("subagent", route, session)
+                        val fake = synchronized(subagents) { subagents.getOrPut(route) { Fake(SubagentState()) } }
+                        object : SubagentPresenter, Presenter<SubagentState, SubagentIntent, SubagentEvent> by fake {}
+                    }
+                    factory<PalettePresenter> { (route: ChatRoute, _: CoroutineScope, session: ChatSession) ->
+                        built += Built("palette", route, session)
+                        val fake = synchronized(palettes) { palettes.getOrPut(route) { Fake(PaletteState()) } }
+                        object : PalettePresenter, Presenter<PaletteState, PaletteIntent, PaletteEvent> by fake {}
+                    }
+                    factory<SwitcherPresenter> { (route: ChatRoute, _: CoroutineScope, session: ChatSession) ->
+                        built += Built("switcher", route, session)
+                        val fake = synchronized(switchers) { switchers.getOrPut(route) { Fake(SwitcherState()) } }
+                        object : SwitcherPresenter, Presenter<SwitcherState, SwitcherIntent, Nothing> by fake {}
+                    }
+                    factory<RevertPresenter> { (route: ChatRoute, _: CoroutineScope, session: ChatSession) ->
+                        built += Built("revert", route, session)
+                        val fake = synchronized(reverts) { reverts.getOrPut(route) { Fake(RevertState()) } }
+                        object : RevertPresenter, Presenter<RevertState, RevertIntent, RevertEvent> by fake {}
+                    }
+                    factory<ActionsPresenter> { (route: ChatRoute, _: CoroutineScope, session: ChatSession) ->
+                        built += Built("actions", route, session)
+                        val fake = synchronized(actions) { actions.getOrPut(route) { Fake(ActionsState()) } }
+                        object : ActionsPresenter, Presenter<ActionsState, ActionsIntent, ActionsEvent> by fake {}
+                    }
                 },
             )
         }
@@ -182,10 +286,12 @@ class ChatGraphTest {
     private fun setNavHost() {
         compose.setContent {
             PhopencodeTheme {
-                navController = rememberNavController()
-                NavHost(navController = navController, startDestination = ConnectRoute.ServerList) {
-                    composable<ConnectRoute.ServerList> { Box(Modifier.fillMaxSize().testTag("start")) }
-                    chatGraph(navController)
+                CompositionLocalProvider(LocalUriHandler provides uriHandler) {
+                    navController = rememberNavController()
+                    NavHost(navController = navController, startDestination = ConnectRoute.ServerList) {
+                        composable<ConnectRoute.ServerList> { Box(Modifier.fillMaxSize().testTag("start")) }
+                        chatGraph(navController)
+                    }
                 }
             }
         }
@@ -202,6 +308,9 @@ class ChatGraphTest {
             destination.hasRoute<ConnectRoute.ServerList>() -> ConnectRoute.ServerList
             destination.hasRoute<ChatRoute.Chat>() -> entry.toRoute<ChatRoute.Chat>()
             destination.hasRoute<ChatRoute.TokenUsage>() -> entry.toRoute<ChatRoute.TokenUsage>()
+            destination.hasRoute<ChatRoute.Subagents>() -> entry.toRoute<ChatRoute.Subagents>()
+            destination.hasRoute<ChatRoute.ChildSession>() -> entry.toRoute<ChatRoute.ChildSession>()
+            destination.hasRoute<ChatRoute.TurnDiff>() -> entry.toRoute<ChatRoute.TurnDiff>()
             else -> null // The graph itself.
         }
     }
@@ -221,7 +330,10 @@ class ChatGraphTest {
         assertEquals(listOf(chat as ChatRoute), sessions.map { it.first })
         val session = sessions.single().second
         assertEquals(
-            setOf("status", "usage", "timeline", "reasoning", "tool", "composer"),
+            setOf(
+                "status", "usage", "timeline", "reasoning", "tool", "composer",
+                "form", "permission", "subagent", "palette", "switcher", "actions",
+            ),
             built.map { it.type }.toSet(),
         )
         assertEquals(built.size, built.map { it.type }.toSet().size, "each presenter is built once")
@@ -275,5 +387,219 @@ class ChatGraphTest {
         compose.waitForIdle()
 
         assertEquals(listOf<TimelineIntent>(TimelineIntent.JumpToLatest), timelineIntents.toList())
+    }
+
+    private fun send(event: SubagentEvent, from: ChatRoute) {
+        subagents.getValue(from).eventChannel.trySend(event)
+        compose.waitForIdle()
+    }
+
+    @Test
+    fun `the subagent badge opens the list, and a subagent opens its timeline`() {
+        setNavHost()
+        val chat = ChatRoute.Chat(SESSION)
+        open(chat)
+
+        send(SubagentEvent.OpenList(SessionId(SESSION)), from = chat)
+
+        val list = ChatRoute.Subagents(SESSION)
+        assertEquals(listOf(ConnectRoute.ServerList, chat, list), backStack())
+        compose.onNodeWithTag("placeholder:$list").assertIsDisplayed()
+        assertEquals(setOf("subagent"), built.filter { it.route == list }.map { it.type }.toSet())
+
+        send(SubagentEvent.OpenChild(SessionId("ses_2")), from = list)
+
+        val child = ChatRoute.ChildSession("ses_2")
+        assertEquals(listOf(ConnectRoute.ServerList, chat, list, child), backStack())
+        compose.onNodeWithTag("placeholder:$child").assertIsDisplayed()
+        val childSession = sessions.single { it.first == child }.second
+        val childBuilt = built.filter { it.route == child }
+        assertEquals(
+            setOf("status", "timeline", "reasoning", "tool", "subagent", "form", "permission"),
+            childBuilt.map { it.type }.toSet(),
+        )
+        assertTrue(childBuilt.all { it.session === childSession })
+    }
+
+    @Test
+    fun `leaving the subagent list goes back`() {
+        setNavHost()
+        open(ChatRoute.Chat(SESSION))
+        val list = ChatRoute.Subagents(SESSION)
+        open(list)
+
+        send(SubagentEvent.Close, from = list)
+
+        assertEquals(listOf(ConnectRoute.ServerList, ChatRoute.Chat(SESSION)), backStack())
+    }
+
+    @Test
+    fun `a nested subagent opens its own list`() {
+        setNavHost()
+        val child = ChatRoute.ChildSession("ses_2")
+        open(child)
+
+        send(SubagentEvent.OpenList(SessionId("ses_2")), from = child)
+
+        assertEquals(listOf(ConnectRoute.ServerList, child, ChatRoute.Subagents("ses_2")), backStack())
+    }
+
+    @Test
+    fun `returning to a parent on the back stack goes back to it`() {
+        setNavHost()
+        val chat = ChatRoute.Chat(SESSION)
+        open(chat)
+        open(ChatRoute.Subagents(SESSION))
+        val child = ChatRoute.ChildSession("ses_2")
+        open(child)
+
+        send(SubagentEvent.OpenParent(SessionId(SESSION), root = true), from = child)
+
+        assertEquals(listOf(ConnectRoute.ServerList, chat), backStack())
+    }
+
+    @Test
+    fun `returning to a parent not on the back stack opens it in place of the child`() {
+        setNavHost()
+        val grandchild = ChatRoute.ChildSession("ses_3")
+        open(grandchild)
+
+        send(SubagentEvent.OpenParent(SessionId("ses_2"), root = false), from = grandchild)
+
+        val child = ChatRoute.ChildSession("ses_2")
+        assertEquals(listOf(ConnectRoute.ServerList, child), backStack())
+
+        send(SubagentEvent.OpenParent(SessionId(SESSION), root = true), from = child)
+
+        assertEquals(listOf(ConnectRoute.ServerList, ChatRoute.Chat(SESSION)), backStack())
+    }
+
+    @Test
+    fun `leaving a child session from its status goes back`() {
+        setNavHost()
+        open(ChatRoute.Chat(SESSION))
+        open(ChatRoute.ChildSession("ses_2"))
+
+        statusEvents.trySend(StatusEvent.Close)
+        compose.waitForIdle()
+
+        assertEquals(listOf(ConnectRoute.ServerList, ChatRoute.Chat(SESSION)), backStack())
+    }
+
+    @Test
+    fun `the composer's draft goes to the palette as its query`() {
+        setNavHost()
+        val chat = ChatRoute.Chat(SESSION)
+        open(chat)
+
+        composerState.value = ComposerState(draft = "/rev")
+        compose.waitForIdle()
+
+        assertEquals(PaletteIntent.QueryChanged("/rev"), palettes.getValue(chat).intents.last())
+    }
+
+    @Test
+    fun `a palette pick hands the new draft and the attachment to the composer`() {
+        setNavHost()
+        val chat = ChatRoute.Chat(SESSION)
+        open(chat)
+        val attachment = PromptAttachment.Agent("explore")
+
+        palettes.getValue(chat).eventChannel.trySend(PaletteEvent.Attached("look at ", attachment))
+        compose.waitForIdle()
+
+        assertEquals(
+            listOf(ComposerIntent.DraftChanged("look at "), ComposerIntent.Attach(attachment)),
+            composerIntents.toList(),
+        )
+    }
+
+    @Test
+    fun `a command the server accepted clears the draft and brings the timeline back`() {
+        setNavHost()
+        val chat = ChatRoute.Chat(SESSION)
+        open(chat)
+
+        palettes.getValue(chat).eventChannel.trySend(PaletteEvent.CommandSent(""))
+        compose.waitForIdle()
+
+        assertEquals(listOf<ComposerIntent>(ComposerIntent.DraftChanged("")), composerIntents.toList())
+        assertEquals(listOf<TimelineIntent>(TimelineIntent.JumpToLatest), timelineIntents.toList())
+    }
+
+    @Test
+    fun `a prompt's changes open the turn diff page, which goes back when done`() {
+        setNavHost()
+        val chat = ChatRoute.Chat(SESSION)
+        open(chat)
+
+        actions.getValue(chat).eventChannel.trySend(ActionsEvent.OpenTurnDiff(MessageId("msg_1")))
+        compose.waitForIdle()
+
+        val diff = ChatRoute.TurnDiff(SESSION, "msg_1")
+        assertEquals(listOf(ConnectRoute.ServerList, chat, diff), backStack())
+        compose.onNodeWithTag("placeholder:$diff").assertIsDisplayed()
+        val revert = built.single { it.route == diff }
+        assertEquals("revert", revert.type)
+        assertTrue(revert.session === sessions.single { it.first == diff }.second)
+
+        reverts.getValue(diff).eventChannel.trySend(RevertEvent.Reverted)
+        compose.waitForIdle()
+
+        assertEquals(listOf(ConnectRoute.ServerList, chat), backStack())
+    }
+
+    @Test
+    fun `leaving the turn diff page goes back to the chat`() {
+        setNavHost()
+        open(ChatRoute.Chat(SESSION))
+        val diff = ChatRoute.TurnDiff(SESSION, "msg_1")
+        open(diff)
+
+        reverts.getValue(diff).eventChannel.trySend(RevertEvent.Close)
+        compose.waitForIdle()
+
+        assertEquals(listOf(ConnectRoute.ServerList, ChatRoute.Chat(SESSION)), backStack())
+    }
+
+    @Test
+    fun `a fork switches the chat to the new session`() {
+        setNavHost()
+        val chat = ChatRoute.Chat(SESSION)
+        open(chat)
+
+        actions.getValue(chat).eventChannel.trySend(ActionsEvent.OpenSession(SessionId("ses_fork")))
+        compose.waitForIdle()
+
+        val fork = ChatRoute.Chat("ses_fork")
+        assertEquals(listOf(ConnectRoute.ServerList, fork), backStack())
+        compose.onNodeWithTag("placeholder:$fork").assertIsDisplayed()
+    }
+
+    @Test
+    fun `an accepted compaction brings the timeline back to the newest item`() {
+        setNavHost()
+        val chat = ChatRoute.Chat(SESSION)
+        open(chat)
+
+        actions.getValue(chat).eventChannel.trySend(ActionsEvent.CompactionStarted)
+        compose.waitForIdle()
+
+        assertEquals(listOf<TimelineIntent>(TimelineIntent.JumpToLatest), timelineIntents.toList())
+    }
+
+    @Test
+    fun `a form's web step opens outside the app, and only over http`() {
+        setNavHost()
+        val chat = ChatRoute.Chat(SESSION)
+        open(chat)
+        val page = "https://example.com/sign-in"
+
+        forms.getValue(chat).eventChannel.trySend(FormEvent.OpenUrl(page))
+        forms.getValue(chat).eventChannel.trySend(FormEvent.OpenUrl("javascript:alert(1)"))
+        forms.getValue(chat).eventChannel.trySend(FormEvent.OpenUrl("file:///etc/hosts"))
+        compose.waitForIdle()
+
+        assertEquals(listOf(page), opened.toList())
     }
 }

@@ -14,6 +14,7 @@ import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerEvent
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerIntent
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerPresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerState
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PromptAttachment
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -37,6 +38,9 @@ import kotlinx.coroutines.yield
  *   call starts, and a Send while it is set is ignored. Nothing is retried, since a prompt is not
  *   safe to repeat. The draft cannot change while the prompt is on its way and is cleared only once
  *   the server accepted it, with [ComposerEvent.Sent]; a failed send keeps it and shows the error.
+ * - **Attachments** go along as the prompt's files, agents and skills, by kind and in the order
+ *   attached; one already held is not added again. Like the draft, they cannot change while a
+ *   prompt is on its way, and are cleared only once the server accepted it.
  * - **Stop** calls `SessionApi.stop` through [ChatSession.call], once, only while something runs.
  *
  * Nothing runs in the constructor: following the session starts after a `yield()`. Nothing here
@@ -68,6 +72,16 @@ class DefaultComposerPresenter(
     override fun onIntent(intent: ComposerIntent) {
         when (intent) {
             is ComposerIntent.DraftChanged -> mutableState.update { if (it.sending) it else it.copy(draft = intent.draft) }
+            is ComposerIntent.Attach -> mutableState.update {
+                if (it.sending || intent.attachment in it.attachments) {
+                    it
+                } else {
+                    it.copy(attachments = it.attachments + intent.attachment)
+                }
+            }
+            is ComposerIntent.Detach -> mutableState.update {
+                if (it.sending) it else it.copy(attachments = it.attachments - intent.attachment)
+            }
             is ComposerIntent.DeliveryChanged -> mutableState.update { it.copy(delivery = intent.delivery) }
             ComposerIntent.Send -> send()
             ComposerIntent.Stop -> stop()
@@ -87,15 +101,19 @@ class DefaultComposerPresenter(
 
     private fun send() {
         val claimed = claim({ it.canSend }) { it.copy(sending = true, error = null) } ?: return
+        val attached = claimed.attachments
         val prompt = Prompt(
             text = claimed.draft.trim(),
+            files = attached.filterIsInstance<PromptAttachment.File>().map { it.path },
+            agents = attached.filterIsInstance<PromptAttachment.Agent>().map { it.id },
+            skills = attached.filterIsInstance<PromptAttachment.Skill>().map { it.name },
             delivery = claimed.delivery.takeIf { claimed.running },
         )
         scope.launch {
             val failure = attempt { client -> client.messages.prompt(session.sessionId, prompt) }
             mutableState.update {
                 if (failure == null) {
-                    it.copy(draft = "", sending = false)
+                    it.copy(draft = "", attachments = emptyList(), sending = false)
                 } else {
                     it.copy(sending = false, error = ComposerError(ComposerAction.Send, failure))
                 }

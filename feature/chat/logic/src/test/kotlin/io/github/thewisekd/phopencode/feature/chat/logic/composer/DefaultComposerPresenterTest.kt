@@ -24,6 +24,7 @@ import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerError
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerEvent
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerIntent
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerState
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PromptAttachment
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -419,5 +420,107 @@ class DefaultComposerPresenterTest {
 
         assertFalse(presenter.state.value.toString().contains(text))
         assertFalse(presenter.toString().contains(text))
+    }
+
+    private val file = PromptAttachment.File("src/" + "secret-plan.md")
+    private val agent = PromptAttachment.Agent("explore")
+    private val skill = PromptAttachment.Skill("review")
+
+    @Test
+    fun `attachments go along as the prompt's files, agents and skills, and clear once accepted`() = runTest {
+        val (chat, presenter) = setup()
+        val seen = events(presenter)
+        presenter.onIntent(ComposerIntent.DraftChanged(text))
+        presenter.onIntent(ComposerIntent.Attach(file))
+        presenter.onIntent(ComposerIntent.Attach(agent))
+        presenter.onIntent(ComposerIntent.Attach(skill))
+        presenter.onIntent(ComposerIntent.Attach(PromptAttachment.File("README.md")))
+        assertEquals(listOf(file, agent, skill, PromptAttachment.File("README.md")), presenter.state.value.attachments)
+
+        presenter.onIntent(ComposerIntent.Send)
+        runCurrent()
+
+        assertEquals(
+            listOf(Prompt(text, files = listOf(file.path, "README.md"), agents = listOf("explore"), skills = listOf("review"))),
+            chat.sent,
+        )
+        assertEquals(emptyList(), presenter.state.value.attachments)
+        assertEquals(listOf<ComposerEvent>(ComposerEvent.Sent), seen)
+    }
+
+    @Test
+    fun `the same attachment is held once`() = runTest {
+        val (_, presenter) = setup()
+
+        presenter.onIntent(ComposerIntent.Attach(file))
+        presenter.onIntent(ComposerIntent.Attach(PromptAttachment.File(file.path)))
+        presenter.onIntent(ComposerIntent.Attach(agent))
+        presenter.onIntent(ComposerIntent.Attach(agent))
+
+        assertEquals(listOf(file, agent), presenter.state.value.attachments)
+    }
+
+    @Test
+    fun `an attachment can be taken off`() = runTest {
+        val (chat, presenter) = setup()
+        presenter.onIntent(ComposerIntent.Attach(file))
+        presenter.onIntent(ComposerIntent.Attach(skill))
+
+        presenter.onIntent(ComposerIntent.Detach(file))
+        presenter.onIntent(ComposerIntent.Detach(agent))
+        assertEquals(listOf<PromptAttachment>(skill), presenter.state.value.attachments)
+
+        presenter.onIntent(ComposerIntent.DraftChanged(text))
+        presenter.onIntent(ComposerIntent.Send)
+        runCurrent()
+        assertEquals(listOf(Prompt(text, skills = listOf("review"))), chat.sent)
+    }
+
+    @Test
+    fun `a failed send keeps the attachments`() = runTest {
+        val (chat, presenter) = setup()
+        presenter.onIntent(ComposerIntent.DraftChanged(text))
+        presenter.onIntent(ComposerIntent.Attach(file))
+        chat.client.control.failNext(ApiError.Network)
+
+        presenter.onIntent(ComposerIntent.Send)
+        runCurrent()
+
+        assertEquals(listOf<PromptAttachment>(file), presenter.state.value.attachments)
+        assertEquals(text, presenter.state.value.draft)
+
+        presenter.onIntent(ComposerIntent.Send)
+        runCurrent()
+        assertEquals(listOf(file.path), chat.sent.last().files)
+        assertEquals(emptyList(), presenter.state.value.attachments)
+    }
+
+    @Test
+    fun `the attachments cannot change while a prompt is on its way`() = runTest {
+        val (chat, presenter) = setup()
+        presenter.onIntent(ComposerIntent.DraftChanged(text))
+        presenter.onIntent(ComposerIntent.Attach(file))
+        chat.client.control.stall()
+        presenter.onIntent(ComposerIntent.Send)
+        runCurrent()
+
+        presenter.onIntent(ComposerIntent.Attach(agent))
+        presenter.onIntent(ComposerIntent.Detach(file))
+        assertEquals(listOf<PromptAttachment>(file), presenter.state.value.attachments)
+
+        chat.client.control.resume()
+        runCurrent()
+        assertEquals(listOf(file.path), chat.sent.single().files)
+        assertEquals(emptyList(), presenter.state.value.attachments)
+    }
+
+    @Test
+    fun `attached paths stay out of the printed state and intents`() = runTest {
+        val (_, presenter) = setup()
+        presenter.onIntent(ComposerIntent.Attach(file))
+
+        assertFalse(presenter.state.value.toString().contains(file.path))
+        assertFalse(ComposerIntent.Attach(file).toString().contains(file.path))
+        assertFalse(ComposerIntent.Detach(file).toString().contains(file.path))
     }
 }
