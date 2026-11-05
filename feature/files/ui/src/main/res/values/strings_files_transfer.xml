@@ -1,3 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="files_transfer_title">Transfers</string>
+    <string name="files_transfer_upload">Upload</string>
+    <string name="files_transfer_clear_finished">Clear finished</string>
+    <string name="files_transfer_folder">Uploads go to %1$s</string>
+    <string name="files_transfer_empty_title">No transfers</string>
+    <string name="files_transfer_empty_message">Upload files from this phone into the folder, or download a file from its menu in the file list.</string>
+    <string name="files_transfer_picker_missing">No app on this phone can pick files.</string>
+    <string name="files_transfer_default_name">upload</string>
+    <string name="files_transfer_status_queued">Waiting</string>
+    <string name="files_transfer_status_uploading">Uploading</string>
+    <string name="files_transfer_status_uploading_percent">Uploading, %1$d%%</string>
+    <string name="files_transfer_status_downloading">Downloading</string>
+    <string name="files_transfer_status_downloading_percent">Downloading, %1$d%%</string>
+    <string name="files_transfer_status_awaiting">Waiting for your answer</string>
+    <string name="files_transfer_status_uploaded">Uploaded</string>
+    <string name="files_transfer_status_downloaded">Downloaded</string>
+    <string name="files_transfer_status_cancelled">Cancelled</string>
+    <string name="files_transfer_status_failed">Failed. %1$s</string>
+    <string name="files_transfer_reason_not_connected">There is no connection to the server.</string>
+    <string name="files_transfer_reason_unreachable">The server could not be reached.</string>
+    <string name="files_transfer_reason_unauthorized">The server refused the login.</string>
+    <string name="files_transfer_reason_not_found">The file was not found.</string>
+    <string name="files_transfer_reason_permission_denied">The server\'s user lacks permission for this file.</string>
+    <string name="files_transfer_reason_already_exists">Something already has that name.</string>
+    <string name="files_transfer_reason_not_empty">The folder is not empty.</string>
+    <string name="files_transfer_reason_path_rejected">The path is outside the project or not valid.</string>
+    <string name="files_transfer_reason_too_large">The file is too large.</string>
+    <string name="files_transfer_reason_tool_missing">A tool it needs is not installed on the server.</string>
+    <string name="files_transfer_reason_rejected">The server refused the request.</string>
+    <string name="files_transfer_reason_server_failed">The server ran into an error.</string>
+    <string name="files_transfer_reason_unsupported">This is not supported yet.</string>
+    <string name="files_transfer_reason_unknown">An unexpected error occurred.</string>
+    <string name="files_transfer_cancel">Cancel</string>
+    <string name="files_transfer_overwrite_title">Replace %1$s?</string>
+    <string name="files_transfer_overwrite_message">A file named %1$s is already in this folder. Replacing it cannot be undone.</string>
+    <string name="files_transfer_overwrite_replace">Replace</string>
+    <string name="files_transfer_overwrite_skip">Skip</string>
+    <string name="files_transfer_notification_channel">File transfers</string>
+    <string name="files_transfer_notification_preparing">Preparing transfers</string>
+    <string name="files_transfer_notification_uploading">Uploading %1$s</string>
+    <string name="files_transfer_notification_downloading">Downloading %1$s</string>
+    <string name="files_transfer_notification_waiting">Waiting to transfer %1$s</string>
+    <string name="files_transfer_notification_awaiting_title">%1$s already exists</string>
+    <string name="files_transfer_notification_awaiting_text">Open the app to replace or skip it.</string>
+    <plurals name="files_transfer_notification_more">
+        <item quantity="one">%1$d more file waiting</item>
+        <item quantity="other">%1$d more files waiting</item>
+    </plurals>
+    <string name="files_transfer_notification_cancel">Cancel all</string>
 </resources>

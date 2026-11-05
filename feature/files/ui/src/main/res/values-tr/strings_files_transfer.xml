@@ -1,3 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="files_transfer_title">Aktarımlar</string>
+    <string name="files_transfer_upload">Yükle</string>
+    <string name="files_transfer_clear_finished">Bitenleri temizle</string>
+    <string name="files_transfer_folder">Yükleme klasörü: %1$s</string>
+    <string name="files_transfer_empty_title">Aktarım yok</string>
+    <string name="files_transfer_empty_message">Bu telefondan klasöre dosya yükleyebilir ya da dosya listesinde bir dosyanın menüsünden indirebilirsiniz.</string>
+    <string name="files_transfer_picker_missing">Bu telefonda dosya seçebilecek bir uygulama yok.</string>
+    <string name="files_transfer_default_name">yükleme</string>
+    <string name="files_transfer_status_queued">Bekliyor</string>
+    <string name="files_transfer_status_uploading">Yükleniyor</string>
+    <string name="files_transfer_status_uploading_percent">Yükleniyor, %%%1$d</string>
+    <string name="files_transfer_status_downloading">İndiriliyor</string>
+    <string name="files_transfer_status_downloading_percent">İndiriliyor, %%%1$d</string>
+    <string name="files_transfer_status_awaiting">Yanıtınız bekleniyor</string>
+    <string name="files_transfer_status_uploaded">Yüklendi</string>
+    <string name="files_transfer_status_downloaded">İndirildi</string>
+    <string name="files_transfer_status_cancelled">İptal edildi</string>
+    <string name="files_transfer_status_failed">Başarısız. %1$s</string>
+    <string name="files_transfer_reason_not_connected">Sunucuyla bağlantı yok.</string>
+    <string name="files_transfer_reason_unreachable">Sunucuya ulaşılamadı.</string>
+    <string name="files_transfer_reason_unauthorized">Sunucu girişi reddetti.</string>
+    <string name="files_transfer_reason_not_found">Dosya bulunamadı.</string>
+    <string name="files_transfer_reason_permission_denied">Sunucudaki kullanıcının bu dosya için izni yok.</string>
+    <string name="files_transfer_reason_already_exists">Bu adı taşıyan bir öğe zaten var.</string>
+    <string name="files_transfer_reason_not_empty">Klasör boş değil.</string>
+    <string name="files_transfer_reason_path_rejected">Yol projenin dışında ya da geçersiz.</string>
+    <string name="files_transfer_reason_too_large">Dosya çok büyük.</string>
+    <string name="files_transfer_reason_tool_missing">Gereken bir araç sunucuda kurulu değil.</string>
+    <string name="files_transfer_reason_rejected">Sunucu isteği reddetti.</string>
+    <string name="files_transfer_reason_server_failed">Sunucu bir hatayla karşılaştı.</string>
+    <string name="files_transfer_reason_unsupported">Bu henüz desteklenmiyor.</string>
+    <string name="files_transfer_reason_unknown">Beklenmeyen bir hata oluştu.</string>
+    <string name="files_transfer_cancel">İptal</string>
+    <string name="files_transfer_overwrite_title">%1$s değiştirilsin mi?</string>
+    <string name="files_transfer_overwrite_message">Bu klasörde %1$s adlı bir dosya zaten var. Değiştirirseniz bu işlem geri alınamaz.</string>
+    <string name="files_transfer_overwrite_replace">Değiştir</string>
+    <string name="files_transfer_overwrite_skip">Atla</string>
+    <string name="files_transfer_notification_channel">Dosya aktarımları</string>
+    <string name="files_transfer_notification_preparing">Aktarımlar hazırlanıyor</string>
+    <string name="files_transfer_notification_uploading">%1$s yükleniyor</string>
+    <string name="files_transfer_notification_downloading">%1$s indiriliyor</string>
+    <string name="files_transfer_notification_waiting">%1$s aktarım için bekliyor</string>
+    <string name="files_transfer_notification_awaiting_title">%1$s zaten var</string>
+    <string name="files_transfer_notification_awaiting_text">Değiştirmek ya da atlamak için uygulamayı açın.</string>
+    <plurals name="files_transfer_notification_more">
+        <item quantity="one">%1$d dosya daha bekliyor</item>
+        <item quantity="other">%1$d dosya daha bekliyor</item>
+    </plurals>
+    <string name="files_transfer_notification_cancel">Tümünü iptal et</string>
 </resources>

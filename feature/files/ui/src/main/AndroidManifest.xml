@@ -1,2 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" />
+<!--
+    Transfers (P8.13). Files are picked with the system's document pickers only, so no storage
+    permission is asked for. The foreground service shows the progress while transfers run.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- API 34 and later: the permission of the service's dataSync type. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- API 33 and later: the progress notification. Transfers run without it. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application>
+        <service
+            android:name="io.github.thewisekd.phopencode.feature.files.ui.transfer.TransferService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+    </application>
+</manifest>
