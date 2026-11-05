@@ -1,3 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Bar at the top of the chat. -->
+    <string name="chat_usage_bar_loading">Token sayılıyor…</string>
+    <string name="chat_usage_bar_empty">Henüz token kullanılmadı</string>
+    <!-- Click label read for the bar: what a tap does. -->
+    <string name="chat_usage_bar_open">Token ayrıntılarını göster</string>
+    <!-- %1$s: one part; %2$s: the next part. Joins the bar's parts. -->
+    <string name="chat_usage_join">%1$s · %2$s</string>
+    <!-- %1$s: the token count, already formatted for the language. -->
+    <plurals name="chat_usage_tokens">
+        <item quantity="one">%1$s token</item>
+        <item quantity="other">%1$s token</item>
+    </plurals>
+    <!-- %1$s: the percentage of the model's context in use, formatted for the language, such as "%45". -->
+    <string name="chat_usage_context_percent">Bağlam %1$s</string>
+    <!-- %1$s: an amount in US dollars, already formatted for the language. -->
+    <string name="chat_usage_cost">$%1$s</string>
+    <!-- Some steps reported no cost, so the amount is a lower bound. -->
+    <string name="chat_usage_cost_at_least">en az $%1$s</string>
+    <!-- A lower bound below a cent. %1$s: zero, formatted for the language. -->
+    <string name="chat_usage_cost_more_than">$%1$s üzeri</string>
+    <!-- %1$s: the smallest amount shown, one cent. -->
+    <string name="chat_usage_cost_under">$%1$s altı</string>
+    <!-- Detail page. -->
+    <string name="chat_usage_title">Token kullanımı</string>
+    <string name="chat_usage_loading">Token sayılıyor…</string>
+    <string name="chat_usage_empty_title">Henüz token kullanılmadı</string>
+    <string name="chat_usage_empty_message">Sayılar model yanıt verince görünür.</string>
+    <string name="chat_usage_model">Model</string>
+    <string name="chat_usage_input">Girdi</string>
+    <string name="chat_usage_output">Çıktı</string>
+    <string name="chat_usage_reasoning">Düşünme</string>
+    <string name="chat_usage_cache_read">Önbellek okuma</string>
+    <string name="chat_usage_cache_write">Önbellek yazma</string>
+    <string name="chat_usage_total">Toplam</string>
+    <string name="chat_usage_cost_label">Maliyet</string>
+    <string name="chat_usage_cost_unknown">Bildirilmedi</string>
+    <string name="chat_usage_context_used">Kullanılan bağlam</string>
+    <string name="chat_usage_context_limit">Bağlam sınırı</string>
+    <!-- Read for the context bar. %1$s: the percentage in use, formatted for the language. -->
+    <string name="chat_usage_context_progress">Bağlamın %1$s kadarı kullanımda</string>
+    <!-- %1$s: why, one of the chat_usage_reason_ strings. -->
+    <string name="chat_usage_error">Bağlam sınırı yüklenemedi. %1$s</string>
+    <string name="chat_usage_reason_not_connected">Sunucuyla bağlantı yok.</string>
+    <string name="chat_usage_reason_unreachable">Sunucuya ulaşılamadı.</string>
+    <string name="chat_usage_reason_unauthorized">Sunucu kimlik bilgilerini reddetti.</string>
+    <string name="chat_usage_reason_not_found">Model listesi bulunamadı.</string>
+    <string name="chat_usage_reason_conflict">Sunucu meşguldü.</string>
+    <string name="chat_usage_reason_rejected">Sunucu isteği reddetti.</string>
+    <string name="chat_usage_reason_server">Sunucu bir hatayla karşılaştı.</string>
+    <string name="chat_usage_reason_unknown">Beklenmeyen bir hata oluştu.</string>
 </resources>
