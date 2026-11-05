@@ -1,3 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="files_editor_loading">Opening the file…</string>
+    <string name="files_editor_save">Save</string>
+    <string name="files_editor_saving">Saving…</string>
+    <string name="files_editor_unsaved">Unsaved changes</string>
+    <string name="files_editor_blocked_title">This file cannot be edited</string>
+    <string name="files_editor_blocked_binary">It is not a text file.</string>
+    <string name="files_editor_blocked_too_large">It is too large to edit on the phone.</string>
+    <string name="files_editor_blocked_malformed">Some of its bytes are not valid UTF-8, and saving would change them.</string>
+    <string name="files_editor_load_error">The file could not be opened. %1$s</string>
+    <string name="files_editor_save_error">The file could not be saved. %1$s Your changes are kept.</string>
+    <string name="files_editor_reason_not_connected">There is no connection to the server.</string>
+    <string name="files_editor_reason_unreachable">The server could not be reached.</string>
+    <string name="files_editor_reason_unauthorized">The server refused the login.</string>
+    <string name="files_editor_reason_not_found">The file was not found.</string>
+    <string name="files_editor_reason_permission_denied">The server\'s user lacks permission for this file.</string>
+    <string name="files_editor_reason_already_exists">Something already has that name.</string>
+    <string name="files_editor_reason_not_empty">The folder is not empty.</string>
+    <string name="files_editor_reason_path_rejected">The path is outside the project or not valid.</string>
+    <string name="files_editor_reason_too_large">The file is too large.</string>
+    <string name="files_editor_reason_tool_missing">A tool it needs is not installed on the server.</string>
+    <string name="files_editor_reason_rejected">The server refused the request.</string>
+    <string name="files_editor_reason_server_failed">The server ran into an error.</string>
+    <string name="files_editor_reason_unsupported">This is not supported yet.</string>
+    <string name="files_editor_reason_unknown">An unexpected error occurred.</string>
+    <string name="files_editor_conflict_title">The file changed on the server</string>
+    <string name="files_editor_conflict_message">Someone changed this file since you opened or last saved it. Overwrite it with your version, or reload the server\'s version and lose your changes.</string>
+    <string name="files_editor_overwrite">Overwrite</string>
+    <string name="files_editor_reload">Reload</string>
+    <string name="files_editor_keep_editing">Keep editing</string>
+    <string name="files_editor_leave_title">Discard unsaved changes?</string>
+    <string name="files_editor_leave_message">Your changes to %1$s are not saved. Leaving now discards them.</string>
+    <string name="files_editor_discard">Discard</string>
 </resources>

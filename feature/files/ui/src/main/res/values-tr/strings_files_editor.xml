@@ -1,3 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="files_editor_loading">Dosya açılıyor…</string>
+    <string name="files_editor_save">Kaydet</string>
+    <string name="files_editor_saving">Kaydediliyor…</string>
+    <string name="files_editor_unsaved">Kaydedilmemiş değişiklikler</string>
+    <string name="files_editor_blocked_title">Bu dosya düzenlenemez</string>
+    <string name="files_editor_blocked_binary">Metin dosyası değil.</string>
+    <string name="files_editor_blocked_too_large">Telefonda düzenlenemeyecek kadar büyük.</string>
+    <string name="files_editor_blocked_malformed">Bazı baytları geçerli UTF-8 değil ve kaydetmek bunları değiştirir.</string>
+    <string name="files_editor_load_error">Dosya açılamadı. %1$s</string>
+    <string name="files_editor_save_error">Dosya kaydedilemedi. %1$s Değişiklikleriniz korunuyor.</string>
+    <string name="files_editor_reason_not_connected">Sunucuyla bağlantı yok.</string>
+    <string name="files_editor_reason_unreachable">Sunucuya ulaşılamadı.</string>
+    <string name="files_editor_reason_unauthorized">Sunucu girişi reddetti.</string>
+    <string name="files_editor_reason_not_found">Dosya bulunamadı.</string>
+    <string name="files_editor_reason_permission_denied">Sunucudaki kullanıcının bu dosya için izni yok.</string>
+    <string name="files_editor_reason_already_exists">Bu adı taşıyan bir öğe zaten var.</string>
+    <string name="files_editor_reason_not_empty">Klasör boş değil.</string>
+    <string name="files_editor_reason_path_rejected">Yol projenin dışında ya da geçersiz.</string>
+    <string name="files_editor_reason_too_large">Dosya çok büyük.</string>
+    <string name="files_editor_reason_tool_missing">Gereken bir araç sunucuda kurulu değil.</string>
+    <string name="files_editor_reason_rejected">Sunucu isteği reddetti.</string>
+    <string name="files_editor_reason_server_failed">Sunucu bir hatayla karşılaştı.</string>
+    <string name="files_editor_reason_unsupported">Bu henüz desteklenmiyor.</string>
+    <string name="files_editor_reason_unknown">Beklenmeyen bir hata oluştu.</string>
+    <string name="files_editor_conflict_title">Dosya sunucuda değişti</string>
+    <string name="files_editor_conflict_message">Siz açtıktan ya da son kaydettikten sonra bu dosya değiştirildi. Kendi sürümünüzle üzerine yazabilir ya da sunucudaki sürümü yükleyip değişikliklerinizi atabilirsiniz.</string>
+    <string name="files_editor_overwrite">Üzerine yaz</string>
+    <string name="files_editor_reload">Yeniden yükle</string>
+    <string name="files_editor_keep_editing">Düzenlemeye devam et</string>
+    <string name="files_editor_leave_title">Kaydedilmemiş değişiklikler atılsın mı?</string>
+    <string name="files_editor_leave_message">%1$s dosyasındaki değişiklikleriniz kaydedilmedi. Şimdi çıkarsanız atılır.</string>
+    <string name="files_editor_discard">Değişiklikleri at</string>
 </resources>
