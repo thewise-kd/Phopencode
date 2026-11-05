@@ -2,6 +2,7 @@ package io.github.thewisekd.phopencode.core.remote.connection
 
 import io.github.thewisekd.phopencode.core.api.ApiError
 import io.github.thewisekd.phopencode.core.api.ApiException
+import io.github.thewisekd.phopencode.core.api.FsApi
 import io.github.thewisekd.phopencode.core.api.OpencodeClient
 import io.github.thewisekd.phopencode.core.api.ServerEvent
 import io.github.thewisekd.phopencode.core.api.ServerInfo
@@ -9,6 +10,7 @@ import io.github.thewisekd.phopencode.core.model.ServerProfile
 import io.github.thewisekd.phopencode.core.ssh.api.HostKey
 import io.github.thewisekd.phopencode.core.ssh.api.HostKeyDecision
 import io.github.thewisekd.phopencode.core.ssh.api.HostKeyVerifier
+import io.github.thewisekd.phopencode.core.ssh.api.RemoteExec
 import io.github.thewisekd.phopencode.core.ssh.api.SftpClient
 import io.github.thewisekd.phopencode.core.ssh.api.SshConnector
 import io.github.thewisekd.phopencode.core.ssh.api.SshException
@@ -285,6 +287,75 @@ class ConnectionManager(
     }
 
     /**
+     * Runs [block] bound to the connection that stands right now, that is while [state] is
+     * [ConnectionState.Connected]. Everything [block] gets comes from that one connection, through
+     * a [BoundConnection]: its session's command runner, its API client's file search, its SFTP
+     * opens. The session itself is never handed out.
+     *
+     * When that connection drops, or [reconnect], [disconnect], [connect] or [close] ends it, while
+     * [block] runs, [block] is cancelled and the call fails with [NotConnectedException]; so does a
+     * [block] that returns, or fails, only after its connection ended. A later connection, with a
+     * new [ConnectionState.Connected.generation] or another server, is never used.
+     *
+     * The manager adds nothing to what [block] runs: no signal, no process ending, no `sudo`.
+     *
+     * @throws NotConnectedException When no connection stands, or it ended before [block] finished.
+     */
+    suspend fun <T> withConnection(block: suspend (BoundConnection) -> T): T {
+        val (run, live) = synchronized(lock) {
+            val run = current
+            val live = run?.live ?: throw NotConnectedException()
+            run to live
+        }
+        val bound = Bound(run, live)
+        val result = try {
+            coroutineScope {
+                val watch = launch(start = CoroutineStart.UNDISPATCHED) {
+                    live.gone.await()
+                    throw NotConnectedException()
+                }
+                try {
+                    block(bound)
+                } finally {
+                    watch.cancel()
+                }
+            }
+        } catch (failure: NotConnectedException) {
+            throw failure
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Throwable) {
+            if (!stands(run, live)) throw NotConnectedException()
+            throw failure
+        }
+        if (!stands(run, live)) throw NotConnectedException()
+        return result
+    }
+
+    /** Whether [live] is still the connection [run] publishes, and [run] still the current one. */
+    private fun stands(run: Run, live: Live): Boolean = synchronized(lock) { current === run && run.live === live }
+
+    /**
+     * The [BoundConnection] of one [withConnection] call: [live] of [run], captured once. The
+     * manager's current connection is read only to refuse, never to pick a session.
+     */
+    private inner class Bound(private val run: Run, private val live: Live) : BoundConnection {
+        override val exec: RemoteExec get() = live.session.exec
+        override val fs: FsApi get() = live.client.fs
+        override val server: ConnectionServer get() = live.server
+        override val generation: Long = synchronized(lock) { live.generation }
+
+        override suspend fun openSftp(root: String): SftpClient {
+            if (!stands(run, live)) throw NotConnectedException()
+            // Opened on the captured session only. A stop or drop meanwhile makes [Run.track] close
+            // the client and fail.
+            return run.track(live, live.session.openSftp(root))
+        }
+
+        override fun toString(): String = "BoundConnection(generation=$generation)"
+    }
+
+    /**
      * Ends the connection and returns to [ConnectionState.Idle] once every connection has finished
      * its cleanup. After [close], it waits for the close to finish instead.
      */
@@ -370,6 +441,12 @@ class ConnectionManager(
 
         /** Guarded by the run's held lock: the connection dropped; no client is added any more. */
         var ended = false
+
+        /** Completes once the connection dropped or its run stopped; [withConnection] watches it. */
+        val gone = CompletableDeferred<Unit>()
+
+        /** Guarded by [lock]: the generation it was published with, set before anyone can see it. */
+        var generation = 0L
     }
 
     /**
@@ -588,6 +665,7 @@ class ConnectionManager(
         private fun publishConnected(live: Live, generation: Long) {
             synchronized(lock) {
                 if (current === this) {
+                    live.generation = generation
                     this.live = live
                     // Recorded first, as in [publish]; a new generation is never equal to the state held.
                     val connected = ConnectionState.Connected(live.client, live.info, generation, live.server)
@@ -600,6 +678,7 @@ class ConnectionManager(
         /** [live] dropped: [openSftp] no longer reaches it, and its SFTP clients close, newest first. */
         private fun endLive(live: Live) {
             synchronized(lock) { if (this.live === live) this.live = null }
+            live.gone.complete(Unit)
             synchronized(held) {
                 live.ended = true
                 val clients = live.sftp.toList()
@@ -624,6 +703,7 @@ class ConnectionManager(
 
         /** Newest first, so the client closes before the session that carries it. */
         private fun releaseAll() {
+            synchronized(lock) { live }?.gone?.complete(Unit)
             synchronized(held) {
                 // A copy: closing an SFTP client takes it out of [held].
                 val all = held.toList()
@@ -937,4 +1017,38 @@ class ConnectionManager(
             throw ConnectionException(ConnectionError.Unexpected)
         }
     }
+}
+
+/**
+ * One connection of [ConnectionManager], captured by [ConnectionManager.withConnection]. Everything
+ * here belongs to that connection only; none of it ever reaches a later connection or another
+ * server. It hands out capabilities, never the SSH session.
+ *
+ * Meant for use inside the [ConnectionManager.withConnection] block.
+ */
+interface BoundConnection {
+    /** The command runner of the connection's SSH session. */
+    val exec: RemoteExec
+
+    /** The file search of the connection's API client. */
+    val fs: FsApi
+
+    /** The server this connection reached, as [ConnectionState.Connected.server] named it. */
+    val server: ConnectionServer
+
+    /** As [ConnectionState.Connected.generation] for this connection. */
+    val generation: Long
+
+    /**
+     * Opens an SFTP client confined to [root] on this connection's SSH session, as
+     * [ConnectionManager.openSftp] does for the current one; the connection owns and closes it.
+     *
+     * @throws NotConnectedException When this connection has ended or been replaced, before or
+     *   during the open. The open never moves to another connection.
+     * @throws io.github.thewisekd.phopencode.core.ssh.api.SshException.Sftp When [root] is refused,
+     *   missing or not readable.
+     * @throws io.github.thewisekd.phopencode.core.ssh.api.SshException.Disconnected When the SSH
+     *   session ends during the open.
+     */
+    suspend fun openSftp(root: String): SftpClient
 }

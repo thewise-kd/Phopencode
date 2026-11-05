@@ -18,6 +18,7 @@ import io.github.thewisekd.phopencode.feature.files.logic.contract.TreePresenter
 import io.github.thewisekd.phopencode.feature.files.logic.contract.ViewerPresenter
 import io.github.thewisekd.phopencode.feature.files.logic.editor.DefaultEditorPresenter
 import io.github.thewisekd.phopencode.feature.files.logic.ops.DefaultFileOpsPresenter
+import io.github.thewisekd.phopencode.feature.files.logic.service.ConnectionFileService
 import io.github.thewisekd.phopencode.feature.files.logic.search.DefaultSearchPresenter
 import io.github.thewisekd.phopencode.feature.files.logic.transfer.DefaultTransferPresenter
 import io.github.thewisekd.phopencode.feature.files.logic.transfer.DefaultTransferQueue
@@ -31,9 +32,10 @@ import org.koin.dsl.module
  * The files feature's definitions, which the app loads at startup. The connection manager and the
  * app's [CoroutineScope] come from the app's core modules.
  *
- * - The ports (`FilePorts.kt`) are single instances. The file ports are [NoFileService] until the
- *   file service of P8.1 (`core/files`) is wired in here, the one change this file still expects;
- *   [GitChanges] reads the active connection.
+ * - The ports (`FilePorts.kt`) are single instances. The five file ports are one
+ *   [ConnectionFileService], the file service of `core/files` on the server of the active
+ *   connection; [NoFileService] stays available for builds or tests without one. [GitChanges] reads
+ *   the active connection.
  * - [TransferQueue] is one for the app, on the app's scope, so transfers outlive their screen.
  * - Each presenter is a factory under its contract interface, built per destination with two
  *   parameters: the destination's route and its coroutine scope (see `rememberPresenter` in
@@ -42,11 +44,12 @@ import org.koin.dsl.module
  *   route.
  */
 val filesModule: Module = module {
-    single<FileListing> { NoFileService }
-    single<FileContent> { NoFileService }
-    single<FileChanges> { NoFileService }
-    single<FileTransfers> { NoFileService }
-    single<FileSearch> { NoFileService }
+    single { ConnectionFileService(connection = get()) }
+    single<FileListing> { get<ConnectionFileService>() }
+    single<FileContent> { get<ConnectionFileService>() }
+    single<FileChanges> { get<ConnectionFileService>() }
+    single<FileTransfers> { get<ConnectionFileService>() }
+    single<FileSearch> { get<ConnectionFileService>() }
     single<GitChanges> { ConnectionGitChanges(connection = get()) }
     single<TransferQueue> { DefaultTransferQueue(transfers = get(), scope = get()) }
 

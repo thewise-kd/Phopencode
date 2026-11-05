@@ -487,6 +487,12 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | P8.2 | `files` contract | P3.9, P1.10 | `feature/files/logic/…/contract/`, `feature/files/ui/…/FilesGraph.kt`, `feature/files/ui/…/FilesModule.kt`, screen stubs | Contract outputs complete | `PI` |
 | P8.3 | Code view | P1.9 | `core/codeview/` | sora-editor Compose wrapper; language from the extension; read-only and edit modes; TextMate grammars and their licenses under `assets`; dark/light theme | `EMU` |
 
+**G1b**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P8.16 | Wire the file service | P8.1, P8.2 | `core/remote/…/ConnectionManager.kt`, `feature/files/logic/…/service/`, `feature/files/ui/…/FilesModule.kt` | The ports reach the connected server's file service; no server means NotConnected; errors map completely | `PI` |
+
 **G2 (parallel)**
 
 | Task | Goal | Depends on | Owned paths | Acceptance tests | Test |

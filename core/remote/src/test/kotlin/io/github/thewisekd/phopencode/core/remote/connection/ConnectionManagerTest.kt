@@ -7,7 +7,10 @@ import io.github.thewisekd.phopencode.core.model.SessionId
 import io.github.thewisekd.phopencode.core.model.SshAuth
 import io.github.thewisekd.phopencode.core.remote.detect.ServerLookup
 import io.github.thewisekd.phopencode.core.remote.detect.ServerSource
+import io.github.thewisekd.phopencode.core.ssh.api.ExecRequest
 import io.github.thewisekd.phopencode.core.ssh.api.HostKeyVerifier
+import io.github.thewisekd.phopencode.core.ssh.api.RemoteExec
+import io.github.thewisekd.phopencode.core.ssh.api.SftpClient
 import io.github.thewisekd.phopencode.core.ssh.api.SshConnectOptions
 import io.github.thewisekd.phopencode.core.ssh.api.SshConnector
 import io.github.thewisekd.phopencode.core.ssh.api.SshCredential
@@ -21,8 +24,10 @@ import io.github.thewisekd.phopencode.core.testing.api.FakeEventApi
 import io.github.thewisekd.phopencode.core.testing.ssh.FakeSshSession
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -31,6 +36,7 @@ import kotlin.time.Duration.Companion.seconds
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
@@ -783,6 +789,202 @@ class ConnectionManagerTest {
         runCurrent()
         assertIs<ConnectionState.Connected>(fx.manager.state.value)
         assertEquals(2, fx.connector.sessions.size)
+    }
+
+    /** Records every SFTP open, by session, before it reaches the session. */
+    private class RecordingSftpConnector(private val real: SshConnector, private val opened: MutableList<SshSession>) :
+        SshConnector {
+        override suspend fun connect(
+            target: SshTarget,
+            credential: SshCredential,
+            hostKeyVerifier: HostKeyVerifier,
+            options: SshConnectOptions,
+        ): SshSession {
+            val inner = real.connect(target, credential, hostKeyVerifier, options)
+            return object : SshSession by inner {
+                override suspend fun openSftp(root: String): SftpClient {
+                    synchronized(opened) { opened += inner }
+                    return inner.openSftp(root)
+                }
+            }
+        }
+    }
+
+    private suspend fun Fixture.addOtherServer() {
+        connector.addServer(OTHER_TARGET)
+        knownHosts.approve(HostEndpoint(OTHER_HOST, OTHER_PORT), HostKeyFingerprint(SERVER_KEY.fingerprintSha256))
+    }
+
+    @Test
+    fun `withConnection fails when no connection stands and never runs the block`() = runTest {
+        val fx = Fixture(this)
+        var ran = false
+
+        assertFailsWith<NotConnectedException> { fx.manager.withConnection { ran = true } }
+        connected(fx)
+        fx.manager.disconnect()
+        assertFailsWith<NotConnectedException> { fx.manager.withConnection { ran = true } }
+
+        assertFalse(ran)
+    }
+
+    @Test
+    fun `withConnection hands the block the connected session's exec, client fs, server and generation`() = runTest {
+        val fx = Fixture(this)
+        val connected = connected(fx)
+        val session = fx.connector.sessions.single()
+        session.exec.on("echo ok") { stdout("ok\n"); exit(0) }
+
+        val result = fx.manager.withConnection { bound ->
+            assertSame(session.exec, bound.exec)
+            assertSame(fx.clients.made.single().client.fs, bound.fs)
+            assertEquals(connected.server, bound.server)
+            assertEquals(connected.generation, bound.generation)
+            bound.exec.run(ExecRequest("echo ok"))
+        }
+
+        assertEquals("ok\n", result.stdout.decodeToString())
+        assertIs<ConnectionState.Connected>(fx.manager.state.value)
+    }
+
+    @Test
+    fun `withConnection opens SFTP on the bound session, and the connection owns the client`() = runTest {
+        val opened = mutableListOf<SshSession>()
+        val fx = Fixture(this, wrapConnector = { RecordingSftpConnector(it, opened) })
+        connected(fx)
+        val session = fx.connector.sessions.single()
+        session.files.addDirectory("/srv/project")
+
+        val client = fx.manager.withConnection { bound -> bound.openSftp("/srv/project") }
+
+        assertEquals("/srv/project", client.root)
+        assertEquals(listOf<SshSession>(session), opened)
+        session.loseConnection()
+        runCurrent()
+        assertFailsWith<SshException> { client.list("") }
+    }
+
+    @Test
+    fun `withConnection fails when the connection drops during the block`() = runTest {
+        val fx = Fixture(this)
+        connected(fx)
+        val started = CompletableDeferred<Unit>()
+        var cancelled = false
+
+        val call = async {
+            runCatching {
+                fx.manager.withConnection {
+                    started.complete(Unit)
+                    try {
+                        awaitCancellation()
+                    } catch (cancel: CancellationException) {
+                        cancelled = true
+                        throw cancel
+                    }
+                }
+            }
+        }
+        runCurrent()
+        assertTrue(started.isCompleted)
+        fx.connector.sessions.single().loseConnection()
+        runCurrent()
+
+        assertIs<NotConnectedException>(call.await().exceptionOrNull())
+        assertTrue(cancelled, "the block is cancelled")
+    }
+
+    @Test
+    fun `withConnection fails when the block outlives its connection, even if it returns`() = runTest {
+        val fx = Fixture(this)
+        connected(fx)
+        val release = CompletableDeferred<Unit>()
+
+        val call = async {
+            runCatching { fx.manager.withConnection { withContext(NonCancellable) { release.await() }; "done" } }
+        }
+        runCurrent()
+        fx.manager.reconnect()
+        runCurrent()
+        fx.manager.reconnect()
+        runCurrent()
+        assertIs<ConnectionState.Connected>(fx.manager.state.value)
+        release.complete(Unit)
+        runCurrent()
+
+        assertIs<NotConnectedException>(call.await().exceptionOrNull())
+    }
+
+    @Test
+    fun `withConnection never moves to a newer connection when the generation changes`() = runTest {
+        val fx = Fixture(this)
+        val first = connected(fx)
+        val firstSession = fx.connector.sessions.single()
+        val seen = mutableListOf<RemoteExec>()
+
+        val call = async {
+            runCatching { fx.manager.withConnection { bound -> seen += bound.exec; awaitCancellation() } }
+        }
+        runCurrent()
+        fx.manager.connect(profile())
+        runCurrent()
+        val second = assertIs<ConnectionState.Connected>(fx.manager.state.value)
+        assertTrue(second.generation > first.generation)
+
+        assertIs<NotConnectedException>(call.await().exceptionOrNull())
+        assertEquals(listOf<RemoteExec>(firstSession.exec), seen)
+        assertSame(fx.connector.sessions.last().exec, fx.manager.withConnection { it.exec })
+    }
+
+    @Test
+    fun `a server connected after the bind is never reached through it`() = runTest {
+        val opened = mutableListOf<SshSession>()
+        val fx = Fixture(this, wrapConnector = { RecordingSftpConnector(it, opened) })
+        val first = connected(fx)
+        fx.addOtherServer()
+        val bound = CompletableDeferred<BoundConnection>()
+        val proceed = CompletableDeferred<Unit>()
+        var openFailure: Throwable? = null
+
+        val call = async {
+            runCatching {
+                fx.manager.withConnection { connection ->
+                    bound.complete(connection)
+                    // Goes on past the drop's cancellation, as code between two checks would.
+                    withContext(NonCancellable) {
+                        proceed.await()
+                        openFailure = runCatching { connection.openSftp("/srv/project") }.exceptionOrNull()
+                    }
+                }
+            }
+        }
+        runCurrent()
+        fx.manager.connect(otherProfile())
+        runCurrent()
+        val second = assertIs<ConnectionState.Connected>(fx.manager.state.value)
+        assertEquals(otherProfile().id, second.server.profileId)
+        fx.connector.sessions.last().files.addDirectory("/srv/project")
+        proceed.complete(Unit)
+        runCurrent()
+
+        assertIs<NotConnectedException>(openFailure)
+        assertIs<NotConnectedException>(call.await().exceptionOrNull())
+        assertTrue(opened.isEmpty(), "no SFTP channel opened on any session, the new server's included")
+        val connection = bound.await()
+        assertEquals(first.server, connection.server)
+        assertEquals(first.generation, connection.generation)
+        assertSame(fx.clients.made.first().client.fs, connection.fs)
+        assertNotSame(fx.clients.made.last().client.fs, connection.fs)
+        assertTrue(fx.clients.made.last().client.control.calls.none { it.startsWith("fs.") }, "the new server's API is untouched")
+    }
+
+    @Test
+    fun `withConnection propagates the block's own failure while the connection stands`() = runTest {
+        val fx = Fixture(this)
+        connected(fx)
+
+        assertFailsWith<SshException.Timeout> {
+            fx.manager.withConnection { throw SshException.Timeout() }
+        }
     }
 
     @Test
