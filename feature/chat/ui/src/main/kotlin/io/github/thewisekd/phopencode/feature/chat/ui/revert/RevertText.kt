@@ -29,9 +29,14 @@ internal const val DIFF_MAX_LINES = 300
 /** The most characters of one file's diff the page draws, for diffs with very long lines. */
 internal const val DIFF_MAX_CHARS = 20_000
 
-/** The language the page is drawn in, which sets the number format. */
+/**
+ * The language the page is drawn in, which sets the number format.
+ *
+ * Read from the composition's configuration, so a language change redraws it; the process default is
+ * not observable. An empty locale list, which Android does not give, falls back to the root locale.
+ */
 @Composable
-internal fun revertLocale(): Locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+internal fun revertLocale(): Locale = LocalConfiguration.current.locales[0] ?: Locale.ROOT
 
 /** A count with the language's grouping, such as "1,234" in English and "1.234" in Turkish. */
 internal fun formatCount(value: Long, locale: Locale): String = NumberFormat.getIntegerInstance(locale).format(value)

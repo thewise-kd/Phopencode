@@ -22,10 +22,13 @@ private val INT_MAX: BigInteger = BigInteger.valueOf(Int.MAX_VALUE.toLong())
  * language. The cost is left out when no step reported one. When some steps reported none, the
  * amount is a lower bound and says so. An amount below a cent is never rounded to zero: it reads
  * "under $0.01", or "more than $0.00" when it is only a lower bound.
+ *
+ * Read from the composition's configuration, so a language change redraws it; the process default is
+ * not observable. An empty locale list, which Android does not give, falls back to the root locale.
  */
 @Composable
 internal fun usageText(usage: TokenUsage): String {
-    val locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+    val locale = LocalConfiguration.current.locales[0] ?: Locale.ROOT
     val total = usage.totalTokens
     val tokens = pluralStringResource(
         R.plurals.sessions_list_tokens,

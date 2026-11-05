@@ -21,9 +21,14 @@ private val INT_MAX: BigInteger = BigInteger.valueOf(Int.MAX_VALUE.toLong())
 
 private const val PERCENT = 100.0
 
-/** The language the screen is drawn in, which sets the number format. */
+/**
+ * The language the screen is drawn in, which sets the number format.
+ *
+ * Read from the composition's configuration, so a language change redraws it; the process default is
+ * not observable. An empty locale list, which Android does not give, falls back to the root locale.
+ */
 @Composable
-internal fun usageLocale(): Locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+internal fun usageLocale(): Locale = LocalConfiguration.current.locales[0] ?: Locale.ROOT
 
 /** A count with the language's grouping, such as "1,234" in English and "1.234" in Turkish. */
 internal fun formatCount(value: BigInteger, locale: Locale): String = NumberFormat.getIntegerInstance(locale).format(value)

@@ -19,9 +19,14 @@ private val SIZE_UNITS = intArrayOf(
     R.string.files_viewer_size_gb,
 )
 
-/** The language the screen shows, for numbers. */
+/**
+ * The language the screen shows, for numbers.
+ *
+ * Read from the composition's configuration, so a language change redraws it; the process default is
+ * not observable. An empty locale list, which Android does not give, falls back to the root locale.
+ */
 @Composable
-internal fun viewerLocale(): Locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+internal fun viewerLocale(): Locale = LocalConfiguration.current.locales[0] ?: Locale.ROOT
 
 /**
  * [bytes] in the largest unit it fills, binary steps, with at most one decimal in the number format

@@ -46,6 +46,8 @@ import kotlin.test.assertEquals
 
 private const val DELETED = "ses_deleted"
 private const val OTHER = "ses_other"
+private const val CHILD = "ses_child"
+private const val TURN = "msg_turn"
 private const val FOLDER = "/srv/çalışma alanı"
 
 /**
@@ -98,6 +100,10 @@ class SessionsGraphTest {
                     composable<ConnectRoute.ServerList> { Stand("start") }
                     composable<NotifyRoute.Pending> { Stand("pending") }
                     composable<ChatRoute.Chat> { Stand("chat") }
+                    composable<ChatRoute.Subagents> { Stand("subagents") }
+                    composable<ChatRoute.ChildSession> { Stand("child") }
+                    composable<ChatRoute.TurnDiff> { Stand("diff") }
+                    composable<ChatRoute.TokenUsage> { Stand("usage") }
                     sessionsGraph(navController)
                 }
             }
@@ -125,6 +131,10 @@ class SessionsGraphTest {
             destination.hasRoute<ConnectRoute.ServerList>() -> ConnectRoute.ServerList
             destination.hasRoute<NotifyRoute.Pending>() -> NotifyRoute.Pending
             destination.hasRoute<ChatRoute.Chat>() -> entry.toRoute<ChatRoute.Chat>()
+            destination.hasRoute<ChatRoute.Subagents>() -> entry.toRoute<ChatRoute.Subagents>()
+            destination.hasRoute<ChatRoute.ChildSession>() -> entry.toRoute<ChatRoute.ChildSession>()
+            destination.hasRoute<ChatRoute.TurnDiff>() -> entry.toRoute<ChatRoute.TurnDiff>()
+            destination.hasRoute<ChatRoute.TokenUsage>() -> entry.toRoute<ChatRoute.TokenUsage>()
             destination.hasRoute<SessionsRoute.SessionList>() -> entry.toRoute<SessionsRoute.SessionList>()
             destination.hasRoute<SessionsRoute.Create>() -> entry.toRoute<SessionsRoute.Create>()
             destination.hasRoute<SessionsRoute.Manage>() -> entry.toRoute<SessionsRoute.Manage>()
@@ -187,5 +197,92 @@ class SessionsGraphTest {
         delete(directory = null)
 
         assertEquals(listOf(ConnectRoute.ServerList, NotifyRoute.Pending, SessionsRoute.SessionList()), backStack())
+    }
+
+    @Test
+    fun `a deletion from the management of a session leaves its subagents, child, diff and usage screens too`() {
+        setNavHost()
+        open(
+            SessionsRoute.SessionList(directory = FOLDER),
+            ChatRoute.Chat(DELETED),
+            ChatRoute.Subagents(DELETED),
+            ChatRoute.ChildSession(CHILD),
+            ChatRoute.TurnDiff(DELETED, TURN),
+            ChatRoute.TokenUsage(DELETED),
+            SessionsRoute.Manage(DELETED),
+        )
+
+        delete(FOLDER)
+
+        assertEquals(listOf(ConnectRoute.ServerList, SessionsRoute.SessionList(directory = FOLDER)), backStack())
+    }
+
+    @Test
+    fun `screens of the session are left from the lowest one, even with other screens between`() {
+        setNavHost()
+        open(
+            NotifyRoute.Pending,
+            ChatRoute.TokenUsage(DELETED),
+            ChatRoute.Chat(OTHER),
+            ChatRoute.Subagents(DELETED),
+            SessionsRoute.Manage(DELETED),
+        )
+
+        delete(FOLDER)
+
+        assertEquals(
+            listOf(ConnectRoute.ServerList, NotifyRoute.Pending, SessionsRoute.SessionList(directory = FOLDER)),
+            backStack(),
+        )
+    }
+
+    @Test
+    fun `a list above the session's lowest screen goes with it, and the list below is reached`() {
+        setNavHost()
+        open(
+            SessionsRoute.SessionList(),
+            ChatRoute.Chat(DELETED),
+            SessionsRoute.SessionList(directory = FOLDER),
+            ChatRoute.Chat(OTHER),
+            SessionsRoute.Manage(DELETED),
+        )
+
+        delete(FOLDER)
+
+        assertEquals(listOf(ConnectRoute.ServerList, SessionsRoute.SessionList()), backStack())
+    }
+
+    @Test
+    fun `a deletion from a diff's management, with no chat behind, goes back to the list past other screens`() {
+        setNavHost()
+        open(
+            SessionsRoute.SessionList(),
+            NotifyRoute.Pending,
+            ChatRoute.TurnDiff(DELETED, TURN),
+            SessionsRoute.Manage(DELETED),
+        )
+
+        delete(FOLDER)
+
+        assertEquals(listOf(ConnectRoute.ServerList, SessionsRoute.SessionList()), backStack())
+    }
+
+    @Test
+    fun `a list between another session's chat and the deleted session's screens is reached`() {
+        setNavHost()
+        open(
+            ChatRoute.Chat(OTHER),
+            SessionsRoute.SessionList(directory = FOLDER),
+            ChatRoute.Subagents(DELETED),
+            ChatRoute.ChildSession(CHILD),
+            SessionsRoute.Manage(DELETED),
+        )
+
+        delete(directory = null)
+
+        assertEquals(
+            listOf(ConnectRoute.ServerList, ChatRoute.Chat(OTHER), SessionsRoute.SessionList(directory = FOLDER)),
+            backStack(),
+        )
     }
 }

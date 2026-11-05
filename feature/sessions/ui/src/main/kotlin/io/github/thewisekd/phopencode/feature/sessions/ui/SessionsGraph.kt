@@ -15,6 +15,7 @@ import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraphBuilder
+import androidx.navigation.compose.ComposeNavigator
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import io.github.thewisekd.phopencode.core.navigation.ChatRoute
@@ -96,17 +97,34 @@ fun NavGraphBuilder.sessionsGraph(navController: NavController) {
  * token use or management screen) up to the top: whatever lies above that entry was opened from
  * the session, its child sessions included, and they are deleted with it. Then goes back to the
  * nearest session list still on the back stack; without one, opens the list of [directory].
+ *
+ * Every screen that can show a session is a composable destination, so the composable navigator's
+ * back stack, bottom first, finds the lowest one; the controller's whole back stack is not public API.
  */
 private fun NavController.leaveDeletedSession(sessionId: String, directory: String?) {
-    val stack = currentBackStack.value
-    val first = stack.indexOfFirst { it.showsSession(sessionId) }
-    if (first >= 0) repeat(stack.size - first) { popBackStack() }
+    val lowest = navigatorProvider.getNavigator(ComposeNavigator::class.java)
+        .backStack.value
+        .firstOrNull { it.showsSession(sessionId) }
+    if (lowest != null) {
+        while (true) {
+            val top = currentBackStackEntry ?: break
+            if (!popBackStack() || top === lowest) break
+        }
+    }
     // popBackStack returns false when the list is already on top, so look for it instead.
-    if (currentBackStack.value.any { it.destination.hasRoute<SessionsRoute.SessionList>() }) {
+    if (hasSessionList()) {
         popBackStack<SessionsRoute.SessionList>(inclusive = false)
     } else {
         navigate(SessionsRoute.SessionList(directory = directory))
     }
+}
+
+/** Whether a session list is on the back stack; the lookup throws when there is none. */
+private fun NavController.hasSessionList(): Boolean = try {
+    getBackStackEntry<SessionsRoute.SessionList>()
+    true
+} catch (_: IllegalArgumentException) {
+    false
 }
 
 private fun NavBackStackEntry.showsSession(sessionId: String): Boolean = when {
