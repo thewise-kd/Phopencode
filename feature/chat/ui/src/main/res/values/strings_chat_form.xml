@@ -1,3 +1,89 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- The heading of a card without a title of its own: a question from the model. -->
+    <string name="chat_form_question_heading">The model asks</string>
+    <!-- The heading of a card without a title of its own: any other form. -->
+    <string name="chat_form_form_heading">Input needed</string>
+    <string name="chat_form_from_subagent">From a subagent</string>
+    <!-- %1$d: the question shown, from 1; %2$d: how many there are. -->
+    <string name="chat_form_step">Question %1$d of %2$d</string>
+    <string name="chat_form_required">Required</string>
+    <!-- The choice that lets the user type an answer instead of picking an option. -->
+    <string name="chat_form_own_answer">Your own answer</string>
+    <string name="chat_form_own_answer_field">Type your answer</string>
+    <string name="chat_form_answer_field">Your answer</string>
+    <string name="chat_form_yes">Yes</string>
+    <string name="chat_form_no">No</string>
+    <!-- %1$d and %2$d: the fewest and the most options to pick. -->
+    <string name="chat_form_choices_range">Pick %1$d to %2$d.</string>
+    <plurals name="chat_form_choices_min">
+        <item quantity="one">Pick at least %1$d.</item>
+        <item quantity="other">Pick at least %1$d.</item>
+    </plurals>
+    <plurals name="chat_form_choices_max">
+        <item quantity="one">Pick up to %1$d.</item>
+        <item quantity="other">Pick up to %1$d.</item>
+    </plurals>
+    <!-- %1$s and %2$s: the smallest and the largest number allowed. -->
+    <string name="chat_form_number_range">Between %1$s and %2$s</string>
+    <string name="chat_form_number_min">%1$s or more</string>
+    <string name="chat_form_number_max">%1$s or less</string>
+    <string name="chat_form_number_whole">Whole number</string>
+    <!-- Joins the hints of a number field: %1$s and %2$s are two of the hints above. -->
+    <string name="chat_form_hint_join">%1$s · %2$s</string>
+    <string name="chat_form_external_open">Open the page</string>
+    <!-- %1$s: the host of the page, such as example.com. -->
+    <string name="chat_form_external_host">Opens %1$s in the browser.</string>
+    <string name="chat_form_external_opened">Opened. Finish the step on the page, then send.</string>
+    <string name="chat_form_external_blocked">This link cannot be opened: only web addresses are allowed.</string>
+    <string name="chat_form_unsupported">This app cannot show this field.</string>
+    <string name="chat_form_problem_required">This field is required.</string>
+    <plurals name="chat_form_problem_too_few">
+        <item quantity="one">Pick at least %1$d option.</item>
+        <item quantity="other">Pick at least %1$d options.</item>
+    </plurals>
+    <plurals name="chat_form_problem_too_many">
+        <item quantity="one">Pick at most %1$d option.</item>
+        <item quantity="other">Pick at most %1$d options.</item>
+    </plurals>
+    <string name="chat_form_problem_choices">Pick a different number of options.</string>
+    <string name="chat_form_problem_not_a_number">Enter a number.</string>
+    <string name="chat_form_problem_not_an_integer">Enter a whole number.</string>
+    <!-- %1$s: the smallest number allowed. -->
+    <string name="chat_form_problem_below_minimum">Enter %1$s or more.</string>
+    <!-- %1$s: the largest number allowed. -->
+    <string name="chat_form_problem_above_maximum">Enter %1$s or less.</string>
+    <string name="chat_form_problem_out_of_range">The number is out of range.</string>
+    <plurals name="chat_form_problem_too_short">
+        <item quantity="one">Enter at least %1$d character.</item>
+        <item quantity="other">Enter at least %1$d characters.</item>
+    </plurals>
+    <plurals name="chat_form_problem_too_long">
+        <item quantity="one">Enter at most %1$d character.</item>
+        <item quantity="other">Enter at most %1$d characters.</item>
+    </plurals>
+    <string name="chat_form_problem_length">The answer is too short or too long.</string>
+    <string name="chat_form_problem_wrong_format">The answer is not in the expected format.</string>
+    <string name="chat_form_problem_not_opened">Open the page first.</string>
+    <string name="chat_form_problem_unsupported">This field cannot be answered here, so the form can only be declined.</string>
+    <string name="chat_form_back">Back</string>
+    <string name="chat_form_next">Next</string>
+    <string name="chat_form_submit">Send</string>
+    <string name="chat_form_decline">Decline</string>
+    <string name="chat_form_sending">Sending the answer…</string>
+    <string name="chat_form_declining">Declining…</string>
+    <string name="chat_form_decline_question_hint">Declining stops the current run.</string>
+    <!-- %1$s: why, one of the chat_form_reason_ strings. -->
+    <string name="chat_form_error_submit">The answer could not be sent. %1$s</string>
+    <string name="chat_form_error_decline">The form could not be declined. %1$s</string>
+    <string name="chat_form_reason_not_connected">There is no connection to the server.</string>
+    <string name="chat_form_reason_unreachable">The server could not be reached. Check the connection and try again.</string>
+    <string name="chat_form_reason_unauthorized">The server refused the credentials.</string>
+    <string name="chat_form_reason_not_found">The form no longer exists.</string>
+    <string name="chat_form_reason_conflict">The form was already answered or closed.</string>
+    <string name="chat_form_reason_rejected">The server refused the answer.</string>
+    <string name="chat_form_reason_server_failed">The server ran into an error.</string>
+    <string name="chat_form_reason_unknown">An unexpected error occurred.</string>
+    <!-- %1$s: why, one of the chat_form_reason_ strings. -->
+    <string name="chat_form_list_error">The subagents\' questions could not be loaded. %1$s</string>
 </resources>

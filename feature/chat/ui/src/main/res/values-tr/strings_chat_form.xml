@@ -1,3 +1,77 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="chat_form_question_heading">Model soruyor</string>
+    <string name="chat_form_form_heading">Yanıt bekleniyor</string>
+    <string name="chat_form_from_subagent">Bir alt ajandan</string>
+    <string name="chat_form_step">Soru %1$d / %2$d</string>
+    <string name="chat_form_required">Zorunlu</string>
+    <string name="chat_form_own_answer">Kendi yanıtınız</string>
+    <string name="chat_form_own_answer_field">Yanıtınızı yazın</string>
+    <string name="chat_form_answer_field">Yanıtınız</string>
+    <string name="chat_form_yes">Evet</string>
+    <string name="chat_form_no">Hayır</string>
+    <string name="chat_form_choices_range">%1$d ile %2$d arasında seçim yapın.</string>
+    <plurals name="chat_form_choices_min">
+        <item quantity="one">En az %1$d seçim yapın.</item>
+        <item quantity="other">En az %1$d seçim yapın.</item>
+    </plurals>
+    <plurals name="chat_form_choices_max">
+        <item quantity="one">En fazla %1$d seçim yapın.</item>
+        <item quantity="other">En fazla %1$d seçim yapın.</item>
+    </plurals>
+    <string name="chat_form_number_range">%1$s ile %2$s arasında</string>
+    <string name="chat_form_number_min">%1$s veya daha fazla</string>
+    <string name="chat_form_number_max">%1$s veya daha az</string>
+    <string name="chat_form_number_whole">Tam sayı</string>
+    <string name="chat_form_hint_join">%1$s · %2$s</string>
+    <string name="chat_form_external_open">Sayfayı aç</string>
+    <string name="chat_form_external_host">%1$s tarayıcıda açılır.</string>
+    <string name="chat_form_external_opened">Açıldı. Adımı sayfada tamamlayın, sonra gönderin.</string>
+    <string name="chat_form_external_blocked">Bu bağlantı açılamaz: yalnızca web adresleri açılabilir.</string>
+    <string name="chat_form_unsupported">Bu uygulama bu alanı gösteremiyor.</string>
+    <string name="chat_form_problem_required">Bu alan zorunlu.</string>
+    <plurals name="chat_form_problem_too_few">
+        <item quantity="one">En az %1$d seçenek seçin.</item>
+        <item quantity="other">En az %1$d seçenek seçin.</item>
+    </plurals>
+    <plurals name="chat_form_problem_too_many">
+        <item quantity="one">En fazla %1$d seçenek seçin.</item>
+        <item quantity="other">En fazla %1$d seçenek seçin.</item>
+    </plurals>
+    <string name="chat_form_problem_choices">Farklı sayıda seçenek seçin.</string>
+    <string name="chat_form_problem_not_a_number">Bir sayı girin.</string>
+    <string name="chat_form_problem_not_an_integer">Tam sayı girin.</string>
+    <string name="chat_form_problem_below_minimum">%1$s veya daha büyük bir sayı girin.</string>
+    <string name="chat_form_problem_above_maximum">%1$s veya daha küçük bir sayı girin.</string>
+    <string name="chat_form_problem_out_of_range">Sayı izin verilen aralığın dışında.</string>
+    <plurals name="chat_form_problem_too_short">
+        <item quantity="one">En az %1$d karakter girin.</item>
+        <item quantity="other">En az %1$d karakter girin.</item>
+    </plurals>
+    <plurals name="chat_form_problem_too_long">
+        <item quantity="one">En fazla %1$d karakter girin.</item>
+        <item quantity="other">En fazla %1$d karakter girin.</item>
+    </plurals>
+    <string name="chat_form_problem_length">Yanıt çok kısa ya da çok uzun.</string>
+    <string name="chat_form_problem_wrong_format">Yanıt beklenen biçimde değil.</string>
+    <string name="chat_form_problem_not_opened">Önce sayfayı açın.</string>
+    <string name="chat_form_problem_unsupported">Bu alan burada yanıtlanamıyor, bu yüzden form yalnızca reddedilebilir.</string>
+    <string name="chat_form_back">Geri</string>
+    <string name="chat_form_next">İleri</string>
+    <string name="chat_form_submit">Gönder</string>
+    <string name="chat_form_decline">Reddet</string>
+    <string name="chat_form_sending">Yanıt gönderiliyor…</string>
+    <string name="chat_form_declining">Reddediliyor…</string>
+    <string name="chat_form_decline_question_hint">Reddetmek mevcut çalışmayı durdurur.</string>
+    <string name="chat_form_error_submit">Yanıt gönderilemedi. %1$s</string>
+    <string name="chat_form_error_decline">Form reddedilemedi. %1$s</string>
+    <string name="chat_form_reason_not_connected">Sunucuyla bağlantı yok.</string>
+    <string name="chat_form_reason_unreachable">Sunucuya ulaşılamadı. Bağlantıyı denetleyip yeniden deneyin.</string>
+    <string name="chat_form_reason_unauthorized">Sunucu kimlik bilgilerini reddetti.</string>
+    <string name="chat_form_reason_not_found">Form artık yok.</string>
+    <string name="chat_form_reason_conflict">Form zaten yanıtlanmış ya da kapatılmış.</string>
+    <string name="chat_form_reason_rejected">Sunucu yanıtı reddetti.</string>
+    <string name="chat_form_reason_server_failed">Sunucuda bir hata oluştu.</string>
+    <string name="chat_form_reason_unknown">Beklenmeyen bir hata oluştu.</string>
+    <string name="chat_form_list_error">Alt ajanların soruları yüklenemedi. %1$s</string>
 </resources>
