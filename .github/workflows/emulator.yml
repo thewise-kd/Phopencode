@@ -26,7 +26,20 @@ jobs:
       matrix:
         # minSdk, and the newest system image the emulator action takes as a plain API level.
         # targetSdk 37 ships only as "37.0", which the action's platform install does not name.
-        api-level: [26, 36]
+        # API 26 keeps the values it boots with: the action's 2 cores and 600 s boot timeout.
+        # API 36 boots far slower on the software GPU: the emulator asks for 4 cores, which the
+        # runner has, and its first boot gets 20 minutes, which still fits the job's 60. Its data
+        # partition gets room for the first boot's package optimisation; the disk step reports
+        # about 30 GB free on / before the emulator.
+        include:
+          - api-level: 26
+            cores: 2
+            disk-size: 4000M
+            boot-timeout: 600
+          - api-level: 36
+            cores: 4
+            disk-size: 6000M
+            boot-timeout: 1200
     env:
       SSH_PORT: "2222"
       ECHO_PORT: "7777"
@@ -211,8 +224,19 @@ jobs:
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$dir/known_hosts" \
             "$(id -un)@127.0.0.1" true
 
-      - name: Disk space before the emulator
-        run: df -h / "$HOME"
+      # The API 36 emulator takes 2.5 GB of guest RAM on top of its software GPU. The idle Gradle
+      # and Kotlin daemons hold up to 6 GB of heap; the test run starts a fresh daemon instead.
+      - name: Stop the build daemons before the API 36 emulator
+        if: ${{ matrix.api-level == 36 }}
+        run: |
+          ./gradlew --stop
+          pkill -f '[K]otlinCompileDaemon' || true
+
+      - name: Disk space, memory and cores before the emulator
+        run: |
+          df -h / "$HOME"
+          free -m
+          nproc
 
       - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
@@ -220,11 +244,21 @@ jobs:
           target: google_apis
           arch: x86_64
           disable-animations: true
+          cores: ${{ matrix.cores }}
           # Written to the AVD's config.ini as disk.dataPartition.size. The default asks for about
           # 7.2 GB; the app and its test APK need a few tens of MB on top of the image's own data.
-          disk-size: 4000M
+          disk-size: ${{ matrix.disk-size }}
+          emulator-boot-timeout: ${{ matrix.boot-timeout }}
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           script: bash $RUNNER_TEMP/test-sshd/connected-tests.sh
+
+      # A run that dies without an error line leaves no reason in the log; the kernel log shows
+      # an out-of-memory kill, and the memory figures show what was left.
+      - name: Memory and kernel kills after a failed emulator run
+        if: ${{ failure() || cancelled() }}
+        run: |
+          free -m
+          sudo dmesg | grep -iE 'out of memory|oom|killed process' || true
 
       # Logs only: the keys in the same folder stay on the runner.
       - if: ${{ !cancelled() }}
