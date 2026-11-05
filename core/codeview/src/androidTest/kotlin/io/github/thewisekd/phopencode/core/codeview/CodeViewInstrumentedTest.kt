@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
@@ -33,6 +34,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 private const val WAIT_MS = 10_000L
+private const val LONG_LINES = 300
+private val LONG_TEXT = (1..LONG_LINES).joinToString("\n") { "line $it" }
 
 /** The wrapper on a real editor surface: drawing, the IME connection and the clipboard. */
 @RunWith(AndroidJUnit4::class)
@@ -121,6 +124,62 @@ class CodeViewInstrumentedTest {
         compose.runOnIdle { assertTrue((editor().colorScheme as TextMateColorScheme).isDark) }
         dark = false
         compose.runOnIdle { assertFalse((editor().colorScheme as TextMateColorScheme).isDark) }
+    }
+
+    /** Waits until the editor has applied a line; the code view reports it on its node. */
+    private fun awaitOpenedLine(line: Int) {
+        compose.waitUntil(WAIT_MS) {
+            compose.onAllNodesWithTag(CODE_VIEW_TAG).fetchSemanticsNodes()
+                .any { it.config.getOrElseNullable(CodeViewOpenedLine) { null } == line }
+        }
+    }
+
+    /** Whether the 0-based [line] lies fully inside the editor's visible height. */
+    private fun lineIsVisible(line: Int): Boolean {
+        val bottom = editor().getCharOffsetY(line, 0)
+        val top = bottom - editor().rowHeight
+        return top >= 0f && bottom <= editor().height.toFloat()
+    }
+
+    @Test
+    fun aLineFarDownScrollsIntoViewWithTheCursorAtItsStart() {
+        show { CodeViewBody(text = LONG_TEXT, language = CodeLanguage.Kotlin, line = 250, onEditor = { editor = it }) }
+        awaitOpenedLine(250)
+        compose.runOnIdle {
+            assertTrue("the editor did not scroll", editor().offsetY > 0)
+            assertTrue("line 250 is not on screen", lineIsVisible(249))
+            assertEquals(249, editor().cursor.leftLine)
+            assertEquals(0, editor().cursor.leftColumn)
+            assertEquals(null, editor().onCreateInputConnection(EditorInfo()))
+        }
+    }
+
+    @Test
+    fun aLinePastTheEndShowsTheLastLineAndAMissingLineTheTop() {
+        var line by mutableStateOf<Int?>(Int.MAX_VALUE)
+        show { CodeViewBody(text = LONG_TEXT, language = CodeLanguage.PlainText, line = line, onEditor = { editor = it }) }
+        awaitOpenedLine(LONG_LINES)
+        compose.runOnIdle { assertTrue("the last line is not on screen", lineIsVisible(LONG_LINES - 1)) }
+        line = null
+        awaitOpenedLine(1)
+        compose.runOnIdle { assertEquals(0, editor().offsetY) }
+    }
+
+    @Test
+    fun theUsersOwnScrollingIsKeptOnRecomposition() {
+        var dark by mutableStateOf(false)
+        show(darkTheme = { dark }) {
+            CodeViewBody(text = LONG_TEXT, language = CodeLanguage.PlainText, line = 250, onEditor = { editor = it })
+        }
+        awaitOpenedLine(250)
+        compose.runOnIdle {
+            val scroller = editor().scroller
+            scroller.forceFinished(true)
+            scroller.startScroll(0, editor().offsetY, 0, -editor().offsetY, 0)
+            scroller.abortAnimation()
+        }
+        dark = true
+        compose.runOnIdle { assertEquals(0, editor().offsetY) }
     }
 
     @Test

@@ -6,7 +6,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.test.core.app.ApplicationProvider
 import io.github.rosemoe.sora.langs.textmate.TextMateColorScheme
@@ -24,6 +27,8 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 private const val WAIT_MS = 5_000L
+private const val LONG_LINES = 300
+private val LONG_TEXT = (1..LONG_LINES).joinToString("") { "line $it\n" }.dropLast(1)
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [26, 36])
@@ -196,6 +201,138 @@ class CodeViewTest {
         }
         dark = false
         compose.runOnIdle { assertFalse((editor().colorScheme as TextMateColorScheme).isDark) }
+    }
+
+    /** The 0-based line and column of the cursor, and whether text is selected. */
+    private fun cursor(): Triple<Int, Int, Boolean> =
+        editor().cursor.let { Triple(it.leftLine, it.leftColumn, it.isSelected) }
+
+    /** Whether the 0-based [line] lies fully inside the editor's visible height. */
+    private fun lineIsVisible(line: Int): Boolean {
+        val bottom = editor().getCharOffsetY(line, 0)
+        val top = bottom - editor().rowHeight
+        return top >= 0f && bottom <= editor().height.toFloat()
+    }
+
+    /** Scrolls to the top as a user would, without moving the cursor. */
+    private fun userScrollsToTop() {
+        val scroller = editor().scroller
+        scroller.forceFinished(true)
+        scroller.startScroll(0, editor().offsetY, 0, -editor().offsetY, 0)
+        scroller.abortAnimation()
+    }
+
+    private fun assertOpenedLine(line: Int) {
+        compose.waitUntil(WAIT_MS) {
+            compose.onAllNodesWithTag(CODE_VIEW_TAG).fetchSemanticsNodes()
+                .any { it.config.getOrElseNullable(CodeViewOpenedLine) { null } == line }
+        }
+        compose.onNodeWithTag(CODE_VIEW_TAG).assert(SemanticsMatcher.expectValue(CodeViewOpenedLine, line))
+    }
+
+    @Test
+    fun `a line opens with the cursor at its start and the keyboard closed`() {
+        compose.setCodeViewContent {
+            CodeViewBody(text = LONG_TEXT, language = CodeLanguage.Kotlin, line = 120, onEditor = { editor = it })
+        }
+        assertOpenedLine(120)
+        compose.runOnIdle {
+            assertEquals(Triple(119, 0, false), cursor())
+            assertFalse(editor().isEditable)
+            assertTrue(editor().offsetY > 0, "the editor did not scroll")
+            assertTrue(lineIsVisible(119), "line 120 is not on screen")
+        }
+    }
+
+    @Test
+    fun `a line past the end opens at the last line`() {
+        compose.setCodeViewContent {
+            CodeViewBody(text = LONG_TEXT, language = CodeLanguage.PlainText, line = Int.MAX_VALUE, onEditor = { editor = it })
+        }
+        assertOpenedLine(LONG_LINES)
+        compose.runOnIdle {
+            assertEquals(Triple(LONG_LINES - 1, 0, false), cursor())
+            assertTrue(lineIsVisible(LONG_LINES - 1), "the last line is not on screen")
+        }
+    }
+
+    @Test
+    fun `a missing, zero or negative line opens at the top`() {
+        var line by mutableStateOf<Int?>(null)
+        compose.setCodeViewContent {
+            CodeViewBody(text = LONG_TEXT, language = CodeLanguage.PlainText, line = line, onEditor = { editor = it })
+        }
+        assertOpenedLine(1)
+        compose.runOnIdle { assertEquals(Triple(0, 0, false), cursor()) }
+        for (bad in listOf(80, 0, 80, Int.MIN_VALUE, 80, -1)) {
+            line = bad
+            assertOpenedLine(if (bad > 0) bad else 1)
+            compose.runOnIdle {
+                assertEquals(if (bad > 0) bad - 1 else 0, cursor().first)
+                if (bad <= 0) assertEquals(0, editor().offsetY)
+            }
+        }
+    }
+
+    @Test
+    fun `an empty text with a line opens at the top`() {
+        compose.setCodeViewContent {
+            CodeViewBody(text = "", language = CodeLanguage.PlainText, line = 9, onEditor = { editor = it })
+        }
+        assertOpenedLine(1)
+        compose.runOnIdle { assertEquals(Triple(0, 0, false), cursor()) }
+    }
+
+    @Test
+    fun `recomposition does not pull the user back to the line`() {
+        var dark by mutableStateOf(false)
+        var line by mutableStateOf<Int?>(120)
+        var text by mutableStateOf(LONG_TEXT)
+        compose.setCodeViewContent(darkTheme = { dark }) {
+            CodeViewBody(text = text, language = CodeLanguage.PlainText, line = line, onEditor = { editor = it })
+        }
+        assertOpenedLine(120)
+        compose.runOnIdle {
+            editor().setSelection(3, 2)
+            userScrollsToTop()
+        }
+        dark = true
+        compose.runOnIdle {
+            assertEquals(Triple(3, 2, false), cursor(), "the same line was applied again")
+            assertEquals(0, editor().offsetY, "the same line scrolled the view again")
+        }
+
+        line = 50
+        assertOpenedLine(50)
+        compose.runOnIdle { assertEquals(49, cursor().first) }
+
+        compose.runOnIdle { editor().setSelection(7, 0) }
+        text = LONG_TEXT + "tail\n"
+        compose.runOnIdle { assertEquals(Triple(49, 0, false), cursor(), "new text did not reopen at the line") }
+    }
+
+    @Test
+    fun `typing in edit mode does not jump back to the line`() {
+        compose.setCodeViewContent {
+            var text by androidx.compose.runtime.remember { mutableStateOf(LONG_TEXT) }
+            CodeViewBody(
+                text = text,
+                language = CodeLanguage.PlainText,
+                readOnly = false,
+                line = 100,
+                onTextChange = { text = it },
+                onEditor = { editor = it },
+            )
+        }
+        assertOpenedLine(100)
+        compose.runOnIdle {
+            editor().setSelection(2, 0)
+            editor().commitText("X")
+        }
+        compose.runOnIdle {
+            assertTrue(editor().text.toString().contains("X"))
+            assertEquals(2, cursor().first, "the edit was followed by a jump to the line")
+        }
     }
 
     @Test

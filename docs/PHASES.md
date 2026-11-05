@@ -504,6 +504,12 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | P8.8 | Editor logic | P8.1, P8.2 | `feature/files/logic/…/editor/` | Dirty state; `mtime` conflict warning; atomic save; line endings are preserved | `PI` |
 | P8.9 | Editor screen | P8.2, P8.3 | `feature/files/ui/…/editor/`, `strings_files_editor.xml` | Save; confirmation when leaving without saving | `CI` |
 
+**G2b**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P8.17 | Code view go-to-line | P8.3, P8.7 | `core/codeview/`, `feature/files/ui/…/viewer/` | The viewer opens a file at the requested line; a line past the end opens at the last line; a missing, zero or negative line opens at the top; nothing crashes | `CI` |
+
 **G3 (parallel)**
 
 | Task | Goal | Depends on | Owned paths | Acceptance tests | Test |

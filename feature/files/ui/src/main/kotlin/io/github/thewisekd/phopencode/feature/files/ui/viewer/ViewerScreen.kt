@@ -70,9 +70,11 @@ internal object ViewerTags {
  *
  * Nothing animates without end: there is no spinner, and the code view's cursor does not blink.
  *
- * Known limit: the screen always opens at the top of the file and ignores [ViewerState.line] (and the
- * route's line), because core/codeview's `CodeView` has no scroll-to-line yet. Once it has one, the
- * code view should open at that line.
+ * Line: highlighted text and raw Markdown open at [ViewerState.line] (the route's line), with the
+ * cursor at its start and the line scrolled into view; a missing, zero or negative line opens at the
+ * top, and a line past the end at the last line. The line is applied when the text arrives and when
+ * it changes, never again on a plain recomposition. Rendered Markdown has no lines to go to, so it
+ * opens at the top.
  *
  * The root keeps the `placeholder:<route>` tag the app's navigation test looks for.
  */
@@ -153,6 +155,7 @@ private fun ColumnScope.Content(state: ViewerState, content: ViewerContent, onIn
                     text = content.text,
                     language = CodeLanguage.fromFileName(state.path),
                     modifier = fill.testTag(ViewerTags.CODE),
+                    line = state.line,
                 )
             }
         }
