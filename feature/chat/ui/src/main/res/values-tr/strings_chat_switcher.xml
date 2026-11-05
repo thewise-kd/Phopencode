@@ -1,3 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- What a screen reader says for the current agent. %1$s: the agent's name, or chat_switcher_agent_default. -->
+    <string name="chat_switcher_agent_label">Ajan: %1$s</string>
+    <!-- What a screen reader says for the current model. %1$s: the model's name, or chat_switcher_model_default. -->
+    <string name="chat_switcher_model_label">Model: %1$s</string>
+    <!-- What a screen reader says for the current model variant. %1$s: the variant as the server names it, for example "high". -->
+    <string name="chat_switcher_variant_label">Varyant: %1$s</string>
+    <!-- Shown when the session names no agent, so the server's default leads it. -->
+    <string name="chat_switcher_agent_default">Varsayılan ajan</string>
+    <!-- Shown when the session names no model, so the server's default answers. -->
+    <string name="chat_switcher_model_default">Varsayılan model</string>
+    <!-- What tapping the compact control does, read by a screen reader. -->
+    <string name="chat_switcher_change">Ajanı ve modeli değiştir</string>
+    <string name="chat_switcher_title">Ajan ve model seçin</string>
+    <string name="chat_switcher_close">Kapat</string>
+    <!-- Above the list of agents. -->
+    <string name="chat_switcher_agents">Ajan</string>
+    <!-- Above the list of models. -->
+    <string name="chat_switcher_models">Model</string>
+    <!-- The choice of a model's default variant, next to the variants the server names. -->
+    <string name="chat_switcher_variant_default">Varsayılan</string>
+    <string name="chat_switcher_loading">Ajanlar ve modeller yükleniyor…</string>
+    <string name="chat_switcher_switching">Değiştiriliyor…</string>
+    <string name="chat_switcher_no_agents">Sunucu seçilebilecek bir ajan listelemedi.</string>
+    <string name="chat_switcher_no_models">Sunucu seçilebilecek bir model listelemedi.</string>
+    <!-- %1$s: why it failed, one of the chat_switcher_reason_* texts. -->
+    <string name="chat_switcher_error_load">Ajanlar ve modeller yüklenemedi. %1$s</string>
+    <!-- %1$s: why it failed, one of the chat_switcher_reason_* texts. -->
+    <string name="chat_switcher_error_agent">Ajan değiştirilemedi. %1$s</string>
+    <!-- %1$s: why it failed, one of the chat_switcher_reason_* texts. -->
+    <string name="chat_switcher_error_model">Model değiştirilemedi. %1$s</string>
+    <string name="chat_switcher_reason_not_connected">Sunucuyla bağlantı yok.</string>
+    <string name="chat_switcher_reason_unreachable">Sunucuya ulaşılamadı. Yeniden deneyin.</string>
+    <string name="chat_switcher_reason_unauthorized">Sunucu kimlik bilgilerini reddetti.</string>
+    <string name="chat_switcher_reason_not_found">Oturum, ajan ya da model bulunamadı.</string>
+    <string name="chat_switcher_reason_conflict">Oturum meşgul ya da bu arada değişti.</string>
+    <string name="chat_switcher_reason_rejected">Sunucu isteği kabul etmedi.</string>
+    <string name="chat_switcher_reason_server_failed">Sunucuda bir hata oluştu.</string>
+    <string name="chat_switcher_reason_unknown">Beklenmeyen bir hata oluştu.</string>
 </resources>

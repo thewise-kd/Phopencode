@@ -1,3 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- What a screen reader says for the current agent. %1$s: the agent's name, or chat_switcher_agent_default. -->
+    <string name="chat_switcher_agent_label">Agent: %1$s</string>
+    <!-- What a screen reader says for the current model. %1$s: the model's name, or chat_switcher_model_default. -->
+    <string name="chat_switcher_model_label">Model: %1$s</string>
+    <!-- What a screen reader says for the current model variant. %1$s: the variant as the server names it, for example "high". -->
+    <string name="chat_switcher_variant_label">Variant: %1$s</string>
+    <!-- Shown when the session names no agent, so the server's default leads it. -->
+    <string name="chat_switcher_agent_default">Default agent</string>
+    <!-- Shown when the session names no model, so the server's default answers. -->
+    <string name="chat_switcher_model_default">Default model</string>
+    <!-- What tapping the compact control does, read by a screen reader. -->
+    <string name="chat_switcher_change">Change agent and model</string>
+    <string name="chat_switcher_title">Choose agent and model</string>
+    <string name="chat_switcher_close">Close</string>
+    <!-- Above the list of agents. -->
+    <string name="chat_switcher_agents">Agent</string>
+    <!-- Above the list of models. -->
+    <string name="chat_switcher_models">Model</string>
+    <!-- The choice of a model's default variant, next to the variants the server names. -->
+    <string name="chat_switcher_variant_default">Default</string>
+    <string name="chat_switcher_loading">Loading agents and models…</string>
+    <string name="chat_switcher_switching">Switching…</string>
+    <string name="chat_switcher_no_agents">The server lists no agents to pick.</string>
+    <string name="chat_switcher_no_models">The server lists no models to pick.</string>
+    <!-- %1$s: why it failed, one of the chat_switcher_reason_* texts. -->
+    <string name="chat_switcher_error_load">Could not load the agents and models. %1$s</string>
+    <!-- %1$s: why it failed, one of the chat_switcher_reason_* texts. -->
+    <string name="chat_switcher_error_agent">Could not switch the agent. %1$s</string>
+    <!-- %1$s: why it failed, one of the chat_switcher_reason_* texts. -->
+    <string name="chat_switcher_error_model">Could not switch the model. %1$s</string>
+    <string name="chat_switcher_reason_not_connected">There is no connection to the server.</string>
+    <string name="chat_switcher_reason_unreachable">The server could not be reached. Try again.</string>
+    <string name="chat_switcher_reason_unauthorized">The server refused the credentials.</string>
+    <string name="chat_switcher_reason_not_found">The session, agent or model was not found.</string>
+    <string name="chat_switcher_reason_conflict">The session is busy or changed meanwhile.</string>
+    <string name="chat_switcher_reason_rejected">The server refused the request.</string>
+    <string name="chat_switcher_reason_server_failed">The server failed.</string>
+    <string name="chat_switcher_reason_unknown">Something unexpected went wrong.</string>
 </resources>
