@@ -1,3 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Title of the list that opens while a word starting with "/" is typed. -->
+    <string name="chat_palette_title_slash">Komutlar ve beceriler</string>
+    <!-- Title of the list that opens while a word starting with "@" is typed. -->
+    <string name="chat_palette_title_at">Ajanlar ve dosyalar</string>
+    <!-- Read for the button that closes the list. -->
+    <string name="chat_palette_close">Kapat</string>
+    <!-- The kind of a row or a chip. -->
+    <string name="chat_palette_kind_command">Komut</string>
+    <string name="chat_palette_kind_skill">Beceri</string>
+    <string name="chat_palette_kind_agent">Ajan</string>
+    <string name="chat_palette_kind_file">Dosya</string>
+    <string name="chat_palette_kind_folder">Klasör</string>
+    <!-- Click label read for a command's row: what a tap does. -->
+    <string name="chat_palette_run">Çalıştır</string>
+    <!-- Click label read for a skill's, agent's or file's row: what a tap does. -->
+    <string name="chat_palette_attach">Ekle</string>
+    <string name="chat_palette_loading">Yükleniyor…</string>
+    <string name="chat_palette_empty">Eşleşen sonuç yok</string>
+    <string name="chat_palette_running">Komut çalıştırılıyor…</string>
+    <!-- %1$s: why, one of the chat_palette_reason_ strings. -->
+    <string name="chat_palette_error_load">Liste yüklenemedi. %1$s</string>
+    <!-- %1$s: why, one of the chat_palette_reason_ strings. -->
+    <string name="chat_palette_error_command">Komut çalıştırılamadı. %1$s</string>
+    <string name="chat_palette_reason_not_connected">Sunucuyla bağlantı yok.</string>
+    <string name="chat_palette_reason_unreachable">Sunucuya ulaşılamadı.</string>
+    <string name="chat_palette_reason_unauthorized">Sunucu kimlik bilgilerini reddetti.</string>
+    <string name="chat_palette_reason_not_found">Oturum bulunamadı.</string>
+    <string name="chat_palette_reason_conflict">Sunucu meşguldü.</string>
+    <string name="chat_palette_reason_rejected">Sunucu isteği reddetti.</string>
+    <string name="chat_palette_reason_server">Sunucu bir hatayla karşılaştı.</string>
+    <string name="chat_palette_reason_unknown">Beklenmeyen bir hata oluştu.</string>
+    <!-- Read for a chip's remove button. %1$s: the file's path. -->
+    <string name="chat_palette_remove_file">Dosyayı kaldır: %1$s</string>
+    <!-- Read for a chip's remove button. %1$s: the agent's name. -->
+    <string name="chat_palette_remove_agent">Ajanı kaldır: %1$s</string>
+    <!-- Read for a chip's remove button. %1$s: the skill's name. -->
+    <string name="chat_palette_remove_skill">Beceriyi kaldır: %1$s</string>
 </resources>

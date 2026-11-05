@@ -1,3 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Title of the list that opens while a word starting with "/" is typed. -->
+    <string name="chat_palette_title_slash">Commands and skills</string>
+    <!-- Title of the list that opens while a word starting with "@" is typed. -->
+    <string name="chat_palette_title_at">Agents and files</string>
+    <!-- Read for the button that closes the list. -->
+    <string name="chat_palette_close">Close</string>
+    <!-- The kind of a row or a chip. -->
+    <string name="chat_palette_kind_command">Command</string>
+    <string name="chat_palette_kind_skill">Skill</string>
+    <string name="chat_palette_kind_agent">Agent</string>
+    <string name="chat_palette_kind_file">File</string>
+    <string name="chat_palette_kind_folder">Folder</string>
+    <!-- Click label read for a command's row: what a tap does. -->
+    <string name="chat_palette_run">Run</string>
+    <!-- Click label read for a skill's, agent's or file's row: what a tap does. -->
+    <string name="chat_palette_attach">Attach</string>
+    <string name="chat_palette_loading">Loading…</string>
+    <string name="chat_palette_empty">Nothing matches</string>
+    <string name="chat_palette_running">Running the command…</string>
+    <!-- %1$s: why, one of the chat_palette_reason_ strings. -->
+    <string name="chat_palette_error_load">The list could not be loaded. %1$s</string>
+    <!-- %1$s: why, one of the chat_palette_reason_ strings. -->
+    <string name="chat_palette_error_command">The command could not be run. %1$s</string>
+    <string name="chat_palette_reason_not_connected">There is no connection to the server.</string>
+    <string name="chat_palette_reason_unreachable">The server could not be reached.</string>
+    <string name="chat_palette_reason_unauthorized">The server refused the credentials.</string>
+    <string name="chat_palette_reason_not_found">The session was not found.</string>
+    <string name="chat_palette_reason_conflict">The server was busy.</string>
+    <string name="chat_palette_reason_rejected">The server refused the request.</string>
+    <string name="chat_palette_reason_server">The server ran into an error.</string>
+    <string name="chat_palette_reason_unknown">An unexpected error occurred.</string>
+    <!-- Read for a chip's remove button. %1$s: the file's path. -->
+    <string name="chat_palette_remove_file">Remove the file %1$s</string>
+    <!-- Read for a chip's remove button. %1$s: the agent's name. -->
+    <string name="chat_palette_remove_agent">Remove the agent %1$s</string>
+    <!-- Read for a chip's remove button. %1$s: the skill's name. -->
+    <string name="chat_palette_remove_skill">Remove the skill %1$s</string>
 </resources>
