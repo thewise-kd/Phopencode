@@ -1,3 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="files_viewer_loading">Dosya açılıyor…</string>
+    <string name="files_viewer_edit">Düzenle</string>
+    <string name="files_viewer_mode_rendered">Biçimli</string>
+    <string name="files_viewer_mode_raw">Ham</string>
+    <string name="files_viewer_malformed">Bazı baytlar geçerli UTF-8 değil ve � olarak görünüyor. Bu dosya düzenlenemez.</string>
+    <string name="files_viewer_binary_title">Metin dosyası değil</string>
+    <string name="files_viewer_binary_message">Bu dosya (%1$s) ne metin ne de uygulamanın gösterebileceği bir görsel.</string>
+    <string name="files_viewer_too_large_title">Dosya çok büyük</string>
+    <string name="files_viewer_too_large_warning">Bu dosya %1$s; %2$s görüntüleme sınırını aşıyor. Açılması yavaş olabilir.</string>
+    <string name="files_viewer_too_large_blocked">Bu dosya %1$s; %2$s sınırını aşıyor. Telefonda açılamaz.</string>
+    <string name="files_viewer_open_anyway">Yine de aç</string>
+    <string name="files_viewer_image_description">%1$s önizlemesi</string>
+    <string name="files_viewer_image_failed">Görsel gösterilemedi.</string>
+    <string name="files_viewer_error">Dosya açılamadı. %1$s</string>
+    <string name="files_viewer_reason_not_connected">Sunucuyla bağlantı yok.</string>
+    <string name="files_viewer_reason_unreachable">Sunucuya ulaşılamadı.</string>
+    <string name="files_viewer_reason_unauthorized">Sunucu girişi reddetti.</string>
+    <string name="files_viewer_reason_not_found">Dosya bulunamadı.</string>
+    <string name="files_viewer_reason_permission_denied">Sunucudaki kullanıcının bu dosyayı okuma izni yok.</string>
+    <string name="files_viewer_reason_already_exists">Bu adı taşıyan bir öğe zaten var.</string>
+    <string name="files_viewer_reason_not_empty">Klasör boş değil.</string>
+    <string name="files_viewer_reason_path_rejected">Yol projenin dışında ya da geçersiz.</string>
+    <string name="files_viewer_reason_too_large">Dosya çok büyük.</string>
+    <string name="files_viewer_reason_tool_missing">Gereken bir araç sunucuda kurulu değil.</string>
+    <string name="files_viewer_reason_rejected">Sunucu isteği reddetti.</string>
+    <string name="files_viewer_reason_server_failed">Sunucu bir hatayla karşılaştı.</string>
+    <string name="files_viewer_reason_unsupported">Bu henüz desteklenmiyor.</string>
+    <string name="files_viewer_reason_unknown">Beklenmeyen bir hata oluştu.</string>
+    <string name="files_viewer_size_bytes">%1$s B</string>
+    <string name="files_viewer_size_kb">%1$s KB</string>
+    <string name="files_viewer_size_mb">%1$s MB</string>
+    <string name="files_viewer_size_gb">%1$s GB</string>
 </resources>

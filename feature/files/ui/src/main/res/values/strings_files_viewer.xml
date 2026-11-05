@@ -1,3 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="files_viewer_loading">Opening the file…</string>
+    <string name="files_viewer_edit">Edit</string>
+    <string name="files_viewer_mode_rendered">Rendered</string>
+    <string name="files_viewer_mode_raw">Raw</string>
+    <string name="files_viewer_malformed">Some bytes are not valid UTF-8 and show as �. This file cannot be edited.</string>
+    <string name="files_viewer_binary_title">Not a text file</string>
+    <string name="files_viewer_binary_message">This file (%1$s) is neither text nor an image the app can show.</string>
+    <string name="files_viewer_too_large_title">File too large</string>
+    <string name="files_viewer_too_large_warning">This file is %1$s, above the %2$s viewing limit. Opening it may be slow.</string>
+    <string name="files_viewer_too_large_blocked">This file is %1$s, above the %2$s limit. It cannot be opened on the phone.</string>
+    <string name="files_viewer_open_anyway">Open anyway</string>
+    <string name="files_viewer_image_description">Preview of %1$s</string>
+    <string name="files_viewer_image_failed">The image could not be shown.</string>
+    <string name="files_viewer_error">The file could not be opened. %1$s</string>
+    <string name="files_viewer_reason_not_connected">There is no connection to the server.</string>
+    <string name="files_viewer_reason_unreachable">The server could not be reached.</string>
+    <string name="files_viewer_reason_unauthorized">The server refused the login.</string>
+    <string name="files_viewer_reason_not_found">The file was not found.</string>
+    <string name="files_viewer_reason_permission_denied">The server\'s user may not read it.</string>
+    <string name="files_viewer_reason_already_exists">Something already has that name.</string>
+    <string name="files_viewer_reason_not_empty">The folder is not empty.</string>
+    <string name="files_viewer_reason_path_rejected">The path is outside the project or not valid.</string>
+    <string name="files_viewer_reason_too_large">The file is too large.</string>
+    <string name="files_viewer_reason_tool_missing">A tool it needs is not installed on the server.</string>
+    <string name="files_viewer_reason_rejected">The server refused the request.</string>
+    <string name="files_viewer_reason_server_failed">The server ran into an error.</string>
+    <string name="files_viewer_reason_unsupported">This is not supported yet.</string>
+    <string name="files_viewer_reason_unknown">An unexpected error occurred.</string>
+    <string name="files_viewer_size_bytes">%1$s B</string>
+    <string name="files_viewer_size_kb">%1$s KB</string>
+    <string name="files_viewer_size_mb">%1$s MB</string>
+    <string name="files_viewer_size_gb">%1$s GB</string>
 </resources>
