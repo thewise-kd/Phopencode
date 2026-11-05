@@ -1,3 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="chat_reasoning_thinking">Düşünüyor</string>
+    <string name="chat_reasoning_thought">Düşündü</string>
+    <string name="chat_reasoning_thought_for">%1$s düşündü</string>
+    <string name="chat_reasoning_live">Canlı</string>
+    <string name="chat_reasoning_seconds">%1$d sn</string>
+    <string name="chat_reasoning_minutes">%1$d dk</string>
+    <string name="chat_reasoning_minutes_seconds">%1$d dk %2$d sn</string>
+    <string name="chat_reasoning_expanded">Açık</string>
+    <string name="chat_reasoning_collapsed">Kapalı</string>
+    <string name="chat_reasoning_show">Düşünceyi göster</string>
+    <string name="chat_reasoning_hide">Düşünceyi gizle</string>
 </resources>
