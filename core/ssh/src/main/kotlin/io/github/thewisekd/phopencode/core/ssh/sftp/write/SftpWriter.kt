@@ -13,7 +13,6 @@ import io.github.thewisekd.phopencode.core.ssh.sftp.SftpRoot.Companion.rejected
 import java.io.InputStream
 import java.security.SecureRandom
 import java.util.EnumSet
-import java.util.HexFormat
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
@@ -422,10 +421,23 @@ internal class SftpWriter private constructor(
         private val random = SecureRandom()
 
         /** Unguessable, so that no one can prepare the name; short, so that no name gets too long. */
-        private fun randomName(suffix: String): String {
+        internal fun randomName(suffix: String): String {
             val bytes = ByteArray(16).also(random::nextBytes)
-            return ".phopencode-${HexFormat.of().formatHex(bytes)}$suffix"
+            return ".phopencode-${hexOf(bytes)}$suffix"
         }
+
+        /** Lowercase hex, two digits per byte; written by hand because Android has no hex API before API 34. */
+        internal fun hexOf(bytes: ByteArray): String {
+            val out = CharArray(bytes.size * 2)
+            bytes.forEachIndexed { i, byte ->
+                val value = byte.toInt() and 0xff
+                out[2 * i] = HEX_DIGITS[value ushr 4]
+                out[2 * i + 1] = HEX_DIGITS[value and 0x0f]
+            }
+            return String(out)
+        }
+
+        private const val HEX_DIGITS = "0123456789abcdef"
 
         private fun FileAttributes.permissions(): Int? =
             if (has(FileAttributes.Flag.MODE)) mode.permissionsMask else null

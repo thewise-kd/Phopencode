@@ -2,6 +2,7 @@ package io.github.thewisekd.phopencode.feature.files.logic.viewer
 
 import io.github.thewisekd.phopencode.feature.files.logic.contract.ImageFormat
 import io.github.thewisekd.phopencode.feature.files.logic.contract.ViewerContent
+import java.nio.Buffer
 import java.nio.ByteBuffer
 import java.nio.CharBuffer
 import java.nio.charset.CodingErrorAction
@@ -122,20 +123,23 @@ internal object ViewerDetection {
                     if (!output.hasRemaining()) output = grow(output)
                     output.put(REPLACEMENT)
                     malformed += result.length()
-                    input.position(input.position() + result.length())
+                    input.base().position(input.position() + result.length())
                 }
                 result.isOverflow -> output = grow(output)
                 else -> break
             }
         }
         while (decoder.flush(output).isOverflow) output = grow(output)
-        output.flip()
+        output.base().flip()
         return Decoded(output.toString(), malformed)
     }
 
+    // Old Android lacks Java 9's covariant overrides (CharBuffer.flip(): CharBuffer and so on): call Buffer's own.
+    private fun Buffer.base(): Buffer = this
+
     private fun grow(buffer: CharBuffer): CharBuffer {
         val bigger = CharBuffer.allocate(buffer.capacity() * 2 + 16)
-        buffer.flip()
+        buffer.base().flip()
         bigger.put(buffer)
         return bigger
     }

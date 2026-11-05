@@ -521,6 +521,15 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | P8.14 | Search logic | P8.1, P8.2 | `feature/files/logic/…/search/` | Name and content; result limit; `grep` if `rg` is missing | `PI` |
 | P8.15 | Search screen | P8.2 | `feature/files/ui/…/search/`, `strings_files_search.xml` | Goes from a result to the file and line | `CI` |
 
+**G4 (CP8 fixes, parallel)**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P8.18 | Old-Android crash in atomic writes | P8.1 | `core/ssh/…/sftp/write/SftpWriter.kt`, `core/ssh/src/test/…`, `feature/files/logic/…/viewer/ViewerDetection.kt` and its tests, `docs/PHASES.md` (G4 rows) | No Java API missing below Android 14 is used; no covariant Buffer method is called; an atomic write, an upload and the viewer's text decode work on API 26; the temporary name keeps its form | `EMU` |
+| P8.19 | Lint errors | P5.1, P5.3, P6.12, P7.7, P7.13, P8.7 | `feature/sessions/ui/…/SessionsGraph.kt`, `…/list/SessionUsageText.kt`, `feature/chat/ui/…/revert/RevertText.kt`, `…/subagent/SubagentText.kt`, `…/usage/UsageText.kt`, `feature/files/ui/…/viewer/ViewerText.kt`, their tests | `lint` passes in the sessions, chat and files UI modules; numbers and dates follow the app's language when it changes | `CI` |
+| P8.20 | List tests on a small screen | P5.3, P7.7, P8.5, P8.15 | the list tests of `feature/sessions/ui`, `feature/chat/ui` and `feature/files/ui` | The list tests pass at API 36 in CI and on a small screen at API 26; rows below the visible part are reached by scrolling the list | `CI` |
+| P8.21 | API 36 emulator boot | — | `.github/workflows/emulator.yml` | The API 36 emulator boots in CI and runs the connected tests; the API 26 job is unchanged | `CI` |
+
 `CP8`: push, CI and emulator green, `PHONE`: upload and download a file.
 
 ### P9: Git
