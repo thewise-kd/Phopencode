@@ -1,3 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="chat_timeline_loading">Loading messages…</string>
+    <string name="chat_timeline_empty_title">No messages yet</string>
+    <string name="chat_timeline_empty_message">Write a message below to start.</string>
+    <string name="chat_timeline_loading_older">Loading older messages…</string>
+    <string name="chat_timeline_older_failed">Older messages could not be loaded.</string>
+    <string name="chat_timeline_retry">Try again</string>
+    <string name="chat_timeline_jump_latest">Jump to the latest message</string>
+    <!-- The jump button while new items arrived out of view. %1$d: how many. -->
+    <plurals name="chat_timeline_unseen">
+        <item quantity="one">%1$d new message</item>
+        <item quantity="other">%1$d new messages</item>
+    </plurals>
+    <!-- Who wrote a prompt: the user. -->
+    <string name="chat_timeline_you">You</string>
+    <!-- Who wrote a reply: the model. -->
+    <string name="chat_timeline_assistant">Assistant</string>
+    <string name="chat_timeline_writing">Writing…</string>
+    <string name="chat_timeline_pending_steer">Waiting to steer the running work</string>
+    <string name="chat_timeline_pending_queue">Queued until the work ends</string>
+    <!-- %1$s: file names, separated by commas. -->
+    <string name="chat_timeline_files">Files: %1$s</string>
+    <!-- %1$s: agent names, separated by commas. -->
+    <string name="chat_timeline_agents">Agents: %1$s</string>
+    <!-- %1$s: skill names, separated by commas. -->
+    <string name="chat_timeline_skills">Skills: %1$s</string>
+    <!-- %1$s: the server's description of the error. -->
+    <string name="chat_timeline_answer_failed">The answer failed: %1$s</string>
+    <string name="chat_timeline_shell_label">Shell command</string>
+    <string name="chat_timeline_shell_running">Running…</string>
+    <string name="chat_timeline_compaction_running">Compacting the conversation…</string>
+    <string name="chat_timeline_compaction_done">The conversation was compacted.</string>
+    <string name="chat_timeline_compaction_failed">Compacting the conversation failed.</string>
+    <!-- %1$s: the agent's name. -->
+    <string name="chat_timeline_agent_switched">Agent: %1$s</string>
+    <!-- %1$s: the previous agent, %2$s: the new one. -->
+    <string name="chat_timeline_agent_switched_from">Agent changed: %1$s → %2$s</string>
+    <!-- %1$s: the model, as provider/model. -->
+    <string name="chat_timeline_model_switched">Model: %1$s</string>
+    <!-- %1$s: the previous model, %2$s: the new one, each as provider/model. -->
+    <string name="chat_timeline_model_switched_from">Model changed: %1$s → %2$s</string>
+    <!-- %1$s: a folder path on the server. -->
+    <string name="chat_timeline_location_switched">Folder: %1$s</string>
+    <!-- %1$s: the skill's name. -->
+    <string name="chat_timeline_skill_invoked">Skill used: %1$s</string>
+    <string name="chat_timeline_turn_succeeded">The work is done.</string>
+    <string name="chat_timeline_turn_failed">The work failed.</string>
+    <!-- %1$s: the server's description of the error. -->
+    <string name="chat_timeline_turn_failed_detail">The work failed: %1$s</string>
+    <string name="chat_timeline_turn_interrupted">The work was stopped.</string>
+    <string name="chat_timeline_turn_unknown">The work ended.</string>
+    <!-- %1$s: the server's name for the message type. -->
+    <string name="chat_timeline_unknown">This message type is not supported yet (%1$s).</string>
 </resources>

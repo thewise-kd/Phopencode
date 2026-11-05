@@ -1,3 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="chat_timeline_loading">Mesajlar yükleniyor…</string>
+    <string name="chat_timeline_empty_title">Henüz mesaj yok</string>
+    <string name="chat_timeline_empty_message">Başlamak için aşağıya bir mesaj yazın.</string>
+    <string name="chat_timeline_loading_older">Eski mesajlar yükleniyor…</string>
+    <string name="chat_timeline_older_failed">Eski mesajlar yüklenemedi.</string>
+    <string name="chat_timeline_retry">Yeniden dene</string>
+    <string name="chat_timeline_jump_latest">En son mesaja git</string>
+    <!-- The jump button while new items arrived out of view. %1$d: how many. -->
+    <plurals name="chat_timeline_unseen">
+        <item quantity="one">%1$d yeni mesaj</item>
+        <item quantity="other">%1$d yeni mesaj</item>
+    </plurals>
+    <!-- Who wrote a prompt: the user. -->
+    <string name="chat_timeline_you">Siz</string>
+    <!-- Who wrote a reply: the model. -->
+    <string name="chat_timeline_assistant">Asistan</string>
+    <string name="chat_timeline_writing">Yazıyor…</string>
+    <string name="chat_timeline_pending_steer">Çalışan işi yönlendirmeyi bekliyor</string>
+    <string name="chat_timeline_pending_queue">Çalışma bitene kadar sırada</string>
+    <!-- %1$s: file names, separated by commas. -->
+    <string name="chat_timeline_files">Dosyalar: %1$s</string>
+    <!-- %1$s: agent names, separated by commas. -->
+    <string name="chat_timeline_agents">Ajanlar: %1$s</string>
+    <!-- %1$s: skill names, separated by commas. -->
+    <string name="chat_timeline_skills">Beceriler: %1$s</string>
+    <!-- %1$s: the server's description of the error. -->
+    <string name="chat_timeline_answer_failed">Yanıt başarısız oldu: %1$s</string>
+    <string name="chat_timeline_shell_label">Kabuk komutu</string>
+    <string name="chat_timeline_shell_running">Çalışıyor…</string>
+    <string name="chat_timeline_compaction_running">Konuşma sıkıştırılıyor…</string>
+    <string name="chat_timeline_compaction_done">Konuşma sıkıştırıldı.</string>
+    <string name="chat_timeline_compaction_failed">Konuşma sıkıştırılamadı.</string>
+    <!-- %1$s: the agent's name. -->
+    <string name="chat_timeline_agent_switched">Ajan: %1$s</string>
+    <!-- %1$s: the previous agent, %2$s: the new one. -->
+    <string name="chat_timeline_agent_switched_from">Ajan değişti: %1$s → %2$s</string>
+    <!-- %1$s: the model, as provider/model. -->
+    <string name="chat_timeline_model_switched">Model: %1$s</string>
+    <!-- %1$s: the previous model, %2$s: the new one, each as provider/model. -->
+    <string name="chat_timeline_model_switched_from">Model değişti: %1$s → %2$s</string>
+    <!-- %1$s: a folder path on the server. -->
+    <string name="chat_timeline_location_switched">Klasör: %1$s</string>
+    <!-- %1$s: the skill's name. -->
+    <string name="chat_timeline_skill_invoked">Kullanılan beceri: %1$s</string>
+    <string name="chat_timeline_turn_succeeded">Çalışma tamamlandı.</string>
+    <string name="chat_timeline_turn_failed">Çalışma başarısız oldu.</string>
+    <!-- %1$s: the server's description of the error. -->
+    <string name="chat_timeline_turn_failed_detail">Çalışma başarısız oldu: %1$s</string>
+    <string name="chat_timeline_turn_interrupted">Çalışma durduruldu.</string>
+    <string name="chat_timeline_turn_unknown">Çalışma sona erdi.</string>
+    <!-- %1$s: the server's name for the message type. -->
+    <string name="chat_timeline_unknown">Bu mesaj türü henüz desteklenmiyor (%1$s).</string>
 </resources>
