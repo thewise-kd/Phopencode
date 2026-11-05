@@ -1,3 +1,75 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="chat_revert_title">Changes in this turn</string>
+    <!-- %1$s: the number of files, already formatted for the language. -->
+    <plurals name="chat_revert_files_changed">
+        <item quantity="one">%1$s file changed</item>
+        <item quantity="other">%1$s files changed</item>
+    </plurals>
+    <!-- %1$s: one part; %2$s: the next part. Joins the summary's parts. -->
+    <string name="chat_revert_join">%1$s · %2$s</string>
+    <!-- %1$s: lines added, already formatted for the language. -->
+    <string name="chat_revert_additions">+%1$s</string>
+    <!-- %1$s: lines removed, already formatted for the language. -->
+    <string name="chat_revert_deletions">−%1$s</string>
+    <!-- %1$s: lines added; %2$s: lines removed. Both already written as chat_revert_additions and chat_revert_deletions. -->
+    <string name="chat_revert_counts">%1$s %2$s</string>
+    <!-- A file's status. -->
+    <string name="chat_revert_status_added">Added</string>
+    <string name="chat_revert_status_modified">Modified</string>
+    <string name="chat_revert_status_deleted">Deleted</string>
+    <string name="chat_revert_status_renamed">Renamed</string>
+    <string name="chat_revert_status_untracked">Untracked</string>
+    <!-- Click labels read for a file: what a tap does. -->
+    <string name="chat_revert_show_diff">Show diff</string>
+    <string name="chat_revert_hide_diff">Hide diff</string>
+    <!-- Read for a file: whether its diff is open. -->
+    <string name="chat_revert_expanded">Expanded</string>
+    <string name="chat_revert_collapsed">Collapsed</string>
+    <string name="chat_revert_no_patch">No diff to show. It may be a binary file.</string>
+    <!-- After a shortened diff: the whole lines not shown. %1$s: the count, formatted for the language. -->
+    <plurals name="chat_revert_more_lines">
+        <item quantity="one">%1$s more line</item>
+        <item quantity="other">%1$s more lines</item>
+    </plurals>
+    <!-- After a diff cut inside its last line: the characters not shown. %1$s: the count, formatted for the language. -->
+    <plurals name="chat_revert_more_characters">
+        <item quantity="one">%1$s more character</item>
+        <item quantity="other">%1$s more characters</item>
+    </plurals>
+    <string name="chat_revert_loading">Loading the changes…</string>
+    <string name="chat_revert_empty_title">No file changes</string>
+    <string name="chat_revert_empty_message">This turn changed no files.</string>
+    <!-- Above the revert button: what reverting does, and that it is not final yet. -->
+    <string name="chat_revert_intro">Reverting removes this message and everything after it, and undoes their file changes. You confirm before it is final.</string>
+    <!-- The button that starts a revert, and the one that confirms it. -->
+    <string name="chat_revert_revert">Revert</string>
+    <string name="chat_revert_cancel">Cancel</string>
+    <string name="chat_revert_confirm_title">Revert this turn?</string>
+    <!-- %1$s: the number of files the revert changes, already formatted for the language. -->
+    <plurals name="chat_revert_confirm_message">
+        <item quantity="one">This message and everything after it will be removed, and the changes to %1$s file will be undone.</item>
+        <item quantity="other">This message and everything after it will be removed, and the changes to %1$s files will be undone.</item>
+    </plurals>
+    <string name="chat_revert_confirm_message_none">This message and everything after it will be removed. No files change.</string>
+    <string name="chat_revert_other_turn">A revert of another message is waiting for confirmation. Cancel it to revert this one.</string>
+    <string name="chat_revert_pending_stage">Preparing the revert…</string>
+    <string name="chat_revert_pending_commit">Reverting…</string>
+    <string name="chat_revert_pending_cancel">Cancelling the revert…</string>
+    <!-- %1$s: why, one of the chat_revert_reason_ strings. -->
+    <string name="chat_revert_error_stage">The revert could not be prepared. %1$s</string>
+    <!-- %1$s: why, one of the chat_revert_reason_ strings. -->
+    <string name="chat_revert_error_commit">The turn could not be reverted. %1$s</string>
+    <!-- %1$s: why, one of the chat_revert_reason_ strings. -->
+    <string name="chat_revert_error_cancel">The revert could not be cancelled. %1$s</string>
+    <!-- %1$s: why, one of the chat_revert_reason_ strings. -->
+    <string name="chat_revert_load_error">The changes could not be loaded. %1$s</string>
+    <string name="chat_revert_reason_not_connected">There is no connection to the server.</string>
+    <string name="chat_revert_reason_unreachable">The server could not be reached.</string>
+    <string name="chat_revert_reason_unauthorized">The server refused the credentials.</string>
+    <string name="chat_revert_reason_not_found">The message or its session no longer exists.</string>
+    <string name="chat_revert_reason_conflict">The session is busy or changed meanwhile.</string>
+    <string name="chat_revert_reason_rejected">The server refused the request.</string>
+    <string name="chat_revert_reason_server">The server ran into an error.</string>
+    <string name="chat_revert_reason_unknown">An unexpected error occurred.</string>
 </resources>

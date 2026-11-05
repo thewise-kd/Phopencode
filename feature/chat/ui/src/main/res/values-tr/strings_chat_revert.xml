@@ -1,3 +1,75 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="chat_revert_title">Bu turdaki değişiklikler</string>
+    <!-- %1$s: the number of files, already formatted for the language. -->
+    <plurals name="chat_revert_files_changed">
+        <item quantity="one">%1$s dosya değişti</item>
+        <item quantity="other">%1$s dosya değişti</item>
+    </plurals>
+    <!-- %1$s: one part; %2$s: the next part. Joins the summary's parts. -->
+    <string name="chat_revert_join">%1$s · %2$s</string>
+    <!-- %1$s: lines added, already formatted for the language. -->
+    <string name="chat_revert_additions">+%1$s</string>
+    <!-- %1$s: lines removed, already formatted for the language. -->
+    <string name="chat_revert_deletions">−%1$s</string>
+    <!-- %1$s: lines added; %2$s: lines removed. Both already written as chat_revert_additions and chat_revert_deletions. -->
+    <string name="chat_revert_counts">%1$s %2$s</string>
+    <!-- A file's status. -->
+    <string name="chat_revert_status_added">Eklendi</string>
+    <string name="chat_revert_status_modified">Değiştirildi</string>
+    <string name="chat_revert_status_deleted">Silindi</string>
+    <string name="chat_revert_status_renamed">Yeniden adlandırıldı</string>
+    <string name="chat_revert_status_untracked">İzlenmiyor</string>
+    <!-- Click labels read for a file: what a tap does. -->
+    <string name="chat_revert_show_diff">Farkı göster</string>
+    <string name="chat_revert_hide_diff">Farkı gizle</string>
+    <!-- Read for a file: whether its diff is open. -->
+    <string name="chat_revert_expanded">Açık</string>
+    <string name="chat_revert_collapsed">Kapalı</string>
+    <string name="chat_revert_no_patch">Gösterilecek fark yok. İkili bir dosya olabilir.</string>
+    <!-- After a shortened diff: the whole lines not shown. %1$s: the count, formatted for the language. -->
+    <plurals name="chat_revert_more_lines">
+        <item quantity="one">%1$s satır daha</item>
+        <item quantity="other">%1$s satır daha</item>
+    </plurals>
+    <!-- After a diff cut inside its last line: the characters not shown. %1$s: the count, formatted for the language. -->
+    <plurals name="chat_revert_more_characters">
+        <item quantity="one">%1$s karakter daha</item>
+        <item quantity="other">%1$s karakter daha</item>
+    </plurals>
+    <string name="chat_revert_loading">Değişiklikler yükleniyor…</string>
+    <string name="chat_revert_empty_title">Dosya değişikliği yok</string>
+    <string name="chat_revert_empty_message">Bu tur hiçbir dosyayı değiştirmedi.</string>
+    <!-- Above the revert button: what reverting does, and that it is not final yet. -->
+    <string name="chat_revert_intro">Geri almak bu mesajı ve sonrasındaki her şeyi kaldırır, dosyalarda yaptıkları değişiklikleri de geri alır. Kesinleşmeden önce onayınız istenir.</string>
+    <!-- The button that starts a revert, and the one that confirms it. -->
+    <string name="chat_revert_revert">Geri al</string>
+    <string name="chat_revert_cancel">İptal</string>
+    <string name="chat_revert_confirm_title">Bu tur geri alınsın mı?</string>
+    <!-- %1$s: the number of files the revert changes, already formatted for the language. -->
+    <plurals name="chat_revert_confirm_message">
+        <item quantity="one">Bu mesaj ve sonrasındaki her şey kaldırılacak, %1$s dosyadaki değişiklikler geri alınacak.</item>
+        <item quantity="other">Bu mesaj ve sonrasındaki her şey kaldırılacak, %1$s dosyadaki değişiklikler geri alınacak.</item>
+    </plurals>
+    <string name="chat_revert_confirm_message_none">Bu mesaj ve sonrasındaki her şey kaldırılacak. Hiçbir dosya değişmeyecek.</string>
+    <string name="chat_revert_other_turn">Başka bir mesajın geri alınması onay bekliyor. Bu mesajı geri almak için önce onu iptal edin.</string>
+    <string name="chat_revert_pending_stage">Geri alma hazırlanıyor…</string>
+    <string name="chat_revert_pending_commit">Geri alınıyor…</string>
+    <string name="chat_revert_pending_cancel">Geri alma iptal ediliyor…</string>
+    <!-- %1$s: why, one of the chat_revert_reason_ strings. -->
+    <string name="chat_revert_error_stage">Geri alma hazırlanamadı. %1$s</string>
+    <!-- %1$s: why, one of the chat_revert_reason_ strings. -->
+    <string name="chat_revert_error_commit">Tur geri alınamadı. %1$s</string>
+    <!-- %1$s: why, one of the chat_revert_reason_ strings. -->
+    <string name="chat_revert_error_cancel">Geri alma iptal edilemedi. %1$s</string>
+    <!-- %1$s: why, one of the chat_revert_reason_ strings. -->
+    <string name="chat_revert_load_error">Değişiklikler yüklenemedi. %1$s</string>
+    <string name="chat_revert_reason_not_connected">Sunucuyla bağlantı yok.</string>
+    <string name="chat_revert_reason_unreachable">Sunucuya ulaşılamadı.</string>
+    <string name="chat_revert_reason_unauthorized">Sunucu kimlik bilgilerini reddetti.</string>
+    <string name="chat_revert_reason_not_found">Mesaj ya da oturumu artık yok.</string>
+    <string name="chat_revert_reason_conflict">Oturum meşgul ya da bu arada değişti.</string>
+    <string name="chat_revert_reason_rejected">Sunucu isteği reddetti.</string>
+    <string name="chat_revert_reason_server">Sunucu bir hatayla karşılaştı.</string>
+    <string name="chat_revert_reason_unknown">Beklenmeyen bir hata oluştu.</string>
 </resources>
