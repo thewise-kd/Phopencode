@@ -1,3 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="chat_status_loading">Oturum yükleniyor…</string>
+    <string name="chat_status_running">Çalışıyor…</string>
+    <string name="chat_status_retrying">Yeniden deneniyor</string>
+    <string name="chat_status_retrying_attempt">Yeniden deneniyor, deneme %1$d</string>
+    <string name="chat_status_next_try">Sonraki deneme: %1$s</string>
+    <string name="chat_status_failed">Son çalışma başarısız oldu: %1$s</string>
+    <string name="chat_status_failed_generic">Son çalışma başarısız oldu.</string>
+    <string name="chat_status_disconnected">Sunucuyla bağlantı koptu. Gösterilenler güncel olmayabilir.</string>
+    <string name="chat_status_reconnect">Yeniden bağlan</string>
+    <string name="chat_status_close">Kapat</string>
+    <string name="chat_status_not_connected_title">Bağlı değil</string>
+    <string name="chat_status_not_connected_message">Sunucuyla bağlantı yok, bu yüzden oturum yüklenemiyor. Yeniden bağlanmak için sunucu listesine dönün.</string>
+    <string name="chat_status_not_found_title">Oturum bulunamadı</string>
+    <string name="chat_status_not_found_message">Bağlı sunucuda bu oturum yok. Silinmiş olabilir.</string>
+    <string name="chat_status_other_server_title">Bu oturum başka bir sunucuya ait</string>
+    <string name="chat_status_other_server_message">Bağlantı artık bu sohbetin açıldığı sunucudan farklı bir sunucuya bağlı. Sohbeti kapatın ve oturumu kendi sunucusundan açın.</string>
+    <string name="chat_status_unavailable_title">Oturum kullanılamıyor</string>
+    <string name="chat_status_reason_not_connected">Sunucuyla bağlantı yok. Yeniden bağlanmak için sunucu listesine dönün.</string>
+    <string name="chat_status_reason_unreachable">Sunucuya ulaşılamadı. Bağlantıyı denetleyip yeniden deneyin.</string>
+    <string name="chat_status_reason_unauthorized">Sunucu kimlik bilgilerini reddetti.</string>
+    <string name="chat_status_reason_not_found">Oturum artık yok; başka bir cihazdan silinmiş olabilir.</string>
+    <string name="chat_status_reason_conflict">Oturum meşgul ya da bu arada değiştirildi.</string>
+    <string name="chat_status_reason_rejected">Sunucu isteği reddetti.</string>
+    <string name="chat_status_reason_server_failed">Sunucuda bir hata oluştu.</string>
+    <string name="chat_status_reason_unknown">Beklenmeyen bir hata oluştu.</string>
 </resources>

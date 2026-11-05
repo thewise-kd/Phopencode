@@ -1,3 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="chat_status_loading">Loading the session…</string>
+    <string name="chat_status_running">Working…</string>
+    <string name="chat_status_retrying">Retrying</string>
+    <string name="chat_status_retrying_attempt">Retrying, attempt %1$d</string>
+    <string name="chat_status_next_try">Next try at %1$s</string>
+    <string name="chat_status_failed">The last run failed: %1$s</string>
+    <string name="chat_status_failed_generic">The last run failed.</string>
+    <string name="chat_status_disconnected">The connection to the server dropped. What shows may be out of date.</string>
+    <string name="chat_status_reconnect">Reconnect</string>
+    <string name="chat_status_close">Close</string>
+    <string name="chat_status_not_connected_title">Not connected</string>
+    <string name="chat_status_not_connected_message">There is no connection to the server, so the session cannot be loaded. Go back to the server list to connect again.</string>
+    <string name="chat_status_not_found_title">Session not found</string>
+    <string name="chat_status_not_found_message">The connected server does not have this session. It may have been deleted.</string>
+    <string name="chat_status_other_server_title">This session belongs to another server</string>
+    <string name="chat_status_other_server_message">The connection now serves a different server from the one this chat was opened on. Close the chat and open the session from its own server.</string>
+    <string name="chat_status_unavailable_title">Session unavailable</string>
+    <string name="chat_status_reason_not_connected">There is no connection to the server. Go back to the server list to connect again.</string>
+    <string name="chat_status_reason_unreachable">The server could not be reached. Check the connection and try again.</string>
+    <string name="chat_status_reason_unauthorized">The server refused the credentials.</string>
+    <string name="chat_status_reason_not_found">The session no longer exists; it may have been deleted on another device.</string>
+    <string name="chat_status_reason_conflict">The session is busy or was changed meanwhile.</string>
+    <string name="chat_status_reason_rejected">The server refused the request.</string>
+    <string name="chat_status_reason_server_failed">The server ran into an error.</string>
+    <string name="chat_status_reason_unknown">An unexpected error occurred.</string>
 </resources>
