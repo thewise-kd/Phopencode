@@ -1,3 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="files_search_title">Dosyalarda ara</string>
+    <string name="files_search_query_label">Aranacak</string>
+    <string name="files_search_run">Ara</string>
+    <string name="files_search_mode_names">Adlar</string>
+    <string name="files_search_mode_content">İçerik</string>
+    <string name="files_search_hint_names">Bir dosya ya da klasör adının bir kısmını yazın, sonra arayın.</string>
+    <string name="files_search_hint_content">Dosyalarda bulunacak metni yazın, sonra arayın.</string>
+    <string name="files_search_searching">Aranıyor…</string>
+    <string name="files_search_empty_title">Sonuç yok</string>
+    <string name="files_search_empty_message">Bu projede eşleşen bir şey yok. Başka sözcükler ya da diğer modu deneyin.</string>
+    <string name="files_search_truncated">Gösterilenden daha fazla sonuç var. Aramayı daraltın.</string>
+    <string name="files_search_tool_ripgrep">ripgrep ile arandı.</string>
+    <string name="files_search_tool_grep">Sunucuda ripgrep kurulu olmadığı için grep ile arandı.</string>
+    <string name="files_search_line">Satır %1$d</string>
+    <string name="files_search_open">Aç</string>
+    <string name="files_search_type_folder">Klasör</string>
+    <string name="files_search_type_file">Dosya</string>
+    <string name="files_search_type_symlink">Bağlantı</string>
+    <string name="files_search_type_other">Diğer</string>
+    <string name="files_search_error">Arama yapılamadı. %1$s</string>
+    <string name="files_search_reason_not_connected">Sunucuyla bağlantı yok.</string>
+    <string name="files_search_reason_unreachable">Sunucuya ulaşılamadı.</string>
+    <string name="files_search_reason_unauthorized">Sunucu girişi reddetti.</string>
+    <string name="files_search_reason_not_found">Proje klasörü bulunamadı.</string>
+    <string name="files_search_reason_permission_denied">Sunucudaki kullanıcının klasörü okuma izni yok.</string>
+    <string name="files_search_reason_already_exists">Bu adı taşıyan bir öğe zaten var.</string>
+    <string name="files_search_reason_not_empty">Klasör boş değil.</string>
+    <string name="files_search_reason_path_rejected">Yol projenin dışında ya da geçersiz.</string>
+    <string name="files_search_reason_too_large">Sonuç çok büyük.</string>
+    <string name="files_search_reason_tool_missing">Sunucuda ne ripgrep ne de grep kurulu.</string>
+    <string name="files_search_reason_rejected">Arama metni reddedildi; tek satır olmalı.</string>
+    <string name="files_search_reason_server_failed">Sunucu bir hatayla karşılaştı.</string>
+    <string name="files_search_reason_unsupported">Bu henüz desteklenmiyor.</string>
+    <string name="files_search_reason_unknown">Beklenmeyen bir hata oluştu.</string>
 </resources>

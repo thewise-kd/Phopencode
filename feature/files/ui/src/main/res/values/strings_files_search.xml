@@ -1,3 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="files_search_title">Search files</string>
+    <string name="files_search_query_label">Search for</string>
+    <string name="files_search_run">Search</string>
+    <string name="files_search_mode_names">Names</string>
+    <string name="files_search_mode_content">Content</string>
+    <string name="files_search_hint_names">Type part of a file or folder name, then search.</string>
+    <string name="files_search_hint_content">Type the text to find in the files, then search.</string>
+    <string name="files_search_searching">Searching…</string>
+    <string name="files_search_empty_title">No results</string>
+    <string name="files_search_empty_message">Nothing in this project matches. Try other words or the other mode.</string>
+    <string name="files_search_truncated">There are more results than shown. Make the search narrower.</string>
+    <string name="files_search_tool_ripgrep">Searched with ripgrep.</string>
+    <string name="files_search_tool_grep">Searched with grep, as ripgrep is not installed on the server.</string>
+    <string name="files_search_line">Line %1$d</string>
+    <string name="files_search_open">Open</string>
+    <string name="files_search_type_folder">Folder</string>
+    <string name="files_search_type_file">File</string>
+    <string name="files_search_type_symlink">Link</string>
+    <string name="files_search_type_other">Other</string>
+    <string name="files_search_error">The search failed. %1$s</string>
+    <string name="files_search_reason_not_connected">There is no connection to the server.</string>
+    <string name="files_search_reason_unreachable">The server could not be reached.</string>
+    <string name="files_search_reason_unauthorized">The server refused the login.</string>
+    <string name="files_search_reason_not_found">The project folder was not found.</string>
+    <string name="files_search_reason_permission_denied">The server\'s user may not read the folder.</string>
+    <string name="files_search_reason_already_exists">Something already has that name.</string>
+    <string name="files_search_reason_not_empty">The folder is not empty.</string>
+    <string name="files_search_reason_path_rejected">The path is outside the project or not valid.</string>
+    <string name="files_search_reason_too_large">The result is too large.</string>
+    <string name="files_search_reason_tool_missing">Neither ripgrep nor grep is installed on the server.</string>
+    <string name="files_search_reason_rejected">The search text was refused; it must be a single line.</string>
+    <string name="files_search_reason_server_failed">The server ran into an error.</string>
+    <string name="files_search_reason_unsupported">This is not supported yet.</string>
+    <string name="files_search_reason_unknown">An unexpected error occurred.</string>
 </resources>
