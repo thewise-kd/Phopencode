@@ -1,3 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- The menu button's label, read by a screen reader, and the open menu's title. -->
+    <string name="chat_actions_menu_open">Session actions</string>
+    <string name="chat_actions_menu_title">Session actions</string>
+    <string name="chat_actions_close">Close</string>
+    <!-- The menu's actions, each with a line on what it does. -->
+    <string name="chat_actions_compact">Compact session</string>
+    <string name="chat_actions_compact_detail">Summarize the conversation so far to free up the model\'s context.</string>
+    <string name="chat_actions_fork">Fork session</string>
+    <string name="chat_actions_fork_detail">Copy the whole conversation into a new session.</string>
+    <!-- In the menu while a compaction or a fork is on its way. -->
+    <string name="chat_actions_busy">Wait until the current action finishes.</string>
+    <!-- The confirmations. -->
+    <string name="chat_actions_confirm_compact_title">Compact this session?</string>
+    <string name="chat_actions_confirm_compact_message">The server summarizes the conversation so far, and the model continues from the summary. This can take a while.</string>
+    <string name="chat_actions_confirm_compact">Compact</string>
+    <string name="chat_actions_confirm_fork_title">Fork this session?</string>
+    <string name="chat_actions_confirm_fork_message">A new session starts with a copy of the whole conversation, and the chat switches to it. This session stays as it is.</string>
+    <string name="chat_actions_confirm_fork_here_title">Fork from here?</string>
+    <string name="chat_actions_confirm_fork_here_message">A new session starts with the conversation before this message, and the chat switches to it. This session stays as it is.</string>
+    <string name="chat_actions_confirm_fork">Fork</string>
+    <string name="chat_actions_cancel">Cancel</string>
+    <!-- Next to the menu button while an action runs. -->
+    <string name="chat_actions_status_compacting">Compacting…</string>
+    <string name="chat_actions_status_forking">Forking…</string>
+    <!-- %1$s: why, one of the chat_actions_reason_ strings. -->
+    <string name="chat_actions_error_compact">The session could not be compacted. %1$s</string>
+    <!-- %1$s: why, one of the chat_actions_reason_ strings. -->
+    <string name="chat_actions_error_fork">The session could not be forked. %1$s</string>
+    <string name="chat_actions_reason_not_connected">There is no connection to the server.</string>
+    <string name="chat_actions_reason_unreachable">The server could not be reached.</string>
+    <string name="chat_actions_reason_unauthorized">The server refused the credentials.</string>
+    <string name="chat_actions_reason_not_found">The session or the message no longer exists.</string>
+    <string name="chat_actions_reason_conflict">The session is busy or changed meanwhile.</string>
+    <string name="chat_actions_reason_rejected">The server refused the request.</string>
+    <string name="chat_actions_reason_server">The server ran into an error.</string>
+    <string name="chat_actions_reason_unknown">An unexpected error occurred.</string>
+    <!-- A prompt's actions, under it after a long press. -->
+    <string name="chat_actions_turn_changes">This turn\'s changes</string>
+    <string name="chat_actions_fork_here">Fork from here</string>
+    <!-- The label of the button that closes a prompt's actions, read by a screen reader. -->
+    <string name="chat_actions_message_close">Close actions</string>
 </resources>
