@@ -112,6 +112,19 @@ class AndroidConventionsTest {
         assertContains(output, "project ':core:navigation'")
     }
 
+    /** A direct `implementation` edge, so a feature screen can call `MarkdownView` without a module-level line. */
+    @Test
+    fun `the feature convention puts the shared Markdown view on the compile classpath`() {
+        val output = build.succeeds(
+            ":feature:chat:ui:dependencies",
+            "--configuration",
+            "debugCompileClasspath",
+            sdk = build.emptySdk(),
+        ).output
+        val directEdge = Regex("""(?m)^[+\\]--- project '?:core:markdown'?(\s|$)""")
+        assertTrue(directEdge.containsMatchIn(output), "no direct :core:markdown edge:\n$output")
+    }
+
     private fun printUnitTestJvmArgs(module: String) {
         build.edit("$module/build.gradle.kts") {
             it + """

@@ -418,11 +418,12 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
 |---|---|---|---|---|---|
 | P6.3 | Timeline logic | P6.1 | `feature/chat/logic/…/timeline/` | Messages turn into items; pagination of older messages; auto-scroll rule | `PI` |
-| P6.4 | Timeline screen | P6.1, P6.2 | `feature/chat/ui/…/timeline/`, `strings_chat_timeline.xml` | Scrolling does not jump during streaming; user and assistant messages look distinct | `CI` |
+| P6.4 | Timeline screen | P6.1, P6.2, P6.15 | `feature/chat/ui/…/timeline/`, `strings_chat_timeline.xml` | Scrolling does not jump during streaming; user and assistant messages look distinct | `CI` |
 | P6.5 | Composer logic | P6.1 | `feature/chat/logic/…/composer/` | Draft; `steer`/`queue` while running; text is not lost on a send failure; stop | `PI` |
 | P6.6 | Composer screen | P6.1 | `feature/chat/ui/…/composer/`, `strings_chat_composer.xml` | Send/Stop button; keyboard layout | `CI` |
 | P6.7 | Reasoning logic | P6.1 | `feature/chat/logic/…/reasoning/` | Deltas merge; duration is computed; empty reasoning is hidden; expanded/collapsed state | `PI` |
-| P6.8 | Reasoning card | P6.1, P6.2 | `feature/chat/ui/…/reasoning/`, `strings_chat_reasoning.xml` | Streams live; collapsible; Markdown renders | `CI` |
+| P6.8 | Reasoning card | P6.1, P6.2, P6.15 | `feature/chat/ui/…/reasoning/`, `strings_chat_reasoning.xml` | Streams live; collapsible; Markdown renders | `CI` |
+| P6.15 | Feature screens can use Markdown | P6.2 | `build-logic/`, `docs/PHASES.md` (this row and the P6.4/P6.8 dependencies) | The `phopencode.feature.ui` plugin adds `:core:markdown`; a feature UI module can call `MarkdownView` | `PI` |
 
 **G3 (parallel)**
 

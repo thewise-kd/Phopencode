@@ -90,13 +90,13 @@ class AndroidComposePlugin : Plugin<Project> {
     }
 }
 
-/** The screens of a feature, on top of its `logic` module and the shared UI. */
+/** The screens of a feature, on top of its `logic` module, the shared UI, navigation and the Markdown view. */
 class FeatureUiPlugin : Plugin<Project> {
     override fun apply(project: Project): Unit = with(project) {
         pluginManager.apply("phopencode.android.library")
         pluginManager.apply("phopencode.android.compose")
         val logic = path.removeSuffix(":ui") + ":logic"
-        listOf(logic, ":core:ui", ":core:navigation")
+        listOf(logic, ":core:ui", ":core:navigation", ":core:markdown")
             .forEach { dependencies.add("implementation", dependencies.project(mapOf("path" to it))) }
         dependencies.addLibraries(
             "implementation",
