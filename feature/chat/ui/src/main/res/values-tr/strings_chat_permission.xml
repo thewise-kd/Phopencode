@@ -1,3 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="chat_permission_title">İzin isteği</string>
+    <string name="chat_permission_asker_self">Bu oturum soruyor</string>
+    <!-- %1$s: the ID of the subagent's session, as the server gives it. -->
+    <string name="chat_permission_asker_subagent">Bir alt ajan soruyor (oturum %1$s)</string>
+    <!-- %1$s: the action as the server names it, for example "bash". -->
+    <string name="chat_permission_action">İşlem: %1$s</string>
+    <string name="chat_permission_action_bash">Kabuk komutu çalıştırmak istiyor</string>
+    <string name="chat_permission_action_edit">Dosyaları değiştirmek istiyor</string>
+    <string name="chat_permission_action_read">Dosyaları okumak istiyor</string>
+    <string name="chat_permission_action_webfetch">Bir web sayfasını indirmek istiyor</string>
+    <string name="chat_permission_action_external_directory">Proje klasörünün dışına erişmek istiyor</string>
+    <!-- Above the paths or commands the request applies to. -->
+    <string name="chat_permission_resources">Kapsam:</string>
+    <string name="chat_permission_no_resources">Sunucu isteğin neyi kapsadığını belirtmedi.</string>
+    <string name="chat_permission_allow_once">Bir kez izin ver</string>
+    <string name="chat_permission_allow_always">Her zaman izin ver</string>
+    <string name="chat_permission_reject">Reddet</string>
+    <string name="chat_permission_confirm_title">Her zaman izin verilsin mi?</string>
+    <!-- Followed by the patterns the rule saves. %1$s: the action, for example "bash". -->
+    <string name="chat_permission_confirm_save">Sunucu bu kuralı kaydedecek ve aşağıdakiler için “%1$s” işleminde bir daha izin sormayacak:</string>
+    <!-- %1$s: the action, for example "bash". -->
+    <string name="chat_permission_confirm_no_save">Sunucu bunu kaydedecek ve bu tür “%1$s” isteklerinde bir daha izin sormayacak.</string>
+    <!-- %1$s: the action, for example "bash". -->
+    <string name="chat_permission_wildcard">“*” her şeyle eşleşir: bundan sonra her “%1$s” isteği sorulmadan yürütülecek.</string>
+    <string name="chat_permission_confirm_always">Evet, her zaman izin ver</string>
+    <string name="chat_permission_cancel">Vazgeç</string>
+    <!-- The label of the field for the message that goes with a rejection. -->
+    <string name="chat_permission_reject_message">Ajana mesaj (isteğe bağlı)</string>
+    <string name="chat_permission_sending_once">Bir kez izin veriliyor…</string>
+    <string name="chat_permission_sending_always">Kalıcı izin veriliyor…</string>
+    <string name="chat_permission_sending_reject">Reddediliyor…</string>
+    <!-- %1$s: why it failed, one of the chat_permission_reason_* texts. -->
+    <string name="chat_permission_error_once">Bir kez izin verilemedi. %1$s</string>
+    <!-- %1$s: why it failed, one of the chat_permission_reason_* texts. -->
+    <string name="chat_permission_error_always">Kalıcı izin verilemedi. %1$s</string>
+    <!-- %1$s: why it failed, one of the chat_permission_reason_* texts. -->
+    <string name="chat_permission_error_reject">Reddedilemedi. %1$s</string>
+    <string name="chat_permission_reason_not_connected">Sunucuyla bağlantı yok.</string>
+    <string name="chat_permission_reason_unreachable">Sunucuya ulaşılamadı. Yeniden deneyin.</string>
+    <string name="chat_permission_reason_unauthorized">Sunucu kimlik bilgilerini reddetti.</string>
+    <string name="chat_permission_reason_not_found">İstek artık beklemiyor.</string>
+    <string name="chat_permission_reason_conflict">Oturum meşgul ya da bu arada değişti.</string>
+    <string name="chat_permission_reason_rejected">Sunucu yanıtı kabul etmedi.</string>
+    <string name="chat_permission_reason_server_failed">Sunucuda bir hata oluştu.</string>
+    <string name="chat_permission_reason_unknown">Beklenmeyen bir hata oluştu.</string>
+    <!-- %1$s: why it failed, one of the chat_permission_reason_* or chat_permission_list_reason_* texts. -->
+    <string name="chat_permission_list_error">Alt ajanların izin istekleri listelenemedi. %1$s</string>
+    <string name="chat_permission_list_reason_not_found">Oturum artık yok.</string>
+    <string name="chat_permission_list_reason_rejected">Sunucu isteği kabul etmedi.</string>
 </resources>

@@ -1,3 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="chat_permission_title">Permission request</string>
+    <string name="chat_permission_asker_self">Asked by this session</string>
+    <!-- %1$s: the ID of the subagent's session, as the server gives it. -->
+    <string name="chat_permission_asker_subagent">Asked by a subagent (session %1$s)</string>
+    <!-- %1$s: the action as the server names it, for example "bash". -->
+    <string name="chat_permission_action">Action: %1$s</string>
+    <string name="chat_permission_action_bash">Wants to run a shell command</string>
+    <string name="chat_permission_action_edit">Wants to change files</string>
+    <string name="chat_permission_action_read">Wants to read files</string>
+    <string name="chat_permission_action_webfetch">Wants to fetch a web page</string>
+    <string name="chat_permission_action_external_directory">Wants to reach outside the project folder</string>
+    <!-- Above the paths or commands the request applies to. -->
+    <string name="chat_permission_resources">Applies to:</string>
+    <string name="chat_permission_no_resources">The server did not say what it applies to.</string>
+    <string name="chat_permission_allow_once">Allow once</string>
+    <string name="chat_permission_allow_always">Always allow</string>
+    <string name="chat_permission_reject">Reject</string>
+    <string name="chat_permission_confirm_title">Always allow?</string>
+    <!-- Followed by the patterns the rule saves. %1$s: the action, for example "bash". -->
+    <string name="chat_permission_confirm_save">The server will save this rule and no longer ask before “%1$s” on:</string>
+    <!-- %1$s: the action, for example "bash". -->
+    <string name="chat_permission_confirm_no_save">The server will save this and no longer ask before such “%1$s” requests.</string>
+    <!-- %1$s: the action, for example "bash". -->
+    <string name="chat_permission_wildcard">“*” matches everything: from now on every “%1$s” request goes ahead without asking.</string>
+    <string name="chat_permission_confirm_always">Yes, always allow</string>
+    <string name="chat_permission_cancel">Cancel</string>
+    <!-- The label of the field for the message that goes with a rejection. -->
+    <string name="chat_permission_reject_message">Message to the agent (optional)</string>
+    <string name="chat_permission_sending_once">Allowing once…</string>
+    <string name="chat_permission_sending_always">Allowing always…</string>
+    <string name="chat_permission_sending_reject">Rejecting…</string>
+    <!-- %1$s: why it failed, one of the chat_permission_reason_* texts. -->
+    <string name="chat_permission_error_once">Could not allow once. %1$s</string>
+    <!-- %1$s: why it failed, one of the chat_permission_reason_* texts. -->
+    <string name="chat_permission_error_always">Could not allow always. %1$s</string>
+    <!-- %1$s: why it failed, one of the chat_permission_reason_* texts. -->
+    <string name="chat_permission_error_reject">Could not reject. %1$s</string>
+    <string name="chat_permission_reason_not_connected">There is no connection to the server.</string>
+    <string name="chat_permission_reason_unreachable">The server could not be reached. Try again.</string>
+    <string name="chat_permission_reason_unauthorized">The server refused the credentials.</string>
+    <string name="chat_permission_reason_not_found">The request is no longer waiting.</string>
+    <string name="chat_permission_reason_conflict">The session is busy or changed meanwhile.</string>
+    <string name="chat_permission_reason_rejected">The server refused the reply.</string>
+    <string name="chat_permission_reason_server_failed">The server failed.</string>
+    <string name="chat_permission_reason_unknown">Something unexpected went wrong.</string>
+    <!-- %1$s: why it failed, one of the chat_permission_reason_* or chat_permission_list_reason_* texts. -->
+    <string name="chat_permission_list_error">Could not list the subagents\' permission requests. %1$s</string>
+    <string name="chat_permission_list_reason_not_found">The session is gone.</string>
+    <string name="chat_permission_list_reason_rejected">The server refused the request.</string>
 </resources>
