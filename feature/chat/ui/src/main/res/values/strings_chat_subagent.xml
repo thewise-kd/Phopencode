@@ -1,3 +1,65 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Badge on the chat. %1$s: how many subagents run now, formatted for the language. -->
+    <plurals name="chat_subagent_running">
+        <item quantity="one">%1$s running</item>
+        <item quantity="other">%1$s running</item>
+    </plurals>
+    <!-- %1$s: how many subagents the session has, at any depth, formatted for the language. -->
+    <plurals name="chat_subagent_count">
+        <item quantity="one">%1$s subagent</item>
+        <item quantity="other">%1$s subagents</item>
+    </plurals>
+    <!-- Click label read for the badge: what a tap does. -->
+    <string name="chat_subagent_open_list">Show subagents</string>
+    <!-- Read as the badge's state while a subagent runs. -->
+    <string name="chat_subagent_live">Live</string>
+    <!-- %1$s: one part; %2$s: the next part. Joins the parts of a line. -->
+    <string name="chat_subagent_join">%1$s · %2$s</string>
+    <!-- Header of a subagent's timeline. -->
+    <string name="chat_subagent_back">Back to the parent session</string>
+    <string name="chat_subagent_header_loading">Loading…</string>
+    <string name="chat_subagent_untitled">Untitled subagent</string>
+    <!-- List page. -->
+    <string name="chat_subagent_title">Subagents</string>
+    <string name="chat_subagent_loading">Loading subagents…</string>
+    <string name="chat_subagent_empty_title">No subagents yet</string>
+    <string name="chat_subagent_empty_message">Subagents this session starts show here.</string>
+    <!-- Click label read for a row: what a tap does. -->
+    <string name="chat_subagent_open">Open its session</string>
+    <string name="chat_subagent_status_running">Running</string>
+    <string name="chat_subagent_status_succeeded">Done</string>
+    <string name="chat_subagent_status_failed">Failed</string>
+    <string name="chat_subagent_status_interrupted">Stopped</string>
+    <string name="chat_subagent_status_idle">Idle</string>
+    <!-- Durations. %1$s, %2$s: whole numbers, formatted for the language. -->
+    <string name="chat_subagent_seconds">%1$s s</string>
+    <string name="chat_subagent_minutes">%1$s min</string>
+    <string name="chat_subagent_minutes_seconds">%1$s min %2$s s</string>
+    <string name="chat_subagent_hours">%1$s h</string>
+    <string name="chat_subagent_hours_minutes">%1$s h %2$s min</string>
+    <!-- %1$s: the token count, formatted for the language. -->
+    <plurals name="chat_subagent_tokens">
+        <item quantity="one">%1$s token</item>
+        <item quantity="other">%1$s tokens</item>
+    </plurals>
+    <!-- %1$s: how many tool calls the subagent made, formatted for the language. -->
+    <plurals name="chat_subagent_tools">
+        <item quantity="one">%1$s tool call</item>
+        <item quantity="other">%1$s tool calls</item>
+    </plurals>
+    <!-- %1$s: how many of the tool calls failed, formatted for the language. -->
+    <string name="chat_subagent_tools_failed">%1$s failed</string>
+    <!-- %1$s: the name of the tool running now. -->
+    <string name="chat_subagent_tool_current">Now: %1$s</string>
+    <!-- %1$s: why, one of the chat_subagent_reason_ strings. -->
+    <string name="chat_subagent_error">The subagents could not be loaded. %1$s</string>
+    <string name="chat_subagent_reason_not_connected">There is no connection to the server.</string>
+    <string name="chat_subagent_reason_unreachable">The server could not be reached.</string>
+    <string name="chat_subagent_reason_unauthorized">The server refused the credentials.</string>
+    <string name="chat_subagent_reason_not_found">The session was not found.</string>
+    <string name="chat_subagent_reason_conflict">The server was busy.</string>
+    <string name="chat_subagent_reason_rejected">The server refused the request.</string>
+    <string name="chat_subagent_reason_server">The server ran into an error.</string>
+    <string name="chat_subagent_reason_unknown">An unexpected error occurred.</string>
 </resources>

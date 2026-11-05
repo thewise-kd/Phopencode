@@ -1,3 +1,65 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Badge on the chat. %1$s: how many subagents run now, formatted for the language. -->
+    <plurals name="chat_subagent_running">
+        <item quantity="one">%1$s çalışıyor</item>
+        <item quantity="other">%1$s çalışıyor</item>
+    </plurals>
+    <!-- %1$s: how many subagents the session has, at any depth, formatted for the language. -->
+    <plurals name="chat_subagent_count">
+        <item quantity="one">%1$s alt ajan</item>
+        <item quantity="other">%1$s alt ajan</item>
+    </plurals>
+    <!-- Click label read for the badge: what a tap does. -->
+    <string name="chat_subagent_open_list">Alt ajanları göster</string>
+    <!-- Read as the badge's state while a subagent runs. -->
+    <string name="chat_subagent_live">Canlı</string>
+    <!-- %1$s: one part; %2$s: the next part. Joins the parts of a line. -->
+    <string name="chat_subagent_join">%1$s · %2$s</string>
+    <!-- Header of a subagent's timeline. -->
+    <string name="chat_subagent_back">Üst oturuma dön</string>
+    <string name="chat_subagent_header_loading">Yükleniyor…</string>
+    <string name="chat_subagent_untitled">Adsız alt ajan</string>
+    <!-- List page. -->
+    <string name="chat_subagent_title">Alt ajanlar</string>
+    <string name="chat_subagent_loading">Alt ajanlar yükleniyor…</string>
+    <string name="chat_subagent_empty_title">Henüz alt ajan yok</string>
+    <string name="chat_subagent_empty_message">Bu oturumun başlattığı alt ajanlar burada görünür.</string>
+    <!-- Click label read for a row: what a tap does. -->
+    <string name="chat_subagent_open">Oturumunu aç</string>
+    <string name="chat_subagent_status_running">Çalışıyor</string>
+    <string name="chat_subagent_status_succeeded">Tamamlandı</string>
+    <string name="chat_subagent_status_failed">Başarısız</string>
+    <string name="chat_subagent_status_interrupted">Durduruldu</string>
+    <string name="chat_subagent_status_idle">Boşta</string>
+    <!-- Durations. %1$s, %2$s: whole numbers, formatted for the language. -->
+    <string name="chat_subagent_seconds">%1$s sn</string>
+    <string name="chat_subagent_minutes">%1$s dk</string>
+    <string name="chat_subagent_minutes_seconds">%1$s dk %2$s sn</string>
+    <string name="chat_subagent_hours">%1$s sa</string>
+    <string name="chat_subagent_hours_minutes">%1$s sa %2$s dk</string>
+    <!-- %1$s: the token count, formatted for the language. -->
+    <plurals name="chat_subagent_tokens">
+        <item quantity="one">%1$s token</item>
+        <item quantity="other">%1$s token</item>
+    </plurals>
+    <!-- %1$s: how many tool calls the subagent made, formatted for the language. -->
+    <plurals name="chat_subagent_tools">
+        <item quantity="one">%1$s araç çağrısı</item>
+        <item quantity="other">%1$s araç çağrısı</item>
+    </plurals>
+    <!-- %1$s: how many of the tool calls failed, formatted for the language. -->
+    <string name="chat_subagent_tools_failed">%1$s başarısız</string>
+    <!-- %1$s: the name of the tool running now. -->
+    <string name="chat_subagent_tool_current">Şu an: %1$s</string>
+    <!-- %1$s: why, one of the chat_subagent_reason_ strings. -->
+    <string name="chat_subagent_error">Alt ajanlar yüklenemedi. %1$s</string>
+    <string name="chat_subagent_reason_not_connected">Sunucuyla bağlantı yok.</string>
+    <string name="chat_subagent_reason_unreachable">Sunucuya ulaşılamadı.</string>
+    <string name="chat_subagent_reason_unauthorized">Sunucu kimlik bilgilerini reddetti.</string>
+    <string name="chat_subagent_reason_not_found">Oturum bulunamadı.</string>
+    <string name="chat_subagent_reason_conflict">Sunucu meşguldü.</string>
+    <string name="chat_subagent_reason_rejected">Sunucu isteği reddetti.</string>
+    <string name="chat_subagent_reason_server">Sunucu bir hatayla karşılaştı.</string>
+    <string name="chat_subagent_reason_unknown">Beklenmeyen bir hata oluştu.</string>
 </resources>
