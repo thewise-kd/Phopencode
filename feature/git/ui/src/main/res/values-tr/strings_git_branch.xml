@@ -1,3 +1,74 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="git_branch_title">Dallar</string>
+    <string name="git_branch_refresh">Yenile</string>
+    <string name="git_branch_create">Yeni dal</string>
+    <string name="git_branch_loading">Dallar okunuyor…</string>
+    <string name="git_branch_busy_create">Dal oluşturuluyor…</string>
+    <string name="git_branch_busy_switch">Dal değiştiriliyor…</string>
+    <string name="git_branch_busy_delete">Dal siliniyor…</string>
+
+    <string name="git_branch_search">Dallarda ara</string>
+    <string name="git_branch_search_clear">Aramayı temizle</string>
+
+    <string name="git_branch_section_local">Yerel</string>
+    <string name="git_branch_section_remote">Uzak</string>
+    <string name="git_branch_current">Geçerli dal</string>
+    <string name="git_branch_switch">Bu dala geç</string>
+    <string name="git_branch_switch_remote">Yerel dal olarak aç</string>
+    <string name="git_branch_delete">%1$s dalını sil</string>
+    <string name="git_branch_tracking">İzlenen: %1$s</string>
+    <plurals name="git_branch_ahead">
+        <item quantity="one">%1$d ileride</item>
+        <item quantity="other">%1$d ileride</item>
+    </plurals>
+    <plurals name="git_branch_behind">
+        <item quantity="one">%1$d geride</item>
+        <item quantity="other">%1$d geride</item>
+    </plurals>
+    <string name="git_branch_up_to_date">Güncel</string>
+    <string name="git_branch_no_upstream">İzlenen uzak dal yok</string>
+
+    <string name="git_branch_empty_title">Dal yok</string>
+    <string name="git_branch_empty_message">Depoda henüz dal yok.</string>
+    <string name="git_branch_no_match_title">Eşleşen dal yok</string>
+    <string name="git_branch_no_match_message">Hiçbir yerel ya da uzak dalın adında aranan metin geçmiyor.</string>
+
+    <string name="git_branch_dirty_title">Commit edilmemiş değişiklikler</string>
+    <string name="git_branch_dirty_message">Çalışma ağacında commit edilmemiş değişiklikler var. %1$s dalına geçince bunlar korunur; bir değişiklik engel olursa git geçişi reddeder.</string>
+    <string name="git_branch_dirty_confirm">Yine de geç</string>
+
+    <string name="git_branch_delete_title">Dal silinsin mi?</string>
+    <string name="git_branch_delete_message">%1$s yerel dalı silinecek.</string>
+    <string name="git_branch_delete_confirm">Sil</string>
+    <string name="git_branch_unmerged_title">Dal birleştirilmemiş</string>
+    <string name="git_branch_unmerged_message">%1$s dalında başka hiçbir dalda olmayan commit\'ler var. Silinirse bunlar kaybolur.</string>
+    <string name="git_branch_unmerged_confirm">Yine de sil</string>
+
+    <string name="git_branch_create_title">Yeni dal</string>
+    <string name="git_branch_create_name">Dal adı</string>
+    <string name="git_branch_create_from">Başlangıç: %1$s</string>
+    <string name="git_branch_create_from_head">Başlangıç: geçerli commit</string>
+    <string name="git_branch_create_switch_after">Oluşturulunca bu dala geç</string>
+    <string name="git_branch_create_submit">Oluştur</string>
+    <string name="git_branch_create_cancel">İptal</string>
+    <string name="git_branch_name_blank">Bir ad girin.</string>
+    <string name="git_branch_name_invalid">Git bu ada izin vermiyor.</string>
+    <string name="git_branch_name_taken">Bu adda bir yerel dal zaten var.</string>
+
+    <string name="git_branch_error_not_connected">Sunucuya bağlı değilsiniz. Geri dönüp yeniden bağlanın.</string>
+    <string name="git_branch_error_unreachable">Sunucuya ulaşılamadı.</string>
+    <string name="git_branch_error_timed_out">Git çok uzun sürede yanıt verdi.</string>
+    <string name="git_branch_error_unauthorized">Sunucu girişi reddetti. Geri dönüp yeniden bağlanın.</string>
+    <string name="git_branch_error_output_too_large">Dal listesi telefonda gösterilemeyecek kadar büyük.</string>
+    <string name="git_branch_error_not_repository">Bu klasör bir git deposunda değil.</string>
+    <string name="git_branch_error_git_missing">Sunucuda git kurulu değil.</string>
+    <string name="git_branch_error_rejected">Dal adı reddedildi.</string>
+    <string name="git_branch_error_not_found">Dal artık yok.</string>
+    <string name="git_branch_error_would_overwrite">Geçiş commit edilmemiş değişikliklerin üzerine yazacağı için git hiçbir şeyi değiştirmedi. Önce bunları commit edin ya da saklayın.</string>
+    <string name="git_branch_error_conflict">Depoda çözülmemiş çakışmalar var.</string>
+    <string name="git_branch_error_read">Dallar listelenemedi.</string>
+    <string name="git_branch_error_create">Dal oluşturulamadı.</string>
+    <string name="git_branch_error_switch">Dala geçilemedi.</string>
+    <string name="git_branch_error_delete">Dal silinemedi.</string>
 </resources>

@@ -1,3 +1,81 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="git_branch_title">Branches</string>
+    <string name="git_branch_refresh">Refresh</string>
+    <string name="git_branch_create">New branch</string>
+    <string name="git_branch_loading">Reading the branches…</string>
+    <string name="git_branch_busy_create">Creating the branch…</string>
+    <string name="git_branch_busy_switch">Switching branch…</string>
+    <string name="git_branch_busy_delete">Deleting the branch…</string>
+
+    <string name="git_branch_search">Search branches</string>
+    <string name="git_branch_search_clear">Clear the search</string>
+
+    <string name="git_branch_section_local">Local</string>
+    <string name="git_branch_section_remote">Remote</string>
+    <string name="git_branch_current">Current branch</string>
+    <string name="git_branch_switch">Switch to this branch</string>
+    <!-- Tapping a remote branch creates the local branch that tracks it, and switches to it. -->
+    <string name="git_branch_switch_remote">Check out as a local branch</string>
+    <!-- %1$s: a branch name. -->
+    <string name="git_branch_delete">Delete %1$s</string>
+    <!-- %1$s: the upstream branch, such as origin/main. -->
+    <string name="git_branch_tracking">Tracking %1$s</string>
+    <plurals name="git_branch_ahead">
+        <item quantity="one">%1$d ahead</item>
+        <item quantity="other">%1$d ahead</item>
+    </plurals>
+    <plurals name="git_branch_behind">
+        <item quantity="one">%1$d behind</item>
+        <item quantity="other">%1$d behind</item>
+    </plurals>
+    <string name="git_branch_up_to_date">Up to date</string>
+    <string name="git_branch_no_upstream">No upstream branch</string>
+
+    <string name="git_branch_empty_title">No branches</string>
+    <string name="git_branch_empty_message">The repository has no branches yet.</string>
+    <string name="git_branch_no_match_title">No matching branches</string>
+    <string name="git_branch_no_match_message">No local or remote branch name holds the search.</string>
+
+    <string name="git_branch_dirty_title">Uncommitted changes</string>
+    <!-- %1$s: the branch to switch to. -->
+    <string name="git_branch_dirty_message">The working tree has uncommitted changes. Switching to %1$s keeps them; git refuses the switch if a change is in the way.</string>
+    <string name="git_branch_dirty_confirm">Switch anyway</string>
+
+    <string name="git_branch_delete_title">Delete the branch?</string>
+    <!-- %1$s: the branch to delete. -->
+    <string name="git_branch_delete_message">The local branch %1$s will be deleted.</string>
+    <string name="git_branch_delete_confirm">Delete</string>
+    <string name="git_branch_unmerged_title">Branch not merged</string>
+    <!-- %1$s: the branch to delete. -->
+    <string name="git_branch_unmerged_message">%1$s has commits that no other branch holds. Deleting it loses them.</string>
+    <string name="git_branch_unmerged_confirm">Delete anyway</string>
+
+    <string name="git_branch_create_title">New branch</string>
+    <string name="git_branch_create_name">Branch name</string>
+    <!-- %1$s: the branch the new one starts from. -->
+    <string name="git_branch_create_from">Starts from %1$s</string>
+    <string name="git_branch_create_from_head">Starts from the current commit</string>
+    <string name="git_branch_create_switch_after">Switch to it once created</string>
+    <string name="git_branch_create_submit">Create</string>
+    <string name="git_branch_create_cancel">Cancel</string>
+    <string name="git_branch_name_blank">Enter a name.</string>
+    <string name="git_branch_name_invalid">Git does not allow this name.</string>
+    <string name="git_branch_name_taken">A local branch already has this name.</string>
+
+    <string name="git_branch_error_not_connected">Not connected to the server. Go back and connect again.</string>
+    <string name="git_branch_error_unreachable">The server could not be reached.</string>
+    <string name="git_branch_error_timed_out">Git took too long to answer.</string>
+    <string name="git_branch_error_unauthorized">The server refused the login. Go back and connect again.</string>
+    <string name="git_branch_error_output_too_large">The branch list is too large to show on the phone.</string>
+    <string name="git_branch_error_not_repository">This folder is not in a git repository.</string>
+    <string name="git_branch_error_git_missing">Git is not installed on the server.</string>
+    <string name="git_branch_error_rejected">The branch name was refused.</string>
+    <string name="git_branch_error_not_found">The branch is no longer there.</string>
+    <string name="git_branch_error_would_overwrite">The switch would overwrite uncommitted changes, so git changed nothing. Commit or stash them first.</string>
+    <string name="git_branch_error_conflict">The repository has unresolved conflicts.</string>
+    <string name="git_branch_error_read">The branches could not be listed.</string>
+    <string name="git_branch_error_create">The branch could not be created.</string>
+    <string name="git_branch_error_switch">Could not switch to the branch.</string>
+    <string name="git_branch_error_delete">The branch could not be deleted.</string>
 </resources>

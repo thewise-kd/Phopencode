@@ -1,0 +1,32 @@
+package io.github.thewisekd.phopencode.feature.git.ui.branch
+
+/** Test tags of the branch screen; its root keeps the `placeholder:<route>` tag instead. */
+internal object BranchTags {
+    const val REFRESH = "git_branch_refresh"
+    const val CREATE = "git_branch_create"
+    const val LOADING = "git_branch_loading"
+    const val BUSY = "git_branch_busy"
+    const val ERROR = "git_branch_error"
+    const val ACTION_ERROR = "git_branch_action_error"
+    const val SEARCH = "git_branch_search"
+    const val SEARCH_CLEAR = "git_branch_search_clear"
+    const val LIST = "git_branch_list"
+    const val EMPTY = "git_branch_empty"
+    const val NO_MATCH = "git_branch_no_match"
+    const val HEADER_LOCAL = "git_branch_header_local"
+    const val HEADER_REMOTE = "git_branch_header_remote"
+    const val ROW_LOCAL = "git_branch_row_local"
+    const val ROW_REMOTE = "git_branch_row_remote"
+    const val CURRENT = "git_branch_current"
+    const val UPSTREAM = "git_branch_upstream"
+    const val DELETE = "git_branch_delete"
+    const val DIALOG_DIRTY = "git_branch_dialog_dirty"
+    const val DIALOG_DELETE = "git_branch_dialog_delete"
+    const val DIALOG_UNMERGED = "git_branch_dialog_unmerged"
+    const val DIALOG_CREATE = "git_branch_dialog_create"
+    const val CREATE_NAME = "git_branch_create_name"
+    const val CREATE_FROM = "git_branch_create_from"
+    const val CREATE_SWITCH_AFTER = "git_branch_create_switch_after"
+    const val CREATE_SUBMIT = "git_branch_create_submit"
+    const val CREATE_CANCEL = "git_branch_create_cancel"
+}
