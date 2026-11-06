@@ -565,6 +565,13 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | P9.14 | Remote operations logic | P9.1, P9.3 | `feature/git/logic/…/remote/` | Fetch, pull (`--ff-only`), push; no force; credential prompts do not hang, an error is returned; long operations can be cancelled | `PI` |
 | P9.15 | Remote operations screen | P9.3 | `feature/git/ui/…/remote/`, `strings_git_remote.xml` | Confirmation before push; explanation on conflict | `CI` |
 
+**G4 (CP9 fixes, parallel)**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P9.16 | Git core gaps | P9.6, P9.8, P9.12 | `core/git/…/command/`, `feature/git/logic/…/diff/`, `feature/git/logic/…/log/`, `feature/git/logic/…/branch/`, `docs/PHASES.md` (this block) | Merge commits diff and list files against their first parent; an untracked file's diff shows its content; a remote branch tap tracks it even with branch.autoSetupMerge=false | `PI` |
+| P9.17 | Gone upstream | P9.4, P9.5, P9.15 | `feature/git/logic/…/contract/GitModels.kt` (GitBranchStatus field only), `feature/git/logic/…/status/`, `feature/git/ui/…/status/`, `feature/git/ui/…/remote/` (upstream line only), `strings_git_status.xml`, `strings_git_remote.xml` | A deleted upstream shows as gone, not as up to date or as no upstream | `CI` |
+
 `CP9`: push, CI green, `PHONE`: commit and push in a test repository.
 
 ### P10: Catalog and settings

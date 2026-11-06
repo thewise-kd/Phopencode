@@ -120,6 +120,9 @@ class GitCommandLineTest {
             GitCommands.branchList(hostileDir, format = "%(refname)"),
             GitCommands.revParseToplevel(hostileDir),
             GitCommands.remoteList(hostileDir),
+            GitCommands.show(hostileDir, "HEAD", output = ShowOutput.NameStatus, firstParent = true),
+            GitCommands.diffUntracked(hostileDir, "a.txt"),
+            GitCommands.untrackedFolderCheck(hostileDir, "a/b.txt"),
         )
         readOnly.forEach { command ->
             assertTrue(command.readOnly)
@@ -216,6 +219,49 @@ class GitCommandLineTest {
     }
 
     @Test
+    fun `show asks for the first parent's diff only when told to`() {
+        val base = listOf("show", "--no-color", "--no-ext-diff", "--no-textconv", "--encoding=UTF-8", "--format=")
+        val firstParent = "--diff-merges=first-parent"
+        assertEquals(
+            base + patch + listOf("--unified=3", firstParent, "abc123", "--", "-rf"),
+            deliver(GitCommands.show(hostileDir, "abc123", paths = listOf("-rf"), firstParent = true)).gitArgs,
+        )
+        assertEquals(
+            base + stable + listOf("--numstat", "-z", firstParent, "HEAD", "--"),
+            deliver(GitCommands.show(hostileDir, "HEAD", output = ShowOutput.NumStat, firstParent = true)).gitArgs,
+        )
+        assertEquals(
+            base + stable + listOf("--name-status", "-z", firstParent, "HEAD", "--"),
+            deliver(GitCommands.show(hostileDir, "HEAD", output = ShowOutput.NameStatus, firstParent = true)).gitArgs,
+        )
+        // The default is unchanged: no merge option at all.
+        assertFalse(GitCommands.show(hostileDir, "HEAD").argv.any { it.startsWith("--diff-merges") })
+    }
+
+    @Test
+    fun `an untracked file's diff compares the path with an empty file, without the index`() {
+        val noIndex = listOf("diff", "--no-index", "--no-color", "--no-ext-diff", "--no-textconv")
+        assertEquals(
+            noIndex + listOf("--src-prefix=a/", "--dst-prefix=b/", "--full-index", "--unified=3", "--", "/dev/null", "-rf/\$(touch pwned)\nx"),
+            deliver(GitCommands.diffUntracked(hostileDir, "-rf/\$(touch pwned)\nx")).gitArgs,
+        )
+        assertEquals(
+            noIndex + listOf("--src-prefix=a/", "--dst-prefix=b/", "--full-index", "--unified=0", "--", "/dev/null", "--all"),
+            deliver(GitCommands.diffUntracked(hostileDir, "--all", contextLines = 0)).gitArgs,
+        )
+        assertEquals(
+            noIndex + listOf("--numstat", "-z", "--", "/dev/null", "a b.txt"),
+            deliver(GitCommands.diffUntracked(hostileDir, "a b.txt", output = DiffOutput.NumStat)).gitArgs,
+        )
+        val nested = deliver(GitCommands.untrackedFolderCheck(hostileDir, "-rf/x/y.txt"))
+        assertEquals("$hostileDir/-rf/x", nested.args[nested.args.indexOf("-C") + 1])
+        assertEquals(listOf("rev-parse", "--show-toplevel", "--show-prefix"), nested.gitArgs)
+        val top = deliver(GitCommands.untrackedFolderCheck(hostileDir, "y.txt"))
+        assertEquals(hostileDir, top.args[top.args.indexOf("-C") + 1])
+        assertEquals(listOf("rev-parse", "--show-toplevel", "--show-prefix"), top.gitArgs)
+    }
+
+    @Test
     fun `branch and repository queries`() {
         val base = listOf("branch", "--list", "--no-color", "--no-column", "--format=%(refname)")
         assertEquals(base, deliver(GitCommands.branchList(hostileDir, format = "%(refname)")).gitArgs)
@@ -273,6 +319,10 @@ class GitCommandLineTest {
         GitCommands.show(dir, "HEAD", output = ShowOutput.None),
         GitCommands.show(dir, "HEAD", output = ShowOutput.NumStat),
         GitCommands.show(dir, "HEAD", output = ShowOutput.NameStatus, paths = listOf("a")),
+        GitCommands.show(dir, "HEAD", output = ShowOutput.Patch, firstParent = true),
+        GitCommands.diffUntracked(dir, "a"),
+        GitCommands.diffUntracked(dir, "a/b", output = DiffOutput.NumStat),
+        GitCommands.untrackedFolderCheck(dir, "a/b"),
         GitCommands.branchList(dir, format = "%(refname)", scope = BranchScope.All),
         GitCommands.remoteList(dir),
         GitCommands.revParseToplevel(dir),
@@ -284,6 +334,8 @@ class GitCommandLineTest {
         GitCommands.directoryPrefix(dir, "a"),
         GitCommands.commit(dir, "m"),
         GitCommands.createBranch(dir, "b", startPoint = "HEAD"),
+        GitCommands.createBranch(dir, "b", startPoint = "refs/remotes/origin/b", track = BranchTracking.Track),
+        GitCommands.createBranch(dir, "b", track = BranchTracking.NoTrack),
         GitCommands.switchBranch(dir, "b"),
         GitCommands.deleteBranch(dir, "b"),
         GitCommands.deleteBranch(dir, "b", allowUnmerged = true),
@@ -348,6 +400,18 @@ class GitCommandLineTest {
         assertEquals(
             listOf("branch", "fix", "origin/main"),
             deliver(GitCommands.createBranch(hostileDir, "fix", startPoint = "origin/main")).gitArgs,
+        )
+        assertEquals(
+            listOf("branch", "--track", "fix", "refs/remotes/origin/fix"),
+            deliver(GitCommands.createBranch(hostileDir, "fix", startPoint = "refs/remotes/origin/fix", track = BranchTracking.Track)).gitArgs,
+        )
+        assertEquals(
+            listOf("branch", "--no-track", "fix", "origin/main"),
+            deliver(GitCommands.createBranch(hostileDir, "fix", startPoint = "origin/main", track = BranchTracking.NoTrack)).gitArgs,
+        )
+        assertEquals(
+            listOf("branch", "fix", "origin/main"),
+            deliver(GitCommands.createBranch(hostileDir, "fix", startPoint = "origin/main", track = BranchTracking.Default)).gitArgs,
         )
         assertEquals(listOf("switch", "-q", "--no-overwrite-ignore", "fix"), deliver(GitCommands.switchBranch(hostileDir, "fix")).gitArgs)
         assertEquals(listOf("branch", "-d", "fix"), deliver(GitCommands.deleteBranch(hostileDir, "fix")).gitArgs)

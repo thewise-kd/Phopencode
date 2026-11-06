@@ -1,6 +1,7 @@
 package io.github.thewisekd.phopencode.feature.git.logic.branch
 
 import io.github.thewisekd.phopencode.core.git.command.BranchScope
+import io.github.thewisekd.phopencode.core.git.command.BranchTracking
 import io.github.thewisekd.phopencode.core.git.command.GitCommands
 import io.github.thewisekd.phopencode.core.git.parse.BranchParser
 import io.github.thewisekd.phopencode.core.testing.ssh.FakeRemoteExec
@@ -17,6 +18,10 @@ internal val BRANCH_LIST: String =
 internal val STATUS: String = GitCommands.status(DIR, includeUntracked = false).commandLine
 
 internal fun create(name: String, startPoint: String? = null): String = GitCommands.createBranch(DIR, name, startPoint).commandLine
+
+/** What a remote branch tap runs: `branch --track name refs/remotes/…`. */
+internal fun createTracking(name: String, remoteRef: String): String =
+    GitCommands.createBranch(DIR, name, remoteRef, track = BranchTracking.Track).commandLine
 
 internal fun switch(name: String): String = GitCommands.switchBranch(DIR, name).commandLine
 

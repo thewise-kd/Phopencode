@@ -41,13 +41,16 @@ internal object LogCommands {
     fun commit(directory: String, hash: String): GitCommand =
         GitCommands.log(directory, LOG_FORMAT, maxCount = 1, revision = peeled(hash))
 
-    /** `show --numstat -z` of [hash], without a header. */
+    /** `show --numstat -z` of [hash] against its first parent, without a header. */
     fun numStat(directory: String, hash: String): GitCommand =
-        GitCommands.show(directory, peeled(hash), output = ShowOutput.NumStat)
+        GitCommands.show(directory, peeled(hash), output = ShowOutput.NumStat, firstParent = true)
 
-    /** `show --name-status -z` of [hash], without a header. */
+    /**
+     * `show --name-status -z` of [hash] against its first parent, without a header. Without the
+     * first-parent option a merge would print only its combined diff here.
+     */
     fun nameStatus(directory: String, hash: String): GitCommand =
-        GitCommands.show(directory, peeled(hash), output = ShowOutput.NameStatus)
+        GitCommands.show(directory, peeled(hash), output = ShowOutput.NameStatus, firstParent = true)
 
     private fun peeled(hash: String): String {
         require(isFullHash(hash)) { "Invalid commit hash" }

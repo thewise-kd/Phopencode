@@ -116,6 +116,31 @@ class BranchesRealGitTest {
     }
 
     @Test
+    fun `a remote branch tap tracks it even with branch autoSetupMerge false`() = bounded {
+        val clone = cloneWithRemote()
+        sandbox.git(clone, "config", "branch.autoSetupMerge", "false")
+        val presenter = presenter(clone)
+        val events = presenter.events()
+        val state = presenter.awaitIdle()
+
+        presenter.onIntent(BranchIntent.Switch(state.remote.single { it.name == "origin/uzak-dal" }))
+
+        assertEquals(BranchEvent.Switched, events.receive())
+        val after = presenter.state.first { s -> !s.loading && s.busy == null && s.current?.name == "uzak-dal" }
+        assertEquals("origin/uzak-dal", after.current?.upstream)
+        assertEquals("refs/remotes/origin/uzak-dal", sandbox.git(clone, "rev-parse", "--symbolic-full-name", "uzak-dal@{upstream}").trim())
+
+        // A second tap on the same remote branch finds it tracked and is not refused.
+        sandbox.git(clone, "switch", "-q", "main")
+        val second = presenter(clone)
+        val secondEvents = second.events()
+        val again = second.awaitIdle()
+        second.onIntent(BranchIntent.Switch(again.remote.single { it.name == "origin/uzak-dal" }))
+        assertEquals(BranchEvent.Switched, secondEvents.receive())
+        assertEquals("uzak-dal", sandbox.git(clone, "branch", "--show-current").trim())
+    }
+
+    @Test
     fun `a tag with the remote branch's name does not stand in for it`() = bounded {
         val clone = cloneWithRemote()
         // A tag `uzak-dal` on another commit than origin/uzak-dal: git's guess on the bare name would

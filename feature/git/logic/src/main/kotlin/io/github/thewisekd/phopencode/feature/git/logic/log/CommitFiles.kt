@@ -78,7 +78,10 @@ internal object CommitFiles {
         return files
     }
 
-    /** The files of a commit with one parent or none: kinds from [nameStatus], counts from [numStat]. */
+    /**
+     * The files of a commit, against its first parent or none: kinds from [nameStatus], counts
+     * from [numStat].
+     */
     fun join(numStat: List<NumStat>, nameStatus: List<NameStatus>): List<CommitFileChange> {
         if (numStat.size != nameStatus.size) fail("file lists differ in length", 0)
         return numStat.indices.map { index ->
@@ -87,16 +90,6 @@ internal object CommitFiles {
             if (counts.path != status.path || counts.oldPath != status.oldPath) fail("file lists differ", index)
             CommitFileChange(status.path, status.kind, status.oldPath, counts.additions, counts.deletions)
         }
-    }
-
-    /**
-     * The files of a merge from [numStat] alone. For a merge `show --name-status` prints only the
-     * combined diff, so the kind is [GitChangeKind.Renamed] for a rename and
-     * [GitChangeKind.Modified] for everything else, additions and deletions included.
-     */
-    fun fromNumStat(numStat: List<NumStat>): List<CommitFileChange> = numStat.map { counts ->
-        val kind = if (counts.oldPath != null) GitChangeKind.Renamed else GitChangeKind.Modified
-        CommitFileChange(counts.path, kind, counts.oldPath, counts.additions, counts.deletions)
     }
 
     private fun checkScore(score: ByteArray, offset: Int) {

@@ -84,6 +84,31 @@ class GitInputValidationTest {
     }
 
     @Test
+    fun `an untracked diff takes only a plain relative path inside the work tree`() {
+        val bad = listOf(
+            "", "/etc/passwd", "/", "../x", "..", "a/../b", "a/..", ".", "./a", "a/./b", "a//b", "a/", "/a",
+            ".git", ".git/config", "a/.git/HEAD", ".GIT/config", "a/.Git", "a\u0000b", "\uD800",
+        )
+        bad.forEach { path ->
+            assertFailsWith<IllegalArgumentException>(path) { GitCommands.diffUntracked(dir, path) }
+            assertFailsWith<IllegalArgumentException>(path) { GitCommands.untrackedFolderCheck(dir, path) }
+        }
+        listOf("-rf", "a/b.txt", "..a", "a..", "a/...", ".gitignore", "a/.github/x", "new\nline", "a b").forEach { path ->
+            GitCommands.diffUntracked(dir, path)
+            GitCommands.untrackedFolderCheck(dir, path)
+        }
+        assertFailsWith<IllegalArgumentException> { GitCommands.diffUntracked(dir, "a", contextLines = -1) }
+        assertFailsWith<IllegalArgumentException> { GitCommands.diffUntracked("relative", "a") }
+    }
+
+    @Test
+    fun `the first parent needs diff output and tracking needs a start point`() {
+        assertFailsWith<IllegalArgumentException> { GitCommands.show(dir, "HEAD", output = ShowOutput.None, firstParent = true) }
+        assertFailsWith<IllegalArgumentException> { GitCommands.createBranch(dir, "b", track = BranchTracking.Track) }
+        GitCommands.createBranch(dir, "b", track = BranchTracking.NoTrack)
+    }
+
+    @Test
     fun `a blank commit message is rejected`() {
         listOf("", " ", "\n\t ").forEach { message ->
             assertFailsWith<IllegalArgumentException> { GitCommands.commit(dir, message) }

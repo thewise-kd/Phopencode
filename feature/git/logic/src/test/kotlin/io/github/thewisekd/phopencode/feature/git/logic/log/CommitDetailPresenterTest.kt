@@ -76,7 +76,8 @@ class CommitDetailPresenterTest {
     @Test
     fun `a merge lists its files against the first parent`() = runTest {
         exec.onOutput(header, record(commit, parents = listOf(hash(6), hash(5)), subject = "Merge"))
-        exec.onOutput(numStat, "1\t0\tb\u0000-\t-\tbin\u0000")
+        exec.onOutput(numStat, "1\t0\tb\u0000-\t-\tbin\u00000\t3\tgone\u0000")
+        exec.onOutput(nameStatus, "M\u0000b\u0000A\u0000bin\u0000D\u0000gone\u0000")
         val presenter = presenter()
 
         runCurrent()
@@ -84,10 +85,19 @@ class CommitDetailPresenterTest {
         val detail = assertNotNull(presenter.state.value.detail)
         assertTrue(detail.summary.isMerge)
         assertEquals(
-            listOf(CommitFileChange("b", GitChangeKind.Modified, additions = 1, deletions = 0), CommitFileChange("bin", GitChangeKind.Modified)),
+            listOf(
+                CommitFileChange("b", GitChangeKind.Modified, additions = 1, deletions = 0),
+                CommitFileChange("bin", GitChangeKind.Added),
+                CommitFileChange("gone", GitChangeKind.Deleted, additions = 0, deletions = 3),
+            ),
             detail.files,
         )
-        assertFalse(nameStatus in exec.commands())
+    }
+
+    @Test
+    fun `both file lists ask git for the first parent's diff`() {
+        assertTrue("--diff-merges=first-parent" in numStat)
+        assertTrue("--diff-merges=first-parent" in nameStatus)
     }
 
     @Test

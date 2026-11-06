@@ -25,6 +25,18 @@ enum class ShowOutput {
     NameStatus,
 }
 
+/** How [GitCommands.createBranch] sets the new branch's upstream. */
+enum class BranchTracking {
+    /** No option: git's `branch.autoSetupMerge` decides (by default, a remote-tracking start point is tracked). */
+    Default,
+
+    /** `--track`: the start point becomes the upstream, whatever `branch.autoSetupMerge` says. */
+    Track,
+
+    /** `--no-track`: no upstream, whatever `branch.autoSetupMerge` says. */
+    NoTrack,
+}
+
 /** Which branches `branchList` lists. */
 enum class BranchScope { Local, Remote, All }
 
@@ -44,6 +56,8 @@ enum class BranchScope { Local, Remote, All }
  * - Remote names must name a configured remote; take them from [remoteList]. See
  *   [GitNames.isValidRemoteName] for what is rejected; [fetch] makes git itself refuse an
  *   unconfigured name.
+ * - A file git does not track is read only through [GitRunner.diffUntracked], which first checks
+ *   that it is an untracked file reached through real folders of the work tree.
  * - Untracked and ignored files are never deleted or overwritten: there is no `clean` builder,
  *   every command is git, `switch` and `merge` pass `--no-overwrite-ignore`, and discarding changes
  *   goes through the check in [GitRunner.discardWorktree].
@@ -141,7 +155,14 @@ object GitCommands {
      * git). Patch output always has `a/` and `b/` prefixes, root-relative paths, renames, full
      * hashes and short submodule lines, whatever the user's diff settings; text is UTF-8.
      *
+     * For a merge commit, git prints a combined diff (`--cc`) by default, and `--name-status` lists
+     * only the files that differ from every parent. With [firstParent], the diff is a plain one
+     * against the first parent (`--diff-merges=first-parent`, git 2.31 or later), so added, deleted
+     * and type-changed files show as such; it changes nothing for other commits.
+     *
      * @param format The header; empty prints none.
+     * @param firstParent Diff a merge against its first parent; needs an [output] other than
+     *   [ShowOutput.None].
      */
     fun show(
         directory: String,
@@ -150,9 +171,11 @@ object GitCommands {
         output: ShowOutput = ShowOutput.Patch,
         paths: List<String> = emptyList(),
         contextLines: Int = DEFAULT_CONTEXT_LINES,
+        firstParent: Boolean = false,
         timeout: Duration? = LOCAL_TIMEOUT,
     ): GitCommand {
         require(contextLines >= 0) { "Context lines must not be negative" }
+        require(!firstParent || output != ShowOutput.None) { "First parent needs diff output" }
         val options = buildList {
             addAll(DIFF_OPTIONS)
             add("--encoding=UTF-8")
@@ -163,6 +186,7 @@ object GitCommands {
                 ShowOutput.NumStat -> addAll(diffOutput(DiffOutput.NumStat, contextLines))
                 ShowOutput.NameStatus -> addAll(diffOutput(DiffOutput.NameStatus, contextLines))
             }
+            if (firstParent) add("--diff-merges=first-parent")
             add(checkedRevision(revision))
         }
         return command(directory, "show", readOnly = true, timeout = timeout, options = options, paths = paths)
@@ -249,6 +273,69 @@ object GitCommands {
     }
 
     /**
+     * `diff --no-index … -- /dev/null path`: [path] compared with an empty file, so a file git does
+     * not track shows as new, every line added ([DiffOutput.Patch], with the same `a/` and `b/`
+     * prefixes and full hashes as [diff]) or with its counts ([DiffOutput.NumStat], a rename-style
+     * record `added\tdeleted\t\0/dev/null\0path\0`). Binary content is `Binary files … differ`, and
+     * a symlink shows the path it points to, never the target's content.
+     *
+     * Git exits 1 when the two differ, which is the normal case, and also 1 on an error such as a
+     * missing file. Run it only through [GitRunner.diffUntracked], which checks the path first:
+     * `--no-index` reads any file the account can, and follows a symlinked folder out of the work
+     * tree. It is public, read-only, so that callers' tests can recognise the command line.
+     *
+     * @param directory The work tree root; [path] is relative to it.
+     * @param path Relative and inside [directory]; see [isWorkTreePath].
+     */
+    fun diffUntracked(
+        directory: String,
+        path: String,
+        output: DiffOutput = DiffOutput.Patch,
+        contextLines: Int = DEFAULT_CONTEXT_LINES,
+        timeout: Duration? = LOCAL_TIMEOUT,
+    ): GitCommand {
+        require(contextLines >= 0) { "Context lines must not be negative" }
+        require(isWorkTreePath(path)) { "Invalid path" }
+        val options = buildList {
+            add("--no-index")
+            addAll(DIFF_OPTIONS)
+            when (output) {
+                DiffOutput.Patch -> addAll(STABLE_PATCH_NO_INDEX + "--unified=$contextLines")
+                DiffOutput.NumStat -> addAll(listOf("--numstat", "-z"))
+                DiffOutput.NameStatus -> addAll(listOf("--name-status", "-z"))
+            }
+        }
+        return command(directory, "diff", readOnly = true, timeout = timeout, options = options, paths = listOf("/dev/null", path))
+    }
+
+    /**
+     * `git -C <directory>/<folder of path> rev-parse --show-toplevel --show-prefix`: git resolves
+     * the folder to its real place, so it prints [directory] and `folder/` exactly when the folder
+     * is a real folder of this work tree, and something else (or fails) when a symlink on the way
+     * leads elsewhere or a nested repository stands there. For a path at the root it runs in
+     * [directory] and prints the root and an empty line. Part of [GitRunner.diffUntracked].
+     */
+    fun untrackedFolderCheck(directory: String, path: String, timeout: Duration? = LOCAL_TIMEOUT): GitCommand {
+        require(isWorkTreePath(path)) { "Invalid path" }
+        val folder = path.substringBeforeLast('/', "")
+        val where = if (folder.isEmpty()) directory else directory.trimEnd('/') + "/" + folder
+        return command(
+            where, "rev-parse", readOnly = true, timeout = timeout,
+            options = listOf("--show-toplevel", "--show-prefix"), separator = false,
+        )
+    }
+
+    /**
+     * True for a path git could list in its work tree: valid ([GitNames.isValidPath]), relative, and
+     * made of components that are not empty, `.`, `..` or `.git` (in any case), so it cannot name
+     * anything outside the folder it is relative to, nor the repository's own data.
+     */
+    fun isWorkTreePath(path: String): Boolean =
+        GitNames.isValidPath(path) &&
+            !path.startsWith('/') &&
+            path.split('/').none { it.isEmpty() || it == "." || it == ".." || it.equals(".git", ignoreCase = true) }
+
+    /**
      * `commit -q --file=-` with [message] as UTF-8 on stdin. Hooks run; a hook that refuses makes
      * a non-zero exit with its message on stderr.
      */
@@ -262,14 +349,30 @@ object GitCommands {
         )
     }
 
-    /** `branch name [startPoint]`: creates a branch without switching to it. */
+    /**
+     * `branch [--track|--no-track] name [startPoint]`: creates a branch without switching to it.
+     *
+     * @param track [BranchTracking.Track] makes [startPoint], which must be given and be a
+     *   remote-tracking (or local) branch, the upstream even when `branch.autoSetupMerge` is false;
+     *   git refuses a start point that is not a branch. The default leaves it to git's settings.
+     */
     fun createBranch(
         directory: String,
         name: String,
         startPoint: String? = null,
+        track: BranchTracking = BranchTracking.Default,
         timeout: Duration? = LOCAL_TIMEOUT,
     ): GitCommand {
-        val options = listOfNotNull(checkedBranch(name), startPoint?.let(::checkedRevision))
+        require(track != BranchTracking.Track || startPoint != null) { "Tracking needs a start point" }
+        val options = buildList {
+            when (track) {
+                BranchTracking.Default -> Unit
+                BranchTracking.Track -> add("--track")
+                BranchTracking.NoTrack -> add("--no-track")
+            }
+            add(checkedBranch(name))
+            startPoint?.let { add(checkedRevision(it)) }
+        }
         return command(directory, "branch", timeout = timeout, options = options, separator = false)
     }
 
@@ -381,6 +484,9 @@ object GitCommands {
      */
     private val STABLE_DIFF = listOf("--no-relative", "--find-renames")
     private val STABLE_PATCH = listOf("--src-prefix=a/", "--dst-prefix=b/", "--full-index", "--submodule=short")
+
+    /** Without the index there are no renames, submodules or relative paths to pin. */
+    private val STABLE_PATCH_NO_INDEX = listOf("--src-prefix=a/", "--dst-prefix=b/", "--full-index")
 
     private fun diffOutput(output: DiffOutput, contextLines: Int): List<String> = when (output) {
         DiffOutput.Patch -> STABLE_DIFF + STABLE_PATCH + "--unified=$contextLines"

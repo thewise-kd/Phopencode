@@ -1,6 +1,7 @@
 package io.github.thewisekd.phopencode.feature.git.logic.branch
 
 import io.github.thewisekd.phopencode.core.git.command.BranchScope
+import io.github.thewisekd.phopencode.core.git.command.BranchTracking
 import io.github.thewisekd.phopencode.core.git.command.GitCommand
 import io.github.thewisekd.phopencode.core.git.command.GitCommands
 import io.github.thewisekd.phopencode.core.git.command.GitNames
@@ -46,10 +47,10 @@ import io.github.thewisekd.phopencode.core.git.command.GitException as GitComman
  * - Switching runs `switch -q --no-overwrite-ignore`, never with an option that discards changes:
  *   with a dirty tree it asks first, and a change in the way makes git refuse
  *   ([GitFailure.WouldOverwrite]). A remote branch `<remote>/<name>` switches to the local `<name>`:
- *   when that is free, `branch <name> refs/remotes/<remote>/<name>` creates it first, tracking the
- *   remote branch (git's default for a remote-tracking start point), so a tag or another remote's
- *   branch of the same name cannot stand in. A local `<name>` with another upstream makes the tap
- *   [GitFailure.Rejected]. The local name is what follows the first `/`, so a remote whose name
+ *   when that is free, `branch --track <name> refs/remotes/<remote>/<name>` creates it first,
+ *   tracking the remote branch even when `branch.autoSetupMerge` is false, so a tag or another
+ *   remote's branch of the same name cannot stand in. A local `<name>` with another upstream makes
+ *   the tap [GitFailure.Rejected]. The local name is what follows the first `/`, so a remote whose name
  *   holds `/` gives a longer local name. If the switch then fails, the new branch stays.
  * - Deleting asks first ([BranchDialog.ConfirmDelete]) and runs `branch -d`; when git says the
  *   branch is not merged it asks again ([BranchDialog.ConfirmDeleteUnmerged]) and only then runs
@@ -181,8 +182,8 @@ class DefaultBranchesPresenter(
         data object Reject : SwitchPlan
 
         /**
-         * `switch` to the local branch [name]; with [createFrom], first `branch name createFrom` from
-         * that full remote ref, which sets the new branch to track it.
+         * `switch` to the local branch [name]; with [createFrom], first `branch --track name
+         * createFrom` from that full remote ref, which sets the new branch to track it.
          */
         data class To(val name: String, val createFrom: String? = null) : SwitchPlan
     }
@@ -239,7 +240,11 @@ class DefaultBranchesPresenter(
      * operation. A branch created before a switch that failed stays. Hold [gitLock].
      */
     private suspend fun switchTo(name: String, createFrom: String? = null) {
-        val createFailure = if (createFrom == null) null else command { GitCommands.createBranch(directory, name, createFrom) }
+        val createFailure = if (createFrom == null) {
+            null
+        } else {
+            command { GitCommands.createBranch(directory, name, createFrom, track = BranchTracking.Track) }
+        }
         val failure = createFailure ?: command { GitCommands.switchBranch(directory, name) }
         reload()
         finish(BranchOp.Switch, failure)

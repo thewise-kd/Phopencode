@@ -465,7 +465,7 @@ class BranchesPresenterTest {
 
     @Test
     fun `switching to a remote branch creates the local branch that tracks it`() = runTest(timeout = 10.seconds) {
-        exec.succeeds(create("yeni", "refs/remotes/origin/yeni"))
+        exec.succeeds(createTracking("yeni", "refs/remotes/origin/yeni"))
         exec.succeeds(switch("yeni"))
         val presenter = loaded()
         val events = eventsOf(presenter)
@@ -473,13 +473,13 @@ class BranchesPresenterTest {
         presenter.onIntent(BranchIntent.Switch(presenter.remote("origin/yeni")))
         runCurrent()
 
-        assertEquals(listOf(create("yeni", "refs/remotes/origin/yeni"), switch("yeni")), actions())
+        assertEquals(listOf(createTracking("yeni", "refs/remotes/origin/yeni"), switch("yeni")), actions())
         assertEquals(listOf<BranchEvent>(BranchEvent.Switched), events)
     }
 
     @Test
     fun `a switch that fails after the tracking branch was created keeps the branch`() = runTest(timeout = 10.seconds) {
-        exec.on(create("yeni", "refs/remotes/origin/yeni")) {
+        exec.on(createTracking("yeni", "refs/remotes/origin/yeni")) {
             branches += branchLine("refs/heads/yeni", hash(5), upstream = "refs/remotes/origin/yeni")
             exit(0)
         }
@@ -490,7 +490,7 @@ class BranchesPresenterTest {
         presenter.onIntent(BranchIntent.Switch(presenter.remote("origin/yeni")))
         runCurrent()
 
-        assertEquals(listOf(create("yeni", "refs/remotes/origin/yeni"), switch("yeni")), actions())
+        assertEquals(listOf(createTracking("yeni", "refs/remotes/origin/yeni"), switch("yeni")), actions())
         assertTrue(events.isEmpty())
         val state = presenter.state.value
         assertEquals(BranchActionError(BranchOp.Switch, GitFailure.WouldOverwrite), state.actionError)
@@ -500,20 +500,20 @@ class BranchesPresenterTest {
 
     @Test
     fun `a failed create of the tracking branch does not switch`() = runTest(timeout = 10.seconds) {
-        exec.fails(create("yeni", "refs/remotes/origin/yeni"), "fatal: something else\n", exit = 128)
+        exec.fails(createTracking("yeni", "refs/remotes/origin/yeni"), "fatal: something else\n", exit = 128)
         val presenter = loaded()
 
         presenter.onIntent(BranchIntent.Switch(presenter.remote("origin/yeni")))
         runCurrent()
 
-        assertEquals(listOf(create("yeni", "refs/remotes/origin/yeni")), actions())
+        assertEquals(listOf(createTracking("yeni", "refs/remotes/origin/yeni")), actions())
         assertEquals(BranchActionError(BranchOp.Switch, GitFailure.GitError(128)), presenter.state.value.actionError)
     }
 
     @Test
     fun `a dirty tree warns before a remote tap too`() = runTest(timeout = 10.seconds) {
         status = statusOutput(changes = listOf("dosya.txt"))
-        exec.succeeds(create("yeni", "refs/remotes/origin/yeni"))
+        exec.succeeds(createTracking("yeni", "refs/remotes/origin/yeni"))
         exec.succeeds(switch("yeni"))
         val presenter = loaded()
         val branch = presenter.remote("origin/yeni")
@@ -525,7 +525,7 @@ class BranchesPresenterTest {
 
         presenter.onIntent(BranchIntent.Confirm)
         runCurrent()
-        assertEquals(listOf(create("yeni", "refs/remotes/origin/yeni"), switch("yeni")), actions())
+        assertEquals(listOf(createTracking("yeni", "refs/remotes/origin/yeni"), switch("yeni")), actions())
     }
 
     @Test
@@ -569,14 +569,14 @@ class BranchesPresenterTest {
     @Test
     fun `a remote branch that another remote has too is created from the one tapped`() = runTest(timeout = 10.seconds) {
         branches += branchLine("refs/remotes/upstream/yeni", hash(7))
-        exec.succeeds(create("yeni", "refs/remotes/upstream/yeni"))
+        exec.succeeds(createTracking("yeni", "refs/remotes/upstream/yeni"))
         exec.succeeds(switch("yeni"))
         val presenter = loaded()
 
         presenter.onIntent(BranchIntent.Switch(presenter.remote("upstream/yeni")))
         runCurrent()
 
-        assertEquals(listOf(create("yeni", "refs/remotes/upstream/yeni"), switch("yeni")), actions())
+        assertEquals(listOf(createTracking("yeni", "refs/remotes/upstream/yeni"), switch("yeni")), actions())
         assertNull(presenter.state.value.actionError)
     }
 

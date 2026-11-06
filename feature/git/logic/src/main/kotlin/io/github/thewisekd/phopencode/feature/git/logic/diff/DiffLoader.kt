@@ -7,6 +7,7 @@ import io.github.thewisekd.phopencode.core.git.command.GitNames
 import io.github.thewisekd.phopencode.core.git.command.GitResult
 import io.github.thewisekd.phopencode.core.git.command.GitRunner
 import io.github.thewisekd.phopencode.core.git.command.ShowOutput
+import io.github.thewisekd.phopencode.core.git.command.UntrackedDiff
 import io.github.thewisekd.phopencode.core.git.parse.DiffParser
 import io.github.thewisekd.phopencode.core.git.parse.GitParseException
 import io.github.thewisekd.phopencode.core.git.parse.StatusParser
@@ -33,8 +34,8 @@ import io.github.thewisekd.phopencode.core.git.command.GitException as CommandEx
  * The steps, each one git command:
  * 1. `rev-parse --show-toplevel`: the work tree root, since `diff` and `show` take and print paths
  *    relative to it while [directory] may be a subfolder.
- * 2. For [DiffTarget.InCommit] only, `show -s --format=%P <commit>^{commit}`: the parents, which
- *    also proves the hash names a commit (a blob or tree is [GitFailure.NotFound]).
+ * 2. For [DiffTarget.InCommit] only, `show -s --format=%P <commit>^{commit}`, which proves the
+ *    hash names a commit (a blob or tree is [GitFailure.NotFound]).
  * 3. `--name-status -z` of the whole diff, to learn whether the path is the new name of a rename
  *    and, if so, its old name. Without it, a diff limited to the new path shows the file as added.
  *    When this list is too long or too slow, the load goes on without the pairing.
@@ -42,13 +43,18 @@ import io.github.thewisekd.phopencode.core.git.command.GitException as CommandEx
  *    git's process is ended and the content is [DiffContent.TooLarge], whose line counts come from
  *    `--numstat -z` of the same paths (0 when that fails too).
  * 5. For [DiffTarget.Working] with an empty patch only, `status` of the path: an untracked file has
- *    no diff against the index and is shown as [GitChangeKind.Untracked] without lines.
+ *    no diff against the index, so [GitRunner.diffUntracked] compares it with an empty file (after
+ *    checking that it is an untracked file reached through real folders of the work tree) and it
+ *    shows as [GitChangeKind.Untracked] with every line added, as binary, or as too large with
+ *    counts from the same comparison's `--numstat -z`.
  *
  * Decisions:
  * - A root commit has no parent; `show` diffs it against the empty tree, so every file is added.
- * - A merge commit is refused with [GitFailure.Unknown] before its diff runs: `show` prints a
- *   combined diff (`--cc`) for merges, which the parser does not read, and no command of `core/git`
- *   asks for the first parent's diff instead.
+ * - A merge commit shows against its first parent: every `show` asks for
+ *   `--diff-merges=first-parent` (git 2.31 or later), so it prints a plain diff rather than the
+ *   combined one (`--cc`) the parser does not read, and a file the merge brought in is added.
+ * - An untracked file that the checks refuse (it went away, or a symlink now stands on its way)
+ *   shows as [GitChangeKind.Untracked] without lines, as before content could be read.
  * - An unmerged path is [GitFailure.Conflict], decided before the patch is read (`U` in the name
  *   list, or `status` when the list was skipped and the patch is too large), so a conflict never
  *   shows as too large; git also prints a combined diff for it in the work tree and
@@ -103,23 +109,61 @@ internal class DiffLoader(
         }
         val diff = parse(patch)
         if (diff != null) return diff
-        if (!staged && statusOf(runner, root) is UntrackedEntry) {
-            return GitFileDiff(path, kind = GitChangeKind.Untracked, content = DiffContent.Unchanged, additions = 0, deletions = 0)
-        }
+        if (!staged && statusOf(runner, root) is UntrackedEntry) return untracked(runner, root)
         return unchanged()
     }
+
+    /** The untracked file compared with an empty file: all lines added, binary or too large. */
+    private suspend fun untracked(runner: GitRunner, root: String): GitFileDiff {
+        val patch = try {
+            guarded { runner.diffUntracked(root, path, maxOutputBytes = maxBytes) }
+        } catch (e: GitException) {
+            if (e.failure != GitFailure.OutputTooLarge) throw e
+            return tooLargeUntracked(runner, root)
+        }
+        val output = when (patch) {
+            is UntrackedDiff.Diff -> patch.output
+            UntrackedDiff.Refused -> return untrackedWithoutContent()
+            is UntrackedDiff.Failed -> throw GitException(DiffMapping.failureOf(patch.result))
+        }
+        val files = try {
+            DiffParser.parse(output)
+        } catch (_: GitParseException) {
+            throw GitException(GitFailure.Unknown)
+        }
+        val diff = DiffMapping.fileDiff(path, files) ?: return untrackedWithoutContent()
+        return diff.copy(kind = GitChangeKind.Untracked, oldPath = null)
+    }
+
+    private suspend fun tooLargeUntracked(runner: GitRunner, root: String): GitFileDiff {
+        val counts = try {
+            (guarded { runner.diffUntracked(root, path, output = DiffOutput.NumStat) } as? UntrackedDiff.Diff)
+                ?.let { DiffMapping.numStat(path, it.output) }
+        } catch (_: GitException) {
+            null
+        }
+        return GitFileDiff(
+            path = path,
+            kind = GitChangeKind.Untracked,
+            content = DiffContent.TooLarge(maxBytes),
+            additions = counts?.first ?: 0,
+            deletions = counts?.second ?: 0,
+        )
+    }
+
+    private fun untrackedWithoutContent() =
+        GitFileDiff(path, kind = GitChangeKind.Untracked, content = DiffContent.Unchanged, additions = 0, deletions = 0)
 
     private suspend fun commit(runner: GitRunner, root: String, commit: String): GitFileDiff {
         val revision = revision(commit)
         val parents = run(runner, build { GitCommands.show(root, revision, format = "%P", output = ShowOutput.None) }, SMALL_OUTPUT_BYTES)
         if (!parents.succeeded) throw GitException(DiffMapping.failureOf(parents))
-        if (String(parents.stdout, Charsets.UTF_8).split(' ', '\n').count { it.isNotBlank() } > 1) {
-            throw GitException(GitFailure.Unknown)
-        }
-        val summary = summary(runner, build { GitCommands.show(root, revision, output = ShowOutput.NameStatus) })
+        val summary = summary(runner, build { GitCommands.show(root, revision, output = ShowOutput.NameStatus, firstParent = true) })
         val paths = pathsOf(summary)
-        val patch = runOrTooLarge(runner, build { GitCommands.show(root, revision, paths = paths) })
-            ?: return tooLarge(summary) { runner.tryRun(build { GitCommands.show(root, revision, output = ShowOutput.NumStat, paths = paths) }) }
+        val patch = runOrTooLarge(runner, build { GitCommands.show(root, revision, paths = paths, firstParent = true) })
+            ?: return tooLarge(summary) {
+                runner.tryRun(build { GitCommands.show(root, revision, output = ShowOutput.NumStat, paths = paths, firstParent = true) })
+            }
         return parse(patch) ?: unchanged()
     }
 
@@ -198,8 +242,14 @@ internal class DiffLoader(
     }
 
     private suspend fun run(runner: GitRunner, command: GitCommand, maxOutputBytes: Long = RemoteExec.DEFAULT_MAX_OUTPUT_BYTES): GitResult =
+        guarded { runner.run(command, maxOutputBytes) }
+
+    /** Runs [block], turning `core/git` failures into [GitException]s; a refused input is [GitFailure.Rejected]. */
+    private suspend fun <T> guarded(block: suspend () -> T): T =
         try {
-            runner.run(command, maxOutputBytes)
+            block()
+        } catch (_: IllegalArgumentException) {
+            reject()
         } catch (e: CommandException.OutputTooLarge) {
             throw GitException(GitFailure.OutputTooLarge)
         } catch (e: CommandException.TimedOut) {

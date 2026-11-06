@@ -84,6 +84,96 @@ class GitRunner(private val exec: RemoteExec) {
         val discard = run(GitCommands.discardWorktree(directory, paths.distinct(), timeout))
         return if (discard.succeeded) WorktreeDiscard.Discarded else WorktreeDiscard.Failed(discard)
     }
+
+    /**
+     * The diff of a file git does not track against nothing, so every line shows as added
+     * ([GitCommands.diffUntracked]). Read-only. Three steps:
+     * 1. `status -- path` (literal, untracked files listed) must report exactly `? path`. So the path
+     *    is an untracked file or symlink: not tracked, ignored, missing or a folder, and not beyond a
+     *    symlink, where git lists nothing; a named pipe is never listed either.
+     * 2. [GitCommands.untrackedFolderCheck] must print [directory] and the path's folder: every
+     *    folder on the way is a real folder of this work tree, so no symlink leads out of it and no
+     *    nested repository stands there, and [directory] is the root.
+     * 3. `diff --no-index -- /dev/null path`, whose exit 1 with output is the normal result.
+     *
+     * Known limit: a folder replaced by a symlink between the checks and the diff would be followed.
+     *
+     * @param directory The work tree root as `rev-parse --show-toplevel` prints it; any other spelling
+     *   of it is refused.
+     * @param path As `status` prints it, relative to [directory] ([GitCommands.isWorkTreePath]).
+     * @param maxOutputBytes Limit for the diff's output; the checks print little.
+     * @throws IllegalArgumentException for a path that is absolute, holds `..` and so on.
+     * @throws GitException as [run]; [GitException.OutputTooLarge] when the diff passed
+     *   [maxOutputBytes].
+     */
+    suspend fun diffUntracked(
+        directory: String,
+        path: String,
+        output: DiffOutput = DiffOutput.Patch,
+        contextLines: Int = 3,
+        maxOutputBytes: Long = RemoteExec.DEFAULT_MAX_OUTPUT_BYTES,
+        timeout: Duration? = ExecRequest.DEFAULT_TIMEOUT,
+    ): UntrackedDiff {
+        val diffCommand = GitCommands.diffUntracked(directory, path, output, contextLines, timeout)
+        val folderCheck = GitCommands.untrackedFolderCheck(directory, path, timeout)
+        val status = run(GitCommands.status(directory, includeUntracked = true, paths = listOf(path), timeout = timeout), CHECK_OUTPUT_BYTES)
+        if (!status.succeeded) return UntrackedDiff.Failed(status)
+        val untracked = "? $path".toByteArray(Charsets.UTF_8)
+        if (records(status.stdout).none { it.contentEquals(untracked) }) return UntrackedDiff.Refused
+        val folder = path.substringBeforeLast('/', "")
+        val expected = (directory + "\n" + (if (folder.isEmpty()) "" else "$folder/") + "\n").toByteArray(Charsets.UTF_8)
+        val place = run(folderCheck, CHECK_OUTPUT_BYTES)
+        if (!place.succeeded || !place.stdout.contentEquals(expected)) return UntrackedDiff.Refused
+        val diff = run(diffCommand, maxOutputBytes)
+        val differs = diff.exitCode == EXIT_DIFFERS && diff.stdout.isNotEmpty()
+        return if (diff.succeeded || differs) UntrackedDiff.Diff(diff.stdout) else UntrackedDiff.Failed(diff)
+    }
+
+    private fun records(stdout: ByteArray): List<ByteArray> {
+        val records = mutableListOf<ByteArray>()
+        var start = 0
+        for (index in stdout.indices) {
+            if (stdout[index] == NUL) {
+                records += stdout.copyOfRange(start, index)
+                start = index + 1
+            }
+        }
+        if (start < stdout.size) records += stdout.copyOfRange(start, stdout.size)
+        return records
+    }
+
+    private companion object {
+        const val NUL: Byte = 0
+
+        /** `diff --no-index` exits 1 when the files differ. */
+        const val EXIT_DIFFERS = 1
+
+        /** The checks print one status record or two short lines. */
+        const val CHECK_OUTPUT_BYTES: Long = 64L * 1024
+    }
+}
+
+/** What [GitRunner.diffUntracked] read. */
+sealed interface UntrackedDiff {
+    /**
+     * The output of `diff --no-index`, read up to the caller's limit. It holds file content, so it
+     * does not print.
+     */
+    class Diff(val output: ByteArray) : UntrackedDiff {
+        override fun toString(): String = "Diff(${output.size} bytes)"
+    }
+
+    /**
+     * `status` does not list the path as an untracked file (it is tracked, ignored, missing, a
+     * folder or beyond a symlink), or a folder on its way is not a real folder of this work tree.
+     * Nothing was read.
+     */
+    data object Refused : UntrackedDiff
+
+    /** A step exited non-zero (or the diff printed nothing), for example outside a repository. */
+    class Failed(val result: GitResult) : UntrackedDiff {
+        override fun toString(): String = "Failed($result)"
+    }
 }
 
 /** What [GitRunner.discardWorktree] did. */

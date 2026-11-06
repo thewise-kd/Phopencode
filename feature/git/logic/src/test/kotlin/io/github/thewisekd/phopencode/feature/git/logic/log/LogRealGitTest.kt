@@ -249,7 +249,7 @@ class LogRealGitTest {
         assertTrue(detail.summary.isMerge)
         assertEquals(listOf(mainTip, sideTip), detail.summary.parents)
         assertEquals(
-            listOf(CommitFileChange("b.txt", GitChangeKind.Modified, additions = 2, deletions = 0), CommitFileChange("resim.bin", GitChangeKind.Modified)),
+            listOf(CommitFileChange("b.txt", GitChangeKind.Added, additions = 2, deletions = 0), CommitFileChange("resim.bin", GitChangeKind.Added)),
             detail.files,
         )
         assertTrue(detail.files[1].isBinary)

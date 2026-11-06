@@ -115,7 +115,7 @@ class DiffRealGitTest {
     }
 
     @Test
-    fun `a merge commit, a missing commit and a blob are refused`() = runTest(timeout = 120.seconds) {
+    fun `a merge commit shows against its first parent, a missing commit and a blob are refused`() = runTest(timeout = 120.seconds) {
         val repo = sandbox.newRepo()
         sandbox.write(repo, "f.txt", "a\n")
         sandbox.commitAll(repo)
@@ -129,7 +129,11 @@ class DiffRealGitTest {
         val merge = sandbox.git(repo, "rev-parse", "HEAD").trim()
         val blob = sandbox.git(repo, "rev-parse", "HEAD:f.txt").trim()
 
-        assertEquals(GitFailure.Unknown, load(repo, DiffTarget.InCommit(merge, "g.txt")).error)
+        val merged = diff(repo, DiffTarget.InCommit(merge, "g.txt"))
+        assertEquals(GitChangeKind.Added, merged.kind)
+        assertEquals(listOf(DiffLine(DiffLineKind.Added, "side", null, 1)), merged.lines())
+        // f.txt changed only on the first parent's side, so the merge did not change it.
+        assertEquals(DiffContent.Unchanged, diff(repo, DiffTarget.InCommit(merge, "f.txt")).content)
         assertEquals(GitFailure.NotFound, load(repo, DiffTarget.InCommit("0123456789abcdef0123456789abcdef01234567", "f.txt")).error)
         assertEquals(GitFailure.NotFound, load(repo, DiffTarget.InCommit(blob, "f.txt")).error)
     }
@@ -243,7 +247,10 @@ class DiffRealGitTest {
         sandbox.commitAll(repo)
         sandbox.write(repo, "new.txt", "hello\n")
 
-        assertEquals(GitChangeKind.Untracked, diff(repo, DiffTarget.Working("new.txt")).kind)
+        val untracked = diff(repo, DiffTarget.Working("new.txt"))
+        assertEquals(GitChangeKind.Untracked, untracked.kind)
+        assertEquals(listOf(DiffLine(DiffLineKind.Added, "hello", null, 1)), untracked.lines())
+        assertEquals(1 to 0, untracked.additions to untracked.deletions)
         assertEquals(DiffContent.Unchanged, diff(repo, DiffTarget.Working("kept.txt")).content)
         assertEquals(DiffContent.Unchanged, diff(repo, DiffTarget.Staged("missing.txt")).content)
     }

@@ -103,9 +103,26 @@ class DiffPresenterTest {
         output(GitCommands.show(ROOT, REVISION, format = "%P", output = ShowOutput.None).commandLine, stdout)
 
     private fun commitNameStatus(stdout: String) =
-        output(GitCommands.show(ROOT, REVISION, output = ShowOutput.NameStatus).commandLine, stdout)
+        output(GitCommands.show(ROOT, REVISION, output = ShowOutput.NameStatus, firstParent = true).commandLine, stdout)
 
-    private fun commitPatchCommand(paths: List<String> = listOf(PATH)) = GitCommands.show(ROOT, REVISION, paths = paths).commandLine
+    private fun commitPatchCommand(paths: List<String> = listOf(PATH)) =
+        GitCommands.show(ROOT, REVISION, paths = paths, firstParent = true).commandLine
+
+    private fun commitNumStatCommand(paths: List<String> = listOf(PATH)) =
+        GitCommands.show(ROOT, REVISION, output = ShowOutput.NumStat, paths = paths, firstParent = true).commandLine
+
+    private val statusCommand = GitCommands.status(ROOT, includeUntracked = true, paths = listOf(PATH)).commandLine
+
+    private val untrackedCommand = GitCommands.diffUntracked(ROOT, PATH).commandLine
+
+    /** An empty working diff, then `status` listing the path as untracked and its folder as real. */
+    private fun untrackedFile(folder: String = "$ROOT\nsrc/\n") {
+        toplevel()
+        nameStatus(staged = false, "")
+        output(patchCommand(staged = false), "")
+        output(statusCommand, "# branch.oid (initial)\u0000# branch.head main\u0000? $PATH\u0000")
+        output(GitCommands.untrackedFolderCheck(ROOT, PATH).commandLine, folder)
+    }
 
     private val commands: List<String> get() = exec.executions.map { it.command }
 
@@ -325,18 +342,73 @@ class DiffPresenterTest {
     }
 
     @Test
-    fun `an untracked file shows as untracked when git diff has nothing`() = runTest {
-        toplevel()
-        nameStatus(staged = false, "")
-        output(patchCommand(staged = false), "")
+    fun `an untracked file shows every line as added`() = runTest {
+        untrackedFile()
         output(
-            GitCommands.status(ROOT, includeUntracked = true, paths = listOf(PATH)).commandLine,
-            "# branch.oid (initial)\u0000# branch.head main\u0000? $PATH\u0000",
+            untrackedCommand,
+            "diff --git a/$PATH b/$PATH\nnew file mode 100644\nindex 0000000000000000000000000000000000000000..1111111111111111111111111111111111111111\n" +
+                "--- /dev/null\n+++ b/$PATH\n@@ -0,0 +1,2 @@\n+a\n+b\n",
+            exit = 1,
         )
 
-        val diff = presenter(DiffTarget.Working(PATH)).loaded().diff!!
+        val state = presenter(DiffTarget.Working(PATH)).loaded()
+
+        assertNull(state.error)
+        val lines = listOf(DiffLine(DiffLineKind.Added, "a", null, 1), DiffLine(DiffLineKind.Added, "b", null, 2))
+        assertEquals(
+            GitFileDiff(PATH, null, GitChangeKind.Untracked, DiffContent.Text(listOf(DiffHunk(0, 0, 1, 2, null, lines))), 2, 0),
+            state.diff,
+        )
+        assertEquals(untrackedCommand, commands.last())
+    }
+
+    @Test
+    fun `an untracked binary file is binary`() = runTest {
+        untrackedFile()
+        output(
+            untrackedCommand,
+            "diff --git a/$PATH b/$PATH\nnew file mode 100644\nindex 0000000000000000000000000000000000000000..1111111111111111111111111111111111111111\n" +
+                "Binary files /dev/null and b/$PATH differ\n",
+            exit = 1,
+        )
+
+        assertEquals(
+            GitFileDiff(PATH, null, GitChangeKind.Untracked, DiffContent.Binary, 0, 0),
+            presenter(DiffTarget.Working(PATH)).loaded().diff,
+        )
+    }
+
+    @Test
+    fun `a too large untracked file is counted by numstat, never read whole`() = runTest {
+        untrackedFile()
+        output(untrackedCommand, "x".repeat(200), exit = 1)
+        output(GitCommands.diffUntracked(ROOT, PATH, output = DiffOutput.NumStat).commandLine, "120\t0\t\u0000/dev/null\u0000$PATH\u0000", exit = 1)
+
+        val diff = presenter(DiffTarget.Working(PATH), maxBytes = 100).loaded().diff
+
+        assertEquals(GitFileDiff(PATH, null, GitChangeKind.Untracked, DiffContent.TooLarge(100), 120, 0), diff)
+        assertEquals(FakeProcessEnd.Killed, exec.executions.single { it.command == untrackedCommand }.end)
+    }
+
+    @Test
+    fun `an untracked file behind a folder that is not real shows without content and is never read`() = runTest {
+        untrackedFile(folder = "/elsewhere\nsrc/\n")
+
+        val diff = presenter(DiffTarget.Working(PATH)).loaded().diff
 
         assertEquals(GitFileDiff(PATH, null, GitChangeKind.Untracked, DiffContent.Unchanged, 0, 0), diff)
+        assertFalse(untrackedCommand in commands)
+    }
+
+    @Test
+    fun `an untracked diff that fails is an error`() = runTest {
+        untrackedFile()
+        failing(untrackedCommand, "error: Could not access 'src/x'\n", 1)
+
+        val state = presenter(DiffTarget.Working(PATH)).loaded()
+
+        assertEquals(GitFailure.GitError(1), state.error)
+        assertNull(state.diff)
     }
 
     @Test
@@ -376,15 +448,31 @@ class DiffPresenterTest {
     }
 
     @Test
-    fun `a merge commit is refused before its combined diff runs`() = runTest {
+    fun `a merge commit shows the file against its first parent`() = runTest {
         toplevel()
         parents("$PARENT $HASH\n")
+        commitNameStatus("A\u0000$PATH\u0000")
+        output(commitPatchCommand(), "diff --git a/$PATH b/$PATH\nnew file mode 100644\nindex 0000000..1111111\n--- /dev/null\n+++ b/$PATH\n@@ -0,0 +1 @@\n+a\n")
 
         val state = presenter(DiffTarget.InCommit(HASH, PATH)).loaded()
 
-        assertEquals(GitFailure.Unknown, state.error)
-        assertNull(state.diff)
-        assertFalse(commands.any { it == commitPatchCommand() })
+        assertNull(state.error)
+        assertEquals(GitChangeKind.Added, state.diff?.kind)
+        assertEquals(1 to 0, state.diff?.additions to state.diff?.deletions)
+        assertEquals(commitPatchCommand(), commands.last())
+    }
+
+    @Test
+    fun `a too large commit diff is counted against the first parent`() = runTest {
+        toplevel()
+        parents("$PARENT $HASH\n")
+        commitNameStatus("D\u0000$PATH\u0000")
+        output(commitPatchCommand(), "x".repeat(200))
+        output(commitNumStatCommand(), "0\t9\t$PATH\u0000")
+
+        val diff = presenter(DiffTarget.InCommit(HASH, PATH), maxBytes = 100).loaded().diff
+
+        assertEquals(GitFileDiff(PATH, null, GitChangeKind.Deleted, DiffContent.TooLarge(100), 0, 9), diff)
     }
 
     @Test

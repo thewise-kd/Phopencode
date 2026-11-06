@@ -124,18 +124,4 @@ class CommitFilesTest {
             CommitFiles.join(numStat, CommitFiles.parseNameStatus(bytes("R100\u0000x\u0000a\u0000")))
         }
     }
-
-    @Test
-    fun `numstat alone gives modifications and renames`() {
-        val numStat = CommitFiles.parseNumStat(bytes("2\t0\ta\u0000-\t-\tbin\u00000\t0\t\u0000eski\u0000yeni\u0000"))
-
-        assertEquals(
-            listOf(
-                CommitFileChange("a", GitChangeKind.Modified, additions = 2, deletions = 0),
-                CommitFileChange("bin", GitChangeKind.Modified),
-                CommitFileChange("yeni", GitChangeKind.Renamed, oldPath = "eski", additions = 0, deletions = 0),
-            ),
-            CommitFiles.fromNumStat(numStat),
-        )
-    }
 }

@@ -32,10 +32,8 @@ import kotlinx.coroutines.yield
  * a tree or blob is [GitFailure.NotFound], as is an unknown one; an annotated tag peels to its
  * commit, whose hash then differs from [commit], which is [GitFailure.NotFound] too.
  *
- * Known limit: for a merge, `show --name-status` prints only the combined diff, so the files come
- * from `--numstat` alone (which git computes against the first parent): renames are
- * [io.github.thewisekd.phopencode.feature.git.logic.contract.GitChangeKind.Renamed], every other
- * file Modified, even one the merge added or deleted.
+ * A merge lists its files against its first parent too (`--diff-merges=first-parent`, git 2.31 or
+ * later), so a file the merge brought in is added and one it removed is deleted.
  *
  * @param directory The folder from the route, where git runs.
  * @param commit The hash from the route; checked before it reaches a command.
@@ -101,11 +99,7 @@ class DefaultCommitDetailPresenter(
             // An annotated tag peels to the commit it names: the object itself is not a commit.
             if (parsed.hash != commit) throw GitException(GitFailure.NotFound)
             val counts = CommitFiles.parseNumStat(session.read(numStat))
-            val files = if (parsed.isMerge) {
-                CommitFiles.fromNumStat(counts)
-            } else {
-                CommitFiles.join(counts, CommitFiles.parseNameStatus(session.read(nameStatus)))
-            }
+            val files = CommitFiles.join(counts, CommitFiles.parseNameStatus(session.read(nameStatus)))
             CommitDetail(
                 summary = parsed.toSummary(),
                 body = parsed.body,
