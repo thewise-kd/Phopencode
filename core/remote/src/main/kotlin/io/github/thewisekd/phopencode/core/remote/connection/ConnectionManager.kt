@@ -38,6 +38,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -82,6 +83,13 @@ import kotlinx.coroutines.withTimeoutOrNull
  * [scope] closes the manager too, whatever it is doing, idle included; the state turns
  * [ConnectionState.Closed] at once and the connections finish their cleanup on their own.
  *
+ * Stray cancellations: only the end of [scope] closes the manager. A `CancellationException` that
+ * comes out of a step while neither a stop nor the scope cancelled the connection (a timeout
+ * leaking from a nested `withTimeout`, a library's `java.util.concurrent.CancellationException`, a
+ * cancelled child) is a failure of that step: the connection ends in [ConnectionState.Error] with
+ * [ConnectionError.Unexpected] carrying it, and the manager stays usable, so a later [connect]
+ * works. It is not retried; see [ConnectionError.Unexpected].
+ *
  * Threads: nothing is ever closed on the thread that calls [connect], [disconnect], [close],
  * [acceptChangedHostKey] or [openSftp], which may be the main thread: closing an SSH resource
  * writes to the network. A connection's cleanup runs in its own job on [scope] and, once stopped,
@@ -105,6 +113,7 @@ class ConnectionManager(
     private val options: ConnectionOptions = ConnectionOptions(),
 ) {
     private val lock = Any()
+    private val scopeJob: Job = requireNotNull(scope.coroutineContext[Job]) { "The scope has no Job" }
     private val mutableState = MutableStateFlow<ConnectionState>(ConnectionState.Idle)
 
     /** Guarded by [lock]: the connection [state] speaks for. */
@@ -141,7 +150,6 @@ class ConnectionManager(
     internal var beforeStoreWrite: (suspend () -> Unit)? = null
 
     init {
-        val scopeJob = requireNotNull(scope.coroutineContext[Job]) { "The scope has no Job" }
         // Runs immediately for a scope that already ended.
         scopeWatch = scopeJob.invokeOnCompletion { closeNow() }
     }
@@ -530,6 +538,10 @@ class ConnectionManager(
                 after?.await()
                 if (replacement == null || replaceKey(replacement)) execute(profile)
             } finally {
+                // Whatever ended the job, a stop, a stray cancellation or a failure while connected,
+                // the connection it published is unreachable before anything closes and before
+                // [ended] publishes: [openSftp] and [withConnection] refuse, and its SFTP clients close.
+                synchronized(lock) { live }?.let(::endLive)
                 releaseAll()
             }
         }
@@ -550,18 +562,31 @@ class ConnectionManager(
         suspend fun join() = job.join()
 
         /**
-         * The job ended by something other than a normal return. A stop is expected; a cancellation
-         * otherwise comes from the scope, so the manager closes; any other failure is an error.
-         * Resources are already released by then.
+         * The job ended by something other than a normal return. A stop is expected. A cancellation
+         * closes the manager only when the scope really ended (cancelled, or completing): any
+         * other one is a stray that escaped the steps, and like any other failure it is an
+         * [ConnectionError.Unexpected] error that leaves the manager usable. By then the job's
+         * cleanup has made a published connection unreachable ([live] is null, its watchers ended,
+         * its SFTP clients closed) and released every resource, so nothing a
+         * [ConnectionState.Connected] exposed outlives it, whichever way this goes.
          */
         private fun ended(cause: Throwable) {
             if (stopped) return
-            if (cause is CancellationException) {
+            if (cause is CancellationException && !scopeJob.isActive) {
                 closeNow()
             } else {
                 publish(ConnectionState.Error(ConnectionError.Unexpected(cause)))
             }
         }
+
+        /**
+         * Whether a `CancellationException` caught in this run really ends it: the run was stopped,
+         * or the coroutine that caught it is cancelled (by a stop, the end of the scope, or its
+         * own parent). Otherwise it is a stray, such as a timeout leaking from a nested
+         * `withTimeout` or a library's `java.util.concurrent.CancellationException`, and the step
+         * that threw it failed.
+         */
+        private suspend fun stopping(): Boolean = stopped || !currentCoroutineContext().isActive
 
         /** Does nothing once [stop] has cancelled the job. */
         fun start() {
@@ -630,9 +655,8 @@ class ConnectionManager(
                 writeKnownHost {
                     knownHosts.replace(replacement.endpoint, replacement.expected, replacement.replacement)
                 } ?: return false
-            } catch (cancelled: CancellationException) {
-                throw cancelled
             } catch (failure: Exception) {
+                if (failure is CancellationException && stopping()) throw failure
                 val error = if (failure is IOException) {
                     ConnectionError.StorageUnavailable
                 } else {
@@ -654,7 +678,10 @@ class ConnectionManager(
             return synchronized(lock) { current === this }
         }
 
-        /** Takes [resource] into this run; one arriving after [stop] is closed at once. */
+        /**
+         * Takes [resource] into this run; one arriving after [stop] is closed at once, and the
+         * cancellation thrown then is a stop, never a stray: [stopped] is already set.
+         */
         fun <T : AutoCloseable> hold(resource: T): T {
             synchronized(held) {
                 if (!stopped) {
@@ -779,6 +806,10 @@ class ConnectionManager(
                     dropped.cause
                 } catch (failure: ConnectionException) {
                     failure.error
+                } catch (cancelled: CancellationException) {
+                    // A stray that no step mapped; a stop or the scope's end passes.
+                    if (stopping()) throw cancelled
+                    ConnectionError.Unexpected(cancelled)
                 }
                 if (!everConnected || !error.retryable) {
                     publish(ConnectionState.Error(error))
@@ -804,19 +835,29 @@ class ConnectionManager(
          * when the watch's event stream opened. A stop cancels this instead, so a deliberate
          * [disconnect] or [close] never comes back as a drop.
          */
-        private suspend fun awaitDrop(live: Live): Drop = coroutineScope {
+        private suspend fun awaitDrop(live: Live): Drop {
             val stood = AtomicBoolean(false)
-            val sshDropped = async { live.session.connected.first { !it } }
-            val serverDropped = async { watchServer(live.client) { stood.set(true) } }
-            val cause = select<ConnectionError> {
-                sshDropped.onAwait { ConnectionError.Disconnected }
-                serverDropped.onAwait { it }
-                kicks.onReceive { ConnectionError.Disconnected }
+            val cause = try {
+                coroutineScope {
+                    val sshDropped = async { live.session.connected.first { !it } }
+                    val serverDropped = async { watchServer(live.client) { stood.set(true) } }
+                    val cause = select<ConnectionError> {
+                        sshDropped.onAwait { ConnectionError.Disconnected }
+                        serverDropped.onAwait { it }
+                        kicks.onReceive { ConnectionError.Disconnected }
+                    }
+                    sshDropped.cancel()
+                    serverDropped.cancel()
+                    cause
+                }
+            } catch (cancelled: CancellationException) {
+                // A watch that ended cancelled while this run was not: the connection is dropped
+                // as after any failure, and the caller releases it.
+                if (stopping()) throw cancelled
+                ConnectionError.Unexpected(cancelled)
             }
-            sshDropped.cancel()
-            serverDropped.cancel()
             // The server's stream breaks with the SSH connection that carries it; that is an SSH drop.
-            Drop(if (!live.session.connected.value) ConnectionError.Disconnected else cause, stood.get())
+            return Drop(if (!live.session.connected.value) ConnectionError.Disconnected else cause, stood.get())
         }
 
         /**
@@ -830,8 +871,9 @@ class ConnectionManager(
          * The client's stream retries by itself and emits [ServerEvent.Disconnected] on each drop;
          * the first one, the server's `location.shutdown` notice, or the stream completing means
          * the server stopped answering, and the manager reconnects through the server step
-         * instead. A failure, the stream failing to open included, ends as that API error. Only
-         * the connection is dropped: nothing on the server is stopped.
+         * instead. A failure, the stream failing to open included, ends as that API error; a
+         * cancellation while this watch is still active is a failure too, [ConnectionError.Unexpected].
+         * Only the connection is dropped: nothing on the server is stopped.
          *
          * @param opened Called on each [ServerEvent.Connected], that is once the stream is open.
          */
@@ -842,11 +884,29 @@ class ConnectionManager(
                 .collect { }
             ConnectionError.ServerLost
         } catch (cancelled: CancellationException) {
-            throw cancelled
+            if (stopping()) throw cancelled
+            ConnectionError.Unexpected(cancelled)
         } catch (failure: ApiException) {
             ConnectionError.Api(failure.error)
         } catch (failure: Exception) {
             ConnectionError.Unexpected(failure)
+        }
+
+        /**
+         * Turns every failure of a server or API step into [ConnectionException]. A cancellation
+         * passes only when it is a stop (see [stopping]); a stray one is [ConnectionError.Unexpected].
+         */
+        private suspend fun <T> mapFailures(block: suspend () -> T): T = try {
+            block()
+        } catch (failure: ConnectionException) {
+            throw failure
+        } catch (failure: SshException) {
+            throw ConnectionException(sshError(failure))
+        } catch (failure: ApiException) {
+            throw ConnectionException(ConnectionError.Api(failure.error))
+        } catch (failure: Exception) {
+            if (failure is CancellationException && stopping()) throw failure
+            throw ConnectionException(ConnectionError.Unexpected(failure))
         }
 
         private suspend fun establish(profile: ServerProfile, attempt: Int): Live {
@@ -904,9 +964,8 @@ class ConnectionManager(
                         continue
                     }
                     throw ConnectionException(sshError(failure))
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
                 } catch (failure: Exception) {
+                    if (failure is CancellationException && stopping()) throw failure
                     throw ConnectionException(ConnectionError.Unexpected(failure))
                 } finally {
                     credential.wipe()
@@ -933,7 +992,8 @@ class ConnectionManager(
                         HostKeyCheck.Unknown -> ask(server, fingerprint, key)
                     }
                 } catch (cancelled: CancellationException) {
-                    throw cancelled
+                    if (stopping()) throw cancelled
+                    refuse(ConnectionError.Unexpected(cancelled))
                 } catch (_: IOException) {
                     refuse(ConnectionError.StorageUnavailable)
                 }
@@ -969,7 +1029,8 @@ class ConnectionManager(
                     writeKnownHost { knownHosts.approve(server.endpoint, fingerprint) }
                         ?: return refuse(ConnectionError.HostKeyRejected(key))
                 } catch (cancelled: CancellationException) {
-                    throw cancelled
+                    if (stopping()) throw cancelled
+                    return refuseApproved(waiting, ConnectionError.Unexpected(cancelled))
                 } catch (_: IOException) {
                     return refuseApproved(waiting, ConnectionError.StorageUnavailable)
                 }
@@ -1040,21 +1101,6 @@ class ConnectionManager(
             is SshException.AuthenticationFailed -> ConnectionError.AuthenticationFailed
             is SshException.HostKeyRejected -> ConnectionError.HostKeyRejected(failure.hostKey)
             is SshException.OutputLimitExceeded, is SshException.Sftp -> ConnectionError.Unexpected(failure)
-        }
-
-        /** Turns every failure of a server or API step into [ConnectionException]; cancellation passes. */
-        suspend fun <T> mapFailures(block: suspend () -> T): T = try {
-            block()
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (failure: ConnectionException) {
-            throw failure
-        } catch (failure: SshException) {
-            throw ConnectionException(sshError(failure))
-        } catch (failure: ApiException) {
-            throw ConnectionException(ConnectionError.Api(failure.error))
-        } catch (failure: Exception) {
-            throw ConnectionException(ConnectionError.Unexpected(failure))
         }
     }
 }

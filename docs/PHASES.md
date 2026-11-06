@@ -582,6 +582,7 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | P9.21 | Folder picker survives a dropped connection | P4.12, P9.19 | `feature/connect/logic/…/folder/` | A listing whose client the connection closed shows NotConnected, not Failed, and lists again after the reconnect | `CI` |
 | P9.22 | Folder picker names the connection error | P9.19, P9.21 | `feature/connect/logic/…/folder/`, `feature/connect/ui/…/folder/`, `core/remote/…/connection/` (ConnectionError.Unexpected cause only), `strings_connect_folder.xml`, `docs/PHASES.md` (this block) | When the picker shows NotConnected and the connection ended in an error, the error type and its cause class chain show, never messages or addresses | `CI` |
 | P9.23 | Tunnel streams run on API 26 | P3.6 | `core/ssh/…/tunnel/` (and its tests) | Tunnel socket reads and writes use no API above minSdk 26 and reject bad offsets with IndexOutOfBoundsException | `CI` |
+| P9.24 | A stray cancellation does not close the connection manager | P3.9, P9.22 | `core/remote/…/connection/`, `feature/connect/logic/…/folder/`, `feature/connect/logic/…/contract/FolderContract.kt` (KDoc only), `docs/PHASES.md` (this block) | A cancellation that does not come from the app scope or a stop ends the connection with an Unexpected error instead of closing the manager for good; the folder picker names Idle and Closed | `CI` |
 
 `CP9`: push, CI green, `PHONE`: commit and push in a test repository.
 

@@ -119,7 +119,14 @@ sealed interface ConnectionError {
     }
 
     /**
-     * A failure no other case describes.
+     * A failure no other case describes, a stray `CancellationException` included: one that ended a
+     * step while neither a stop nor the end of the manager's scope cancelled it (P9.24).
+     *
+     * Not [retryable]: nothing says such a failure passes with time. It is a bug or a library's
+     * misbehaviour, not a network or server condition, and the same step would likely fail the
+     * same way, so retrying would only loop through the backoff and hide it. The connection ends
+     * in an error the user sees, with the cause's classes to name, and the manager stays usable:
+     * the user's next connect starts afresh.
      *
      * @property cause The failure itself, when there was one, so that a screen can name its class
      *   chain (P9.22). Read its classes only: its message may quote an address or a server's reply.

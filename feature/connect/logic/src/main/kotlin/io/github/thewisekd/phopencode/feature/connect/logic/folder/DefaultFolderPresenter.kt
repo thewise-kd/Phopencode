@@ -65,7 +65,9 @@ import kotlinx.coroutines.yield
  * below), or when the SSH session ends under a request; [FolderError.Failed] for anything else, with
  * the failure's class chain in [FolderState.errorDetail] (see [FailureDetail]; nothing is logged).
  * While the connection state is [ConnectionState.Error], [FolderError.NotConnected] carries that
- * error in [FolderState.errorDetail] (see [ConnectionDetail]); in any other state it carries none.
+ * error in [FolderState.errorDetail] (see [ConnectionDetail]); while it is [ConnectionState.Idle] or
+ * [ConnectionState.Closed], exactly `Idle` or `Closed` (P9.24); while a connect or reconnect is
+ * under way, none.
  * The detail follows the state while the error shows: it appears, changes or goes as the state
  * turns to an error, to another error, or away from one (P9.22). A
  * new error, [FolderIntent.Retry], [FolderIntent.DismissError] or a listing clears the detail. The
@@ -397,8 +399,9 @@ class DefaultFolderPresenter(
 
     /**
      * This state with the detail of [FolderError.NotConnected], when that shows, set to the
-     * connection state read now: the error of [ConnectionState.Error] (see [ConnectionDetail]), null
-     * in any other state. Any other error keeps its own detail.
+     * connection state read now (see [ConnectionDetail.ofState]): the error of
+     * [ConnectionState.Error], `Idle` or `Closed`, and null while a connect or reconnect is under
+     * way. Any other error keeps its own detail.
      *
      * Called only inside [mutableState]'s `update`, so the state is read inside the compare-and-set:
      * a write that loses the race runs again and reads the state again, and the last write that
@@ -406,7 +409,7 @@ class DefaultFolderPresenter(
      */
     private fun FolderState.withConnectionDetail(): FolderState {
         if (error != FolderError.NotConnected) return this
-        val detail = (connection.state.value as? ConnectionState.Error)?.let { ConnectionDetail.of(it.error) }
+        val detail = ConnectionDetail.ofState(connection.state.value)
         return if (errorDetail == detail) this else copy(errorDetail = detail)
     }
 

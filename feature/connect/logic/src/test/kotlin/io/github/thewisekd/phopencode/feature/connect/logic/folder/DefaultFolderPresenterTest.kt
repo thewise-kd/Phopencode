@@ -1481,14 +1481,43 @@ class DefaultFolderPresenterTest {
     }
 
     @Test
-    fun `NotConnected without a connection error shows no detail`() = runTest {
+    fun `NotConnected while the connection is idle names Idle`() = runTest {
         val env = env(connect = false)
         val presenter = env.presenter()
         runCurrent()
 
         assertEquals(ConnectionState.Idle, env.connection.manager.state.value)
         assertEquals(FolderError.NotConnected, presenter.state.value.error)
-        assertNull(presenter.state.value.errorDetail)
+        assertEquals("Idle", presenter.state.value.errorDetail)
+    }
+
+    @Test
+    fun `NotConnected while the connection manager is closed names Closed`() = runTest {
+        val env = env(connect = false)
+        val presenter = env.presenter()
+        runCurrent()
+
+        env.connection.manager.close()
+        runCurrent()
+
+        assertEquals(ConnectionState.Closed, env.connection.manager.state.value)
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        assertEquals("Closed", presenter.state.value.errorDetail)
+    }
+
+    @Test
+    fun `a listing that fails after the connection manager closed names Closed`() = runTest {
+        val env = env()
+        val presenter = env.presenter()
+        runCurrent()
+        open(presenter, "/srv")
+
+        env.connection.manager.close()
+        runCurrent()
+        open(presenter, "/srv/app")
+
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        assertEquals("Closed", presenter.state.value.errorDetail)
     }
 
     @Test
@@ -1496,7 +1525,7 @@ class DefaultFolderPresenterTest {
         val env = env(connect = false)
         val presenter = env.presenter()
         runCurrent()
-        assertNull(presenter.state.value.errorDetail)
+        assertEquals("Idle", presenter.state.value.errorDetail)
 
         env.connection.nextClientFailure = ApiError.Forbidden
         env.connection.connect()
@@ -1521,7 +1550,7 @@ class DefaultFolderPresenterTest {
     }
 
     @Test
-    fun `leaving the error state for Idle drops the connection error's detail`() = runTest {
+    fun `leaving the error state for Idle names Idle instead of the error`() = runTest {
         val env = env(connect = false)
         val presenter = forbidden(env)
 
@@ -1530,7 +1559,7 @@ class DefaultFolderPresenterTest {
 
         assertEquals(ConnectionState.Idle, env.connection.manager.state.value)
         assertEquals(FolderError.NotConnected, presenter.state.value.error)
-        assertNull(presenter.state.value.errorDetail)
+        assertEquals("Idle", presenter.state.value.errorDetail)
     }
 
     @Test
@@ -1580,7 +1609,7 @@ class DefaultFolderPresenterTest {
     }
 
     @Test
-    fun `an error state that ends while a listing is under way leaves no detail`() = runTest(timeout = 10.seconds) {
+    fun `an error state that ends in Idle while a listing is under way names Idle`() = runTest(timeout = 10.seconds) {
         val env = env()
         val presenter = env.presenter()
         runCurrent()
@@ -1591,7 +1620,7 @@ class DefaultFolderPresenterTest {
         assertEquals(ConnectionState.Idle, env.connection.manager.state.value)
         assertEquals(FolderError.NotConnected, presenter.state.value.error)
         assertFalse(presenter.state.value.loading)
-        assertNull(presenter.state.value.errorDetail)
+        assertEquals("Idle", presenter.state.value.errorDetail)
     }
 
     @Test
@@ -1638,9 +1667,9 @@ class DefaultFolderPresenterTest {
 
             assertEquals(listOf(true, true), during.map { it.loading })
             assertEquals(listOf(FolderError.NotConnected, FolderError.NotConnected), during.map { it.error })
-            assertEquals(listOf("Api(Unauthorized)", null), during.map { it.errorDetail })
+            assertEquals(listOf("Api(Unauthorized)", "Idle"), during.map { it.errorDetail })
             assertEquals(FolderError.NotConnected, presenter.state.value.error)
-            assertNull(presenter.state.value.errorDetail)
+            assertEquals("Idle", presenter.state.value.errorDetail)
         }
 
     @Test

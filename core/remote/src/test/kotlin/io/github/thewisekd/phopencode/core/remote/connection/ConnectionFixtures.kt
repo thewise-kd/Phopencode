@@ -142,6 +142,10 @@ internal class RecordingClientFactory : OpencodeClientFactory {
     @Volatile
     var breakEvents: (() -> Exception)? = null
 
+    /** When set, every new client's event stream is this flow instead; other calls still work. */
+    @Volatile
+    var events: Flow<ServerEvent>? = null
+
     /** The server's password; a client with another one is refused. Null accepts any. */
     @Volatile
     var serverPassword: (() -> String?)? = null
@@ -153,10 +157,11 @@ internal class RecordingClientFactory : OpencodeClientFactory {
         val expected = serverPassword?.invoke()
         if (expected != null && expected != password.revealText()) client.control.failNext(ApiError.Unauthorized)
         made += Made(baseUrl, password.revealText(), sockets, client)
-        val failure = breakEvents ?: return client
+        val failure = breakEvents
+        val replaced = events ?: failure?.let { make -> flow { throw make() } } ?: return client
         return object : OpencodeClient by client {
             override val events: EventApi = object : EventApi by client.events {
-                override fun events(types: Set<String>): Flow<ServerEvent> = flow { throw failure() }
+                override fun events(types: Set<String>): Flow<ServerEvent> = replaced
             }
         }
     }
