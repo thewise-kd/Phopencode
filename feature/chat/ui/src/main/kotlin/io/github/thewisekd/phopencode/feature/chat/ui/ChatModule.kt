@@ -39,8 +39,9 @@ import org.koin.dsl.module
  * from the app's core modules.
  *
  * Every definition is a factory, built per destination (see `rememberPresenter` in ChatGraph) with
- * the destination's route and coroutine scope. The scope is a parameter, never `get()`: the graph's
- * unqualified scope is the app's.
+ * the destination's route and coroutine scope. The scope is a parameter, never `get()`: the graph binds
+ * no bare scope, and the app's singletons take the app's through a type of their own that no
+ * presenter is given as a parameter.
  *
  * - [ChatSession] takes `(route, scope)`: one per destination, bound to the active connection's
  *   server.

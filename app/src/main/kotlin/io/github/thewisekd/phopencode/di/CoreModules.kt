@@ -16,6 +16,7 @@ import io.github.thewisekd.phopencode.core.storage_api.RecentFoldersStore
 import io.github.thewisekd.phopencode.core.storage_api.SecretStore
 import io.github.thewisekd.phopencode.core.storage_api.SettingsRepository
 import io.github.thewisekd.phopencode.core.storage_api.SshKeyIndex
+import io.github.thewisekd.phopencode.feature.files.ui.TransferQueueScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -25,11 +26,18 @@ import org.koin.dsl.module
 
 /**
  * The app-lifetime scope: a [SupervisorJob], so one failed child does not end the others, on
- * [Dispatchers.Default]. Nothing cancels it; it ends with the process. Request it as the one
- * unqualified [CoroutineScope] of the graph.
+ * [Dispatchers.Default]. Nothing cancels it; it ends with the process.
+ *
+ * It is bound only as [AppScope], never as a bare [CoroutineScope]: presenters take their screen's
+ * scope as a Koin parameter, and Koin answers a `get()` from the parameters of the resolution
+ * first, so a single created while a presenter is resolved would capture the screen's scope. A
+ * single that needs the app scope asks for `get<AppScope>().scope`. A feature that cannot see
+ * [AppScope] declares a wrapper of its own, which this module binds to the same scope:
+ * [TransferQueueScope] for the files feature's transfer queue.
  */
 val appScopeModule: Module = module {
-    single<CoroutineScope> { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
+    single { AppScope(CoroutineScope(SupervisorJob() + Dispatchers.Default)) }
+    single { TransferQueueScope(get<AppScope>().scope) }
 }
 
 /**
@@ -76,7 +84,7 @@ val connectionModule: Module = module {
             knownHosts = get(),
             servers = get(),
             clients = get(),
-            scope = get(),
+            scope = get<AppScope>().scope,
             options = get(),
             diagnostics = get(),
         )

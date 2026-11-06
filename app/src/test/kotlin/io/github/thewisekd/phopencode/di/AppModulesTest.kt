@@ -3,6 +3,7 @@ package io.github.thewisekd.phopencode.di
 import android.app.Application
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
+import kotlinx.coroutines.CoroutineScope
 import org.junit.Test
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.dsl.module
@@ -30,8 +31,16 @@ class AppModulesTest {
         // per-module check would report as missing.
         module { includes(appModules) }.verify(
             // What Koin's Android setup and navigation provide at runtime, outside these modules;
-            // and Diagnostics' flag, which its definition passes in itself, read from the app's flags.
-            extraTypes = listOf(Context::class, Application::class, SavedStateHandle::class, Boolean::class),
+            // Diagnostics' flag, which its definition passes in itself, read from the app's flags;
+            // and the coroutine scopes, which no definition resolves bare: each is a presenter's
+            // parameter or passed in by hand from a wrapper such as AppScope (see AppScopeTest).
+            extraTypes = listOf(
+                Context::class,
+                Application::class,
+                SavedStateHandle::class,
+                Boolean::class,
+                CoroutineScope::class,
+            ),
         )
     }
 }

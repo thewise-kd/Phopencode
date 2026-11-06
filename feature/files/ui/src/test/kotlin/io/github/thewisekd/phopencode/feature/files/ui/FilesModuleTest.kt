@@ -35,6 +35,8 @@ import java.lang.reflect.Proxy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Test
@@ -50,6 +52,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotSame
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 private const val ROOT = "/srv/çalışma alanı"
 
@@ -71,8 +74,8 @@ private fun idleConnection(scope: CoroutineScope) = ConnectionManager(
 
 /**
  * `filesModule` builds every presenter from the parameters the graph passes, the destination's
- * route and scope, shares one transfer queue, and binds the five file ports to one service on the
- * connection manager. The manager comes from the app's core modules; here it is an idle one, and
+ * route and scope, shares one transfer queue on the app's scope, and binds the five file ports to
+ * one service on the connection manager. The manager comes from the app's core modules; here it is an idle one, and
  * the git port is replaced, as the app's own Koin check covers the real ones.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -86,7 +89,7 @@ class FilesModuleTest {
         modules(
             filesModule,
             module {
-                single<CoroutineScope> { appScope }
+                single { TransferQueueScope(appScope) }
                 single<GitChanges> { GitChanges { emptyList() } }
                 single { idleConnection(appScope) }
             },
@@ -139,6 +142,21 @@ class FilesModuleTest {
         val koin = koin()
 
         assertSame(koin.get<TransferQueue>(), koin.get<TransferQueue>())
+    }
+
+    @Test
+    fun `a queue first created by a transfer screen runs on the app scope and outlives the screen`() {
+        val koin = koin()
+        val firstScreen = CoroutineScope(Job())
+
+        koin.get<TransferPresenter> { parametersOf(FilesRoute.Transfer(ROOT, "$ROOT/docs"), firstScreen) }
+        runBlocking { firstScreen.coroutineContext[Job]!!.cancelAndJoin() }
+
+        // The queue keeps its scope private; it is the one thing that tells where transfers run.
+        val queue = koin.get<TransferQueue>()
+        val scope = queue::class.java.getDeclaredField("scope").apply { isAccessible = true }.get(queue)
+        assertSame<Any?>(appScope, scope)
+        assertTrue(appScope.isActive)
     }
 
     @Test

@@ -30,7 +30,9 @@ import org.koin.dsl.module
  *   the connection that stands when a command starts.
  * - Each presenter is a factory under its contract interface, built per destination with two
  *   parameters: the destination's route and its coroutine scope (see `rememberPresenter` in
- *   GitGraph). The scope is a parameter, never `get()`: the graph's unqualified scope is the app's.
+ *   GitGraph). The scope is a parameter, never `get()`: the graph binds no bare scope, and the
+ *   app's singletons take the app's through a type of their own that no presenter is given as a
+ *   parameter.
  *   [DiffPresenter] takes either diff route, `GitRoute.FileDiff` or `GitRoute.CommitFileDiff`.
  */
 val gitModule: Module = module {

@@ -18,7 +18,7 @@ import io.github.thewisekd.phopencode.core.storage_api.RecentFoldersStore
 import io.github.thewisekd.phopencode.core.storage_api.SecretStore
 import io.github.thewisekd.phopencode.core.storage_api.SettingsRepository
 import io.github.thewisekd.phopencode.core.storage_api.SshKeyIndex
-import kotlinx.coroutines.CoroutineScope
+import io.github.thewisekd.phopencode.feature.files.ui.TransferQueueScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
@@ -69,7 +69,8 @@ class CoreModulesTest {
             ConnectionOptions::class,
             Diagnostics::class,
             ConnectionManager::class,
-            CoroutineScope::class,
+            AppScope::class,
+            TransferQueueScope::class,
         ).forEach(::assertSingle)
     }
 
@@ -138,7 +139,7 @@ class CoreModulesTest {
 
     @Test
     fun `the app scope is alive and survives a failed child`() {
-        val scope = koin.get<CoroutineScope>()
+        val scope = koin.get<AppScope>().scope
         val job = assertNotNull(scope.coroutineContext[Job])
 
         assertTrue(job.isActive)
@@ -146,5 +147,10 @@ class CoreModulesTest {
         val failing = Job(job).apply { completeExceptionally(IllegalStateException("test")) }
         assertTrue(failing.isCancelled)
         assertTrue(job.isActive)
+    }
+
+    @Test
+    fun `the files feature's transfer queue scope is the app scope`() {
+        assertSame(koin.get<AppScope>().scope, koin.get<TransferQueueScope>().scope)
     }
 }

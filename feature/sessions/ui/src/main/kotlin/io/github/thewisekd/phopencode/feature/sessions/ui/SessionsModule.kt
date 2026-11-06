@@ -18,7 +18,8 @@ import org.koin.dsl.module
  *
  * Each presenter is a factory under its contract interface, built per screen with two parameters:
  * the screen's route and the screen's coroutine scope (see `rememberPresenter` in SessionsGraph).
- * The scope is a parameter, never `get()`: the graph's unqualified scope is the app's.
+ * The scope is a parameter, never `get()`: the graph binds no bare scope, and the app's singletons
+ * take the app's through a type of their own that no presenter is given as a parameter.
  */
 val sessionsModule: Module = module {
     factory<SessionListPresenter> { (route: SessionsRoute.SessionList, scope: CoroutineScope) ->
