@@ -1,3 +1,68 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="git_commit_title">Commit</string>
+    <string name="git_commit_refresh">Yenile</string>
+    <string name="git_commit_loading">Değişiklikler okunuyor…</string>
+
+    <string name="git_commit_message_label">Commit mesajı</string>
+    <string name="git_commit_message_blank">Önce bir commit mesajı yazın.</string>
+    <string name="git_commit_button">Commit et</string>
+
+    <string name="git_commit_busy_stage">Hazırlanıyor…</string>
+    <string name="git_commit_busy_unstage">Hazırlıktan çıkarılıyor…</string>
+    <string name="git_commit_busy_discard">Değişiklikler atılıyor…</string>
+    <string name="git_commit_busy_commit">Commit ediliyor…</string>
+
+    <string name="git_commit_group_staged">Hazırlanan</string>
+    <string name="git_commit_group_unstaged">Hazırlanmamış</string>
+    <string name="git_commit_stage_all">Tümünü hazırla</string>
+    <string name="git_commit_unstage_all">Tümünü hazırlıktan çıkar</string>
+    <string name="git_commit_nothing_staged_hint">Henüz hazırlanan dosya yok. Commit edilecek dosyaları hazırlayın.</string>
+
+    <!-- %1$s: a file name. -->
+    <string name="git_commit_stage">%1$s dosyasını hazırla</string>
+    <!-- %1$s: a file name. -->
+    <string name="git_commit_unstage">%1$s dosyasını hazırlıktan çıkar</string>
+    <!-- %1$s: a file name. -->
+    <string name="git_commit_discard">%1$s dosyasındaki değişiklikleri at</string>
+    <string name="git_commit_open_diff">Değişiklikleri göster</string>
+    <!-- %1$s: the path the file had before it was renamed or copied. -->
+    <string name="git_commit_renamed_from">eski adı: %1$s</string>
+
+    <string name="git_commit_kind_added">Eklendi</string>
+    <string name="git_commit_kind_modified">Değiştirildi</string>
+    <string name="git_commit_kind_deleted">Silindi</string>
+    <string name="git_commit_kind_renamed">Yeniden adlandırıldı</string>
+    <string name="git_commit_kind_copied">Kopyalandı</string>
+    <string name="git_commit_kind_type_changed">Türü değişti</string>
+    <string name="git_commit_kind_untracked">Yeni dosya</string>
+    <string name="git_commit_kind_unmerged">Çakışma</string>
+
+    <string name="git_commit_empty_title">Commit edilecek bir şey yok</string>
+    <string name="git_commit_empty_message">Çalışma ağacı temiz.</string>
+
+    <string name="git_commit_discard_title">Değişiklikler atılsın mı?</string>
+    <!-- %1$s: the path of the file whose working tree changes are thrown away. -->
+    <string name="git_commit_discard_message">%1$s dosyasındaki hazırlanmamış değişiklikler kalıcı olarak kaybolacak. Bu işlem geri alınamaz.</string>
+    <string name="git_commit_discard_confirm">At</string>
+
+    <string name="git_commit_hook_rejected">Bir hook commit\'i reddetti. Hiçbir şey commit edilmedi.</string>
+    <string name="git_commit_hook_output">Hook çıktısı</string>
+    <string name="git_commit_hook_no_output">Hook hiçbir şey yazdırmadı.</string>
+
+    <string name="git_commit_error_nothing_staged">Hazırlanan dosya yok. Commit etmeden önce bir dosya hazırlayın.</string>
+    <string name="git_commit_error_not_connected">Sunucuya bağlı değilsiniz. Geri dönüp yeniden bağlanın.</string>
+    <string name="git_commit_error_unreachable">Sunucuya ulaşılamadı.</string>
+    <string name="git_commit_error_timed_out">Git çok uzun sürede yanıt verdi.</string>
+    <string name="git_commit_error_unauthorized">Sunucu girişi reddetti. Geri dönüp yeniden bağlanın.</string>
+    <string name="git_commit_error_output_too_large">Yanıt telefonda gösterilemeyecek kadar büyük.</string>
+    <string name="git_commit_error_not_repository">Bu klasör bir git deposunda değil.</string>
+    <string name="git_commit_error_git_missing">Sunucuda git kurulu değil.</string>
+    <string name="git_commit_error_rejected">Dosya adı ya da mesaj reddedildi.</string>
+    <string name="git_commit_error_not_found">Dosya ya da klasör artık yok.</string>
+    <string name="git_commit_error_conflict">Depoda çözülmemiş çakışmalar var.</string>
+    <string name="git_commit_error_stage">Dosya hazırlanamadı.</string>
+    <string name="git_commit_error_unstage">Dosya hazırlıktan çıkarılamadı.</string>
+    <string name="git_commit_error_discard">Değişiklikler atılamadı.</string>
+    <string name="git_commit_error_commit">Commit yapılamadı.</string>
 </resources>

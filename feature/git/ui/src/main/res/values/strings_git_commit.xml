@@ -1,3 +1,77 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="git_commit_title">Commit</string>
+    <string name="git_commit_refresh">Refresh</string>
+    <string name="git_commit_loading">Reading the changes…</string>
+
+    <string name="git_commit_message_label">Commit message</string>
+    <string name="git_commit_message_blank">Write a commit message first.</string>
+    <string name="git_commit_button">Commit</string>
+
+    <string name="git_commit_busy_stage">Staging…</string>
+    <string name="git_commit_busy_unstage">Unstaging…</string>
+    <string name="git_commit_busy_discard">Discarding…</string>
+    <string name="git_commit_busy_commit">Committing…</string>
+
+    <string name="git_commit_group_staged">Staged</string>
+    <string name="git_commit_group_unstaged">Not staged</string>
+    <string name="git_commit_stage_all">Stage all</string>
+    <string name="git_commit_unstage_all">Unstage all</string>
+    <string name="git_commit_nothing_staged_hint">Nothing is staged yet. Stage the files to commit.</string>
+
+    <!-- %1$s: a file name. -->
+    <string name="git_commit_stage">Stage %1$s</string>
+    <!-- %1$s: a file name. -->
+    <string name="git_commit_unstage">Unstage %1$s</string>
+    <!-- %1$s: a file name. -->
+    <string name="git_commit_discard">Discard changes to %1$s</string>
+    <string name="git_commit_open_diff">Show changes</string>
+    <!-- %1$s: the path the file had before it was renamed or copied. -->
+    <string name="git_commit_renamed_from">from %1$s</string>
+
+    <string name="git_commit_kind_added">Added</string>
+    <string name="git_commit_kind_modified">Modified</string>
+    <string name="git_commit_kind_deleted">Deleted</string>
+    <string name="git_commit_kind_renamed">Renamed</string>
+    <string name="git_commit_kind_copied">Copied</string>
+    <string name="git_commit_kind_type_changed">Type changed</string>
+    <string name="git_commit_kind_untracked">New file</string>
+    <string name="git_commit_kind_unmerged">Conflict</string>
+    <!-- The one-letter marks git itself prints; the same in every language. -->
+    <string name="git_commit_mark_added" translatable="false">A</string>
+    <string name="git_commit_mark_modified" translatable="false">M</string>
+    <string name="git_commit_mark_deleted" translatable="false">D</string>
+    <string name="git_commit_mark_renamed" translatable="false">R</string>
+    <string name="git_commit_mark_copied" translatable="false">C</string>
+    <string name="git_commit_mark_type_changed" translatable="false">T</string>
+    <string name="git_commit_mark_untracked" translatable="false">\?</string>
+    <string name="git_commit_mark_unmerged" translatable="false">U</string>
+
+    <string name="git_commit_empty_title">Nothing to commit</string>
+    <string name="git_commit_empty_message">The working tree is clean.</string>
+
+    <string name="git_commit_discard_title">Discard changes?</string>
+    <!-- %1$s: the path of the file whose working tree changes are thrown away. -->
+    <string name="git_commit_discard_message">The changes to %1$s that are not staged will be lost for good. This cannot be undone.</string>
+    <string name="git_commit_discard_confirm">Discard</string>
+
+    <string name="git_commit_hook_rejected">A hook refused the commit. Nothing was committed.</string>
+    <string name="git_commit_hook_output">Hook output</string>
+    <string name="git_commit_hook_no_output">The hook printed nothing.</string>
+
+    <string name="git_commit_error_nothing_staged">Nothing is staged. Stage a file before committing.</string>
+    <string name="git_commit_error_not_connected">Not connected to the server. Go back and connect again.</string>
+    <string name="git_commit_error_unreachable">The server could not be reached.</string>
+    <string name="git_commit_error_timed_out">Git took too long to answer.</string>
+    <string name="git_commit_error_unauthorized">The server refused the login. Go back and connect again.</string>
+    <string name="git_commit_error_output_too_large">The answer is too large to show on the phone.</string>
+    <string name="git_commit_error_not_repository">This folder is not in a git repository.</string>
+    <string name="git_commit_error_git_missing">Git is not installed on the server.</string>
+    <string name="git_commit_error_rejected">The file name or the message was refused.</string>
+    <string name="git_commit_error_not_found">The file or folder is no longer there.</string>
+    <string name="git_commit_error_conflict">The repository has unresolved conflicts.</string>
+    <string name="git_commit_error_stage">The file could not be staged.</string>
+    <string name="git_commit_error_unstage">The file could not be unstaged.</string>
+    <string name="git_commit_error_discard">The changes could not be discarded.</string>
+    <string name="git_commit_error_commit">The commit could not be made.</string>
 </resources>
