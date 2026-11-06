@@ -577,6 +577,7 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
 |---|---|---|---|---|---|
 | P9.18 | Optional opencode port | P3.7, P3.9, P4.6, P4.7 | `core/model/…/ServerProfile.kt` (opencodePort only), `core/remote/…/detect/`, `core/remote/…/connection/`, `core/storage/src/test/`, `feature/connect/logic/…/contract/`, `feature/connect/logic/…/serverform/`, `feature/connect/logic/…/progress/`, `feature/connect/ui/…/serverform/`, `feature/connect/ui/…/progress/`, `strings_connect_serverform.xml`, `strings_connect_progress.xml`, `docs/PHASES.md` (this block) | With a port set, only the opencode server on that loopback port is used; with none there the app says so, and starts one on it only when no opencode serve runs; an empty port keeps automatic detection | `CI` |
+| P9.19 | Folder listing error detail | P4.12, P4.13 | `feature/connect/logic/…/contract/FolderContract.kt` (errorDetail only), `feature/connect/logic/…/folder/`, `feature/connect/ui/…/folder/`, `strings_connect_folder.xml`, `docs/PHASES.md` (this block) | A generic folder listing failure shows the failing exception class chain, never messages, paths or hosts | `CI` |
 
 `CP9`: push, CI green, `PHONE`: commit and push in a test repository.
 

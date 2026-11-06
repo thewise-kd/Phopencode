@@ -33,4 +33,5 @@ internal val ENGLISH_FOLDER_STRINGS = ExpectedFolderStrings(
         FolderError.Failed to "The folder could not be listed.",
         FolderError.StorageFailed to "Recent folders could not be read or saved on this phone.",
     ),
+    details = { "Details: $it" },
 )

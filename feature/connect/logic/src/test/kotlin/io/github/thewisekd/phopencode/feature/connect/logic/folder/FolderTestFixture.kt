@@ -1,5 +1,6 @@
 package io.github.thewisekd.phopencode.feature.connect.logic.folder
 
+import io.github.thewisekd.phopencode.core.model.FileEntry
 import io.github.thewisekd.phopencode.core.model.SecretRef
 import io.github.thewisekd.phopencode.core.model.ServerProfile
 import io.github.thewisekd.phopencode.core.model.ServerProfileId
@@ -35,6 +36,7 @@ import io.github.thewisekd.phopencode.core.testing.ssh.FakeSshSession
 import io.github.thewisekd.phopencode.core.testing.storage.FakeKnownHostsStore
 import io.github.thewisekd.phopencode.core.testing.storage.FakeSecretStore
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 
@@ -90,6 +92,11 @@ internal class TrackedSftp(val inner: FakeSftpClient, private val log: SftpLog) 
         return log.reportedHome ?: reported
     }
 
+    override suspend fun list(path: String): List<FileEntry> {
+        log.failNextList.getAndSet(null)?.let { throw it }
+        return inner.list(path)
+    }
+
     override fun close() {
         closes.incrementAndGet()
         inner.close()
@@ -104,6 +111,9 @@ internal class SftpLog {
     /** Replaces the fake's answer to `home()`, to report text the fake would not. */
     @Volatile
     var reportedHome: String? = null
+
+    /** The next listing, of any client, fails with this; unlike `failNext` it takes any exception. */
+    val failNextList = AtomicReference<Exception?>(null)
 
     /** The first request of every client opened from now on fails with this. */
     @Volatile

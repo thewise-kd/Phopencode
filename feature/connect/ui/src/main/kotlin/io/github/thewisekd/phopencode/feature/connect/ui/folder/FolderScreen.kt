@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -85,6 +86,7 @@ fun FolderScreen(
                     onRetry = if (error.canRetry) ({ onIntent(FolderIntent.Retry) }) else null,
                     onDismiss = { onIntent(FolderIntent.DismissError) },
                 )
+                if (error == FolderError.Failed) state.errorDetail?.let { ErrorDetail(it) }
             }
             LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
                 recentFolders(state.recent, onIntent)
@@ -102,6 +104,29 @@ fun FolderScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * The failure's class chain under its message: small, and selectable so that it can be copied into a
+ * bug report. It holds class names only, never a path or a host (see the presenter).
+ */
+@Composable
+private fun ErrorDetail(detail: String) {
+    SelectionContainer(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = PhopencodeTheme.spacing.lg,
+                end = PhopencodeTheme.spacing.lg,
+                bottom = PhopencodeTheme.spacing.sm,
+            ),
+    ) {
+        Text(
+            text = stringResource(R.string.connect_folder_error_detail, detail),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 

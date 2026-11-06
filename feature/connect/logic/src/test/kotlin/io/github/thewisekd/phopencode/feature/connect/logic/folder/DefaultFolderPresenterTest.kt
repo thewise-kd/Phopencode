@@ -12,6 +12,7 @@ import io.github.thewisekd.phopencode.feature.connect.logic.contract.FolderError
 import io.github.thewisekd.phopencode.feature.connect.logic.contract.FolderEvent
 import io.github.thewisekd.phopencode.feature.connect.logic.contract.FolderIntent
 import io.github.thewisekd.phopencode.feature.connect.logic.contract.FolderState
+import java.io.EOFException
 import java.io.IOException
 import kotlin.coroutines.CoroutineContext
 import kotlin.test.Test
@@ -430,6 +431,161 @@ class DefaultFolderPresenterTest {
 
         assertEquals(FolderError.Failed, presenter.state.value.error)
         assertEquals("/", presenter.state.value.path)
+    }
+
+    @Test
+    fun `a generic SFTP failure carries the class chain of its cause`() = runTest(timeout = 10.seconds) {
+        val env = env()
+        val presenter = env.presenter()
+        runCurrent()
+
+        env.connection.failNextSftp(SshException.Sftp(SftpFailure.Failed, redacted(EOFException("gone"))))
+        open(presenter, "/srv")
+
+        assertEquals(FolderError.Failed, presenter.state.value.error)
+        assertEquals("SshException.Sftp(Failed) <- java.io.EOFException", presenter.state.value.errorDetail)
+    }
+
+    @Test
+    fun `a failure that is no SSH failure carries its class name`() = runTest(timeout = 10.seconds) {
+        val env = env()
+        val presenter = env.presenter()
+        runCurrent()
+
+        env.connection.log.failNextList.set(IllegalStateException("broken"))
+        open(presenter, "/srv")
+
+        assertEquals(FolderError.Failed, presenter.state.value.error)
+        assertEquals("java.lang.IllegalStateException", presenter.state.value.errorDetail)
+    }
+
+    @Test
+    fun `the first listing's failure carries its detail`() = runTest(timeout = 10.seconds) {
+        val env = env()
+        env.connection.log.failNextList.set(IllegalStateException("broken"))
+        val presenter = env.presenter()
+
+        runCurrent()
+
+        assertEquals(FolderError.Failed, presenter.state.value.error)
+        assertEquals("java.lang.IllegalStateException", presenter.state.value.errorDetail)
+    }
+
+    @Test
+    fun `no message, path, host or secret of a failure reaches the state`() = runTest(timeout = 10.seconds) {
+        val env = env()
+        val presenter = env.presenter()
+        runCurrent()
+
+        // An SFTP failure keeps the client, so the second failure is injected after it.
+        env.connection.failNextSftp(
+            SshException.Sftp(SftpFailure.Failed, IOException("$SECRET_PATH $SECRET_PASSWORD")),
+        )
+        open(presenter, "/data")
+        assertEquals("SshException.Sftp(Failed) <- java.io.IOException", presenter.state.value.errorDetail)
+        assertQuotesNoSecret(presenter.state.value)
+
+        env.connection.log.failNextList.set(
+            IllegalStateException(
+                "listing $SECRET_PATH on $SECRET_HOST",
+                redacted(IOException("$SECRET_USER@$SECRET_HOST: $SECRET_PASSWORD")),
+            ),
+        )
+        open(presenter, "/srv")
+        assertEquals("java.lang.IllegalStateException <- java.io.IOException", presenter.state.value.errorDetail)
+        assertQuotesNoSecret(presenter.state.value)
+    }
+
+    private fun assertQuotesNoSecret(state: FolderState) {
+        for (secret in SECRETS) assertFalse(secret in state.toString(), "the state quotes $secret")
+    }
+
+    @Test
+    fun `the detail is cleared by a later listing`() = runTest(timeout = 10.seconds) {
+        val env = env()
+        val presenter = env.presenter()
+        runCurrent()
+        env.connection.log.failNextList.set(IllegalStateException("broken"))
+        open(presenter, "/srv")
+        assertEquals("java.lang.IllegalStateException", presenter.state.value.errorDetail)
+
+        open(presenter, "/data")
+
+        assertNull(presenter.state.value.error)
+        assertNull(presenter.state.value.errorDetail)
+    }
+
+    @Test
+    fun `retry clears the failure and its detail at once`() = runTest(timeout = 10.seconds) {
+        val env = env()
+        val presenter = env.presenter()
+        runCurrent()
+        env.connection.log.failNextList.set(IllegalStateException("broken"))
+        open(presenter, "/srv")
+
+        presenter.onIntent(FolderIntent.Retry)
+
+        assertNull(presenter.state.value.error)
+        assertNull(presenter.state.value.errorDetail)
+        runCurrent()
+        assertEquals("/", presenter.state.value.path)
+        assertNull(presenter.state.value.errorDetail)
+    }
+
+    @Test
+    fun `dismiss error clears the detail too`() = runTest(timeout = 10.seconds) {
+        val env = env()
+        val presenter = env.presenter()
+        runCurrent()
+        env.connection.log.failNextList.set(IllegalStateException("broken"))
+        open(presenter, "/srv")
+
+        presenter.onIntent(FolderIntent.DismissError)
+
+        assertNull(presenter.state.value.error)
+        assertNull(presenter.state.value.errorDetail)
+    }
+
+    @Test
+    fun `a later error of another kind drops the detail`() = runTest(timeout = 10.seconds) {
+        val env = env()
+        val presenter = env.presenter()
+        runCurrent()
+        env.connection.log.failNextList.set(IllegalStateException("broken"))
+        open(presenter, "/srv")
+
+        open(presenter, "/srv/missing")
+
+        assertEquals(FolderError.NotFound, presenter.state.value.error)
+        assertNull(presenter.state.value.errorDetail)
+    }
+
+    @Test
+    fun `a malformed path shows Failed without a detail`() = runTest(timeout = 10.seconds) {
+        val env = env()
+        val presenter = env.presenter()
+        runCurrent()
+        env.connection.log.failNextList.set(IllegalStateException("broken"))
+        open(presenter, "/srv")
+
+        open(presenter, "/srv/a\u0000b")
+
+        assertEquals(FolderError.Failed, presenter.state.value.error)
+        assertNull(presenter.state.value.errorDetail)
+    }
+
+    @Test
+    fun `permission denied and not found carry no detail`() = runTest(timeout = 10.seconds) {
+        val env = env()
+        val presenter = env.presenter()
+        runCurrent()
+
+        open(presenter, "/srv/locked")
+        assertEquals(FolderError.PermissionDenied, presenter.state.value.error)
+        assertNull(presenter.state.value.errorDetail)
+        open(presenter, "/srv/missing")
+        assertEquals(FolderError.NotFound, presenter.state.value.error)
+        assertNull(presenter.state.value.errorDetail)
     }
 
     @Test

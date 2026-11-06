@@ -60,6 +60,7 @@ class ContractTypesTest {
             assertTrue(entries.isEmpty())
             assertTrue(recent.isEmpty())
             assertNull(error)
+            assertNull(errorDetail)
         }
         with(ProgressState()) {
             assertEquals(ProgressStep.Ssh, step)

@@ -30,5 +30,6 @@ class TurkishFolderScreenTest : FolderScreenLanguageContract() {
             FolderError.Failed to "Klasör listelenemedi.",
             FolderError.StorageFailed to "Son klasörler bu telefonda okunamadı ya da kaydedilemedi.",
         ),
+        details = { "Ayrıntı: $it" },
     )
 }

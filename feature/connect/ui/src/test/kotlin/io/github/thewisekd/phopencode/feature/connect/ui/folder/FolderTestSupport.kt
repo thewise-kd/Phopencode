@@ -1,6 +1,7 @@
 package io.github.thewisekd.phopencode.feature.connect.ui.folder
 
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
@@ -21,6 +22,9 @@ internal val linked = FileEntry(path = "$CURRENT/linked", type = FileEntryType.S
 internal const val RECENT_ONE = "/work/projects/alpha"
 internal const val RECENT_TWO = "/data/sample"
 
+/** A failure's detail as the presenter builds it. */
+internal const val DETAIL = "SshException.Sftp(Failed) <- java.io.EOFException"
+
 internal val browsing = FolderState(
     loading = false,
     path = CURRENT,
@@ -31,11 +35,15 @@ internal fun ComposeContentTestRule.setFolderScreen(
     state: FolderState,
     onIntent: (FolderIntent) -> Unit = {},
 ) {
-    setContent {
-        PhopencodeTheme(darkTheme = false) {
-            Surface {
-                FolderScreen(route = ConnectRoute.FolderPicker, state = state, onIntent = onIntent)
-            }
+    setContent { FolderScreenUnderTest(state, onIntent) }
+}
+
+/** The folder picker as the tests draw it, for a test that changes [state] after the first frame. */
+@Composable
+internal fun FolderScreenUnderTest(state: FolderState, onIntent: (FolderIntent) -> Unit = {}) {
+    PhopencodeTheme(darkTheme = false) {
+        Surface {
+            FolderScreen(route = ConnectRoute.FolderPicker, state = state, onIntent = onIntent)
         }
     }
 }

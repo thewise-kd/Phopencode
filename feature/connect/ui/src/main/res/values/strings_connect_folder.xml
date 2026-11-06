@@ -17,5 +17,6 @@
     <string name="connect_folder_error_permission_denied">Permission denied: this folder cannot be opened with your account.</string>
     <string name="connect_folder_error_not_found">This folder no longer exists.</string>
     <string name="connect_folder_error_failed">The folder could not be listed.</string>
+    <string name="connect_folder_error_detail">Details: %1$s</string>
     <string name="connect_folder_error_storage">Recent folders could not be read or saved on this phone.</string>
 </resources>

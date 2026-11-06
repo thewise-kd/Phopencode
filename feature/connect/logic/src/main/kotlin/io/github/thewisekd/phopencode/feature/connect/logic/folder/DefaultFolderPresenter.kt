@@ -62,7 +62,9 @@ import kotlinx.coroutines.yield
  *
  * Errors: [FolderError.PermissionDenied] and [FolderError.NotFound] as SFTP reports them;
  * [FolderError.NotConnected] without an active server, without a connection that serves it (see
- * below), or when the SSH session ends under a request; [FolderError.Failed] for anything else. The
+ * below), or when the SSH session ends under a request; [FolderError.Failed] for anything else, with
+ * the failure's class chain in [FolderState.errorDetail] (see [FailureDetail]; nothing is logged). A
+ * new error, [FolderIntent.Retry], [FolderIntent.DismissError] or a listing clears the detail. The
  * folder shown stays after an error, and so does the client, unless the error came from the
  * connection: then the client is closed, and the next request ([FolderIntent.Retry]) opens a new
  * one.
@@ -154,8 +156,14 @@ class DefaultFolderPresenter(
             }
             is FolderIntent.Select -> select(intent.path)
             is FolderIntent.RemoveRecent -> removeRecent(intent.path)
-            FolderIntent.Retry -> browse(mutableState.value.path)
-            FolderIntent.DismissError -> mutableState.update { it.copy(error = null) }
+            FolderIntent.Retry -> {
+                // Browsing errors give way to the new listing; a storage failure is not about it.
+                mutableState.update { state ->
+                    state.withError(state.error.takeIf { it == FolderError.StorageFailed })
+                }
+                browse(mutableState.value.path)
+            }
+            FolderIntent.DismissError -> mutableState.update { it.withError(null) }
             FolderIntent.Close -> eventChannel.trySend(FolderEvent.Close)
         }
     }
@@ -163,7 +171,7 @@ class DefaultFolderPresenter(
     /** [path] in canonical form, below the folder shown when relative; null, with an error, if malformed. */
     private fun canonical(path: String): String? {
         val canonical = FolderPaths.canonical(path, base = mutableState.value.path ?: FolderPaths.ROOT)
-        if (canonical == null) mutableState.update { it.copy(error = FolderError.Failed) }
+        if (canonical == null) mutableState.update { it.withError(FolderError.Failed) }
         return canonical
     }
 
@@ -191,6 +199,7 @@ class DefaultFolderPresenter(
                     entries = entries,
                     // A storage failure is not about browsing; it stays until dismissed.
                     error = current.error.takeIf { it == FolderError.StorageFailed },
+                    errorDetail = null,
                 )
             }
         } catch (e: CancellationException) {
@@ -198,7 +207,10 @@ class DefaultFolderPresenter(
         } catch (e: Exception) {
             // An SFTP failure leaves the channel usable; anything else may have broken it.
             if (e !is SshException.Sftp) discardClient()
-            mutableState.update { it.copy(loading = false, error = errorOf(e)) }
+            val error = errorOf(e)
+            // Only the class chain, never a message: see FailureDetail.
+            val detail = if (error == FolderError.Failed) FailureDetail.of(e) else null
+            mutableState.update { it.copy(loading = false).withError(error, detail) }
         }
     }
 
@@ -340,7 +352,7 @@ class DefaultFolderPresenter(
             if (e is CancellationException) return@retryWhen false
             // Shown at once, then read again after a pause: a store that failed once may recover,
             // and the delay keeps a store that keeps failing from being asked in a loop.
-            mutableState.update { it.copy(error = FolderError.StorageFailed) }
+            mutableState.update { it.withError(FolderError.StorageFailed) }
             emit(emptyList())
             delay(RECENT_RETRY_DELAY)
             true
@@ -359,17 +371,17 @@ class DefaultFolderPresenter(
         val active = activeServer.id.value
         val listedFor = synchronized(lock) { shownProfile }
         if (active == null) {
-            mutableState.update { it.copy(error = FolderError.NotConnected) }
+            mutableState.update { it.withError(FolderError.NotConnected) }
             return
         }
         if (listedFor != null && listedFor != active) {
-            mutableState.update { it.copy(error = FolderError.Failed) }
+            mutableState.update { it.withError(FolderError.Failed) }
             return
         }
         // The profile read above, not read again: a switch in between must not change whose it is.
         val id = listedFor ?: serving(active)?.server?.profileId
         if (id == null) {
-            mutableState.update { it.copy(error = FolderError.NotConnected) }
+            mutableState.update { it.withError(FolderError.NotConnected) }
             return
         }
         val path = canonical(requested) ?: return
@@ -392,7 +404,7 @@ class DefaultFolderPresenter(
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
-            mutableState.update { it.copy(error = FolderError.StorageFailed) }
+            mutableState.update { it.withError(FolderError.StorageFailed) }
         }
     }
 
@@ -402,6 +414,10 @@ class DefaultFolderPresenter(
 
         val BY_NAME: Comparator<FileEntry> =
             compareBy<FileEntry, String>(String.CASE_INSENSITIVE_ORDER) { it.name }.thenBy { it.name }
+
+        /** [error] in place of the one shown; [detail] goes with it, so no detail outlives its error. */
+        fun FolderState.withError(error: FolderError?, detail: String? = null): FolderState =
+            copy(error = error, errorDetail = detail)
 
         fun errorOf(e: Exception): FolderError = when (e) {
             is NotConnectedException, is SshException.Disconnected -> FolderError.NotConnected

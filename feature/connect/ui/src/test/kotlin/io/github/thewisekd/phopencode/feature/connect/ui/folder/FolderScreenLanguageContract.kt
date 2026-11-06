@@ -1,5 +1,8 @@
 package io.github.thewisekd.phopencode.feature.connect.ui.folder
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -12,7 +15,7 @@ import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
 
-/** The texts of the folder picker in one language. Formats take a folder path. */
+/** The texts of the folder picker in one language. Formats take a folder path, [details] a failure's detail. */
 internal data class ExpectedFolderStrings(
     val title: String,
     val up: String,
@@ -28,6 +31,7 @@ internal data class ExpectedFolderStrings(
     val retry: String,
     val dismiss: String,
     val errors: Map<FolderError, String>,
+    val details: (String) -> String,
 )
 
 /** What the folder picker shows, the same in each language; a subclass sets the language and its texts. */
@@ -96,6 +100,36 @@ abstract class FolderScreenLanguageContract {
 
     @Test
     fun `a storage failure is explained`() = assertError(FolderError.StorageFailed)
+
+    @Test
+    fun `a failure with a detail shows it under the message`() {
+        compose.setFolderScreen(browsing.copy(error = FolderError.Failed, errorDetail = DETAIL))
+
+        compose.onNodeWithText(strings.errors.getValue(FolderError.Failed)).assertIsDisplayed()
+        compose.onNodeWithText(strings.details(DETAIL)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a failure without a detail shows no detail line`() {
+        compose.setFolderScreen(browsing.copy(error = FolderError.Failed))
+
+        compose.onNodeWithText(strings.errors.getValue(FolderError.Failed)).assertIsDisplayed()
+        compose.onNodeWithText(strings.details(""), substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `other errors show no detail line`() {
+        var state by mutableStateOf(browsing)
+        compose.setContent { FolderScreenUnderTest(state) }
+
+        for (error in FolderError.entries - FolderError.Failed) {
+            state = browsing.copy(error = error, errorDetail = DETAIL)
+            compose.waitForIdle()
+
+            compose.onNodeWithText(strings.errors.getValue(error)).assertIsDisplayed()
+            compose.onNodeWithText(DETAIL, substring = true).assertDoesNotExist()
+        }
+    }
 
     private fun assertError(error: FolderError) {
         compose.setFolderScreen(browsing.copy(error = error))

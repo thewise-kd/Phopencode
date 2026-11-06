@@ -25,6 +25,9 @@ enum class FolderError {
  * @property path The folder shown, or null before the first listing.
  * @property entries The children of [path] that can be opened as folders.
  * @property recent The active server's recent folders, newest first.
+ * @property errorDetail With [FolderError.Failed] from a failed listing, the failure's class chain,
+ *   for example `SshException.Sftp(Failed) <- java.io.EOFException`: class names only, never a
+ *   message, path or host. Null otherwise, and cleared with the error.
  */
 data class FolderState(
     val loading: Boolean = true,
@@ -32,6 +35,7 @@ data class FolderState(
     val entries: List<FileEntry> = emptyList(),
     val recent: List<String> = emptyList(),
     val error: FolderError? = null,
+    val errorDetail: String? = null,
 ) {
     /** [path] has a parent folder. */
     val canGoUp: Boolean get() = path != null && path.trimEnd('/').isNotEmpty()
