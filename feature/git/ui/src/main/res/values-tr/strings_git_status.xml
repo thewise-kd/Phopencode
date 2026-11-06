@@ -1,3 +1,74 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- The product name of the version control tool. -->
+    <string name="git_status_title">Git</string>
+    <string name="git_status_refresh">Yenile</string>
+    <string name="git_status_loading">Durum okunuyor…</string>
+    <string name="git_status_refreshing">Yenileniyor…</string>
+
+    <string name="git_status_branch">Dal</string>
+    <!-- %1$s: the first seven characters of the commit HEAD is on. -->
+    <string name="git_status_detached">Ayrık HEAD: %1$s</string>
+    <string name="git_status_detached_unknown">Ayrık HEAD</string>
+    <string name="git_status_no_commits">Henüz commit yok</string>
+    <!-- %1$s: the upstream branch, such as origin/main. -->
+    <string name="git_status_tracking">İzlenen: %1$s</string>
+    <plurals name="git_status_ahead">
+        <item quantity="one">%1$d ileride</item>
+        <item quantity="other">%1$d ileride</item>
+    </plurals>
+    <plurals name="git_status_behind">
+        <item quantity="one">%1$d geride</item>
+        <item quantity="other">%1$d geride</item>
+    </plurals>
+    <string name="git_status_up_to_date">Güncel</string>
+    <string name="git_status_no_upstream">İzlenen uzak dal yok</string>
+
+    <string name="git_status_commit">Commit</string>
+    <string name="git_status_log">Geçmiş</string>
+    <string name="git_status_branches">Dallar</string>
+    <string name="git_status_remote">Uzak depo</string>
+
+    <string name="git_status_group_conflicted">Çakışmalar</string>
+    <string name="git_status_group_staged">Hazırlanan</string>
+    <string name="git_status_group_unstaged">Hazırlanmamış</string>
+    <string name="git_status_group_untracked">İzlenmeyen</string>
+    <string name="git_status_stage_all">Tümünü hazırla</string>
+    <string name="git_status_unstage_all">Tümünü hazırlıktan çıkar</string>
+
+    <!-- %1$s: a file name. -->
+    <string name="git_status_stage">%1$s dosyasını hazırla</string>
+    <!-- %1$s: a file name. -->
+    <string name="git_status_unstage">%1$s dosyasını hazırlıktan çıkar</string>
+    <!-- %1$s: a file name. Staging a file in conflict marks the conflict resolved. -->
+    <string name="git_status_resolve">%1$s dosyasını çözüldü olarak işaretle</string>
+    <string name="git_status_open_diff">Değişiklikleri göster</string>
+    <string name="git_status_pending">İşleniyor…</string>
+    <!-- %1$s: the path the file had before it was renamed or copied. -->
+    <string name="git_status_renamed_from">eski adı: %1$s</string>
+
+    <string name="git_status_kind_added">Eklendi</string>
+    <string name="git_status_kind_modified">Değiştirildi</string>
+    <string name="git_status_kind_deleted">Silindi</string>
+    <string name="git_status_kind_renamed">Yeniden adlandırıldı</string>
+    <string name="git_status_kind_copied">Kopyalandı</string>
+    <string name="git_status_kind_type_changed">Türü değişti</string>
+    <string name="git_status_kind_untracked">Yeni dosya</string>
+    <string name="git_status_kind_unmerged">Çakışma</string>
+
+    <string name="git_status_clean_title">Commit edilecek bir şey yok</string>
+    <string name="git_status_clean_message">Çalışma ağacı temiz.</string>
+
+    <string name="git_status_error_not_connected">Sunucuya bağlı değilsiniz. Geri dönüp yeniden bağlanın.</string>
+    <string name="git_status_error_unreachable">Sunucuya ulaşılamadı.</string>
+    <string name="git_status_error_timed_out">Git çok uzun sürede yanıt verdi.</string>
+    <string name="git_status_error_unauthorized">Sunucu girişi reddetti. Geri dönüp yeniden bağlanın.</string>
+    <string name="git_status_error_output_too_large">Durum telefonda gösterilemeyecek kadar büyük.</string>
+    <string name="git_status_error_not_repository">Bu klasör bir git deposunda değil.</string>
+    <string name="git_status_error_git_missing">Sunucuda git kurulu değil.</string>
+    <string name="git_status_error_rejected">Dosya adı reddedildi.</string>
+    <string name="git_status_error_not_found">Dosya ya da klasör artık yok.</string>
+    <string name="git_status_error_conflict">Depoda çözülmemiş çakışmalar var.</string>
+    <string name="git_status_error_read">Durum okunamadı.</string>
+    <string name="git_status_error_action">Dosya hazırlanamadı ya da hazırlıktan çıkarılamadı.</string>
 </resources>

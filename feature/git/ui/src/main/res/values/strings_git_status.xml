@@ -1,3 +1,83 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- The product name of the version control tool. -->
+    <string name="git_status_title">Git</string>
+    <string name="git_status_refresh">Refresh</string>
+    <string name="git_status_loading">Reading the status…</string>
+    <string name="git_status_refreshing">Refreshing…</string>
+
+    <string name="git_status_branch">Branch</string>
+    <!-- %1$s: the first seven characters of the commit HEAD is on. -->
+    <string name="git_status_detached">Detached HEAD at %1$s</string>
+    <string name="git_status_detached_unknown">Detached HEAD</string>
+    <string name="git_status_no_commits">No commits yet</string>
+    <!-- %1$s: the upstream branch, such as origin/main. -->
+    <string name="git_status_tracking">Tracking %1$s</string>
+    <plurals name="git_status_ahead">
+        <item quantity="one">%1$d ahead</item>
+        <item quantity="other">%1$d ahead</item>
+    </plurals>
+    <plurals name="git_status_behind">
+        <item quantity="one">%1$d behind</item>
+        <item quantity="other">%1$d behind</item>
+    </plurals>
+    <string name="git_status_up_to_date">Up to date</string>
+    <string name="git_status_no_upstream">No upstream branch</string>
+
+    <string name="git_status_commit">Commit</string>
+    <string name="git_status_log">History</string>
+    <string name="git_status_branches">Branches</string>
+    <string name="git_status_remote">Remote</string>
+
+    <string name="git_status_group_conflicted">Conflicts</string>
+    <string name="git_status_group_staged">Staged</string>
+    <string name="git_status_group_unstaged">Not staged</string>
+    <string name="git_status_group_untracked">Untracked</string>
+    <string name="git_status_stage_all">Stage all</string>
+    <string name="git_status_unstage_all">Unstage all</string>
+
+    <!-- %1$s: a file name. -->
+    <string name="git_status_stage">Stage %1$s</string>
+    <!-- %1$s: a file name. -->
+    <string name="git_status_unstage">Unstage %1$s</string>
+    <!-- %1$s: a file name. Staging a file in conflict marks the conflict resolved. -->
+    <string name="git_status_resolve">Mark %1$s resolved</string>
+    <string name="git_status_open_diff">Show changes</string>
+    <string name="git_status_pending">Working…</string>
+    <!-- %1$s: the path the file had before it was renamed or copied. -->
+    <string name="git_status_renamed_from">from %1$s</string>
+
+    <string name="git_status_kind_added">Added</string>
+    <string name="git_status_kind_modified">Modified</string>
+    <string name="git_status_kind_deleted">Deleted</string>
+    <string name="git_status_kind_renamed">Renamed</string>
+    <string name="git_status_kind_copied">Copied</string>
+    <string name="git_status_kind_type_changed">Type changed</string>
+    <string name="git_status_kind_untracked">New file</string>
+    <string name="git_status_kind_unmerged">Conflict</string>
+    <!-- The one-letter marks git itself prints; the same in every language. -->
+    <string name="git_status_mark_added" translatable="false">A</string>
+    <string name="git_status_mark_modified" translatable="false">M</string>
+    <string name="git_status_mark_deleted" translatable="false">D</string>
+    <string name="git_status_mark_renamed" translatable="false">R</string>
+    <string name="git_status_mark_copied" translatable="false">C</string>
+    <string name="git_status_mark_type_changed" translatable="false">T</string>
+    <string name="git_status_mark_untracked" translatable="false">\?</string>
+    <string name="git_status_mark_unmerged" translatable="false">U</string>
+
+    <string name="git_status_clean_title">Nothing to commit</string>
+    <string name="git_status_clean_message">The working tree is clean.</string>
+
+    <string name="git_status_error_not_connected">Not connected to the server. Go back and connect again.</string>
+    <string name="git_status_error_unreachable">The server could not be reached.</string>
+    <string name="git_status_error_timed_out">Git took too long to answer.</string>
+    <string name="git_status_error_unauthorized">The server refused the login. Go back and connect again.</string>
+    <string name="git_status_error_output_too_large">The status is too large to show on the phone.</string>
+    <string name="git_status_error_not_repository">This folder is not in a git repository.</string>
+    <string name="git_status_error_git_missing">Git is not installed on the server.</string>
+    <string name="git_status_error_rejected">The file name was refused.</string>
+    <string name="git_status_error_not_found">The file or folder is no longer there.</string>
+    <string name="git_status_error_conflict">The repository has unresolved conflicts.</string>
+    <string name="git_status_error_read">The status could not be read.</string>
+    <string name="git_status_error_action">The file could not be staged or unstaged.</string>
 </resources>
