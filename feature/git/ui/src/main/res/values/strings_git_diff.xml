@@ -1,3 +1,67 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="git_diff_refresh">Refresh</string>
+    <string name="git_diff_loading">Reading the diff…</string>
+
+    <string name="git_diff_context_working">Working tree</string>
+    <string name="git_diff_context_staged">Staged</string>
+    <string name="git_diff_context_commit">Commit %1$s</string>
+    <string name="git_diff_old_path">Old path: %1$s</string>
+
+    <string name="git_diff_kind_added">Added</string>
+    <string name="git_diff_kind_modified">Modified</string>
+    <string name="git_diff_kind_deleted">Deleted</string>
+    <string name="git_diff_kind_renamed">Renamed</string>
+    <string name="git_diff_kind_copied">Copied</string>
+    <string name="git_diff_kind_type_changed">Type changed</string>
+    <string name="git_diff_kind_untracked">Untracked</string>
+    <string name="git_diff_kind_unmerged">Unmerged</string>
+
+    <plurals name="git_diff_additions">
+        <item quantity="one">%1$d addition</item>
+        <item quantity="other">%1$d additions</item>
+    </plurals>
+    <plurals name="git_diff_deletions">
+        <item quantity="one">%1$d deletion</item>
+        <item quantity="other">%1$d deletions</item>
+    </plurals>
+    <string name="git_diff_counts">%1$s, %2$s</string>
+
+    <string name="git_diff_hunk">Change at line %1$d, previously line %2$d</string>
+    <string name="git_diff_line_added">Added, line %1$d: %2$s</string>
+    <string name="git_diff_line_deleted">Deleted, line %1$d: %2$s</string>
+    <string name="git_diff_line_context">Unchanged, line %1$d: %2$s</string>
+    <string name="git_diff_line_blank">blank</string>
+    <string name="git_diff_line_no_newline">No newline at end of file</string>
+
+    <string name="git_diff_binary_title">Binary file</string>
+    <string name="git_diff_binary_message">git reports this file as binary, so there are no lines to show.</string>
+    <string name="git_diff_too_large_title">Diff too large</string>
+    <string name="git_diff_too_large_message">This diff is larger than the %1$s limit, so none of it is shown.</string>
+    <string name="git_diff_unchanged_title">No line changed</string>
+    <string name="git_diff_unchanged_message">Only details such as the file mode changed.</string>
+
+    <string name="git_diff_size_bytes">%1$s B</string>
+    <string name="git_diff_size_kb">%1$s KB</string>
+    <string name="git_diff_size_mb">%1$s MB</string>
+    <string name="git_diff_size_gb">%1$s GB</string>
+
+    <string name="git_diff_error">Could not read the diff. %1$s</string>
+    <string name="git_diff_reason_not_connected">No connection to the server.</string>
+    <string name="git_diff_reason_unreachable">The server could not be reached.</string>
+    <string name="git_diff_reason_timed_out">The server took too long to answer.</string>
+    <string name="git_diff_reason_unauthorized">The server refused the login.</string>
+    <string name="git_diff_reason_output_too_large">The diff is too large to read on the phone.</string>
+    <string name="git_diff_reason_not_repository">The folder is not a git repository.</string>
+    <string name="git_diff_reason_git_missing">git is not installed on the server.</string>
+    <string name="git_diff_reason_rejected">The file path or commit was refused.</string>
+    <string name="git_diff_reason_not_found">The file or commit was not found.</string>
+    <string name="git_diff_reason_credential_required">git asked for a password or a key.</string>
+    <string name="git_diff_reason_non_fast_forward">The remote has commits this branch lacks.</string>
+    <string name="git_diff_reason_diverged">The branches have diverged.</string>
+    <string name="git_diff_reason_would_overwrite">Local changes would be overwritten.</string>
+    <string name="git_diff_reason_conflict">The repository has unresolved conflicts.</string>
+    <string name="git_diff_reason_git_error">git failed with exit code %1$d.</string>
+    <string name="git_diff_reason_git_error_no_code">git failed.</string>
+    <string name="git_diff_reason_unknown">An unexpected error occurred.</string>
 </resources>

@@ -1,3 +1,67 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="git_diff_refresh">Yenile</string>
+    <string name="git_diff_loading">Fark okunuyor…</string>
+
+    <string name="git_diff_context_working">Çalışma ağacı</string>
+    <string name="git_diff_context_staged">Hazırlanan</string>
+    <string name="git_diff_context_commit">Commit %1$s</string>
+    <string name="git_diff_old_path">Eski yol: %1$s</string>
+
+    <string name="git_diff_kind_added">Eklendi</string>
+    <string name="git_diff_kind_modified">Değiştirildi</string>
+    <string name="git_diff_kind_deleted">Silindi</string>
+    <string name="git_diff_kind_renamed">Yeniden adlandırıldı</string>
+    <string name="git_diff_kind_copied">Kopyalandı</string>
+    <string name="git_diff_kind_type_changed">Türü değişti</string>
+    <string name="git_diff_kind_untracked">İzlenmiyor</string>
+    <string name="git_diff_kind_unmerged">Birleştirilmemiş</string>
+
+    <plurals name="git_diff_additions">
+        <item quantity="one">%1$d ekleme</item>
+        <item quantity="other">%1$d ekleme</item>
+    </plurals>
+    <plurals name="git_diff_deletions">
+        <item quantity="one">%1$d silme</item>
+        <item quantity="other">%1$d silme</item>
+    </plurals>
+    <string name="git_diff_counts">%1$s, %2$s</string>
+
+    <string name="git_diff_hunk">Değişiklik: satır %1$d, önceden satır %2$d</string>
+    <string name="git_diff_line_added">Eklendi, satır %1$d: %2$s</string>
+    <string name="git_diff_line_deleted">Silindi, satır %1$d: %2$s</string>
+    <string name="git_diff_line_context">Değişmedi, satır %1$d: %2$s</string>
+    <string name="git_diff_line_blank">boş</string>
+    <string name="git_diff_line_no_newline">Dosyanın sonunda satır sonu yok</string>
+
+    <string name="git_diff_binary_title">İkili dosya</string>
+    <string name="git_diff_binary_message">git bu dosyayı ikili olarak bildiriyor; gösterilecek satır yok.</string>
+    <string name="git_diff_too_large_title">Fark çok büyük</string>
+    <string name="git_diff_too_large_message">Bu fark %1$s sınırını aşıyor; hiçbir kısmı gösterilmiyor.</string>
+    <string name="git_diff_unchanged_title">Hiçbir satır değişmedi</string>
+    <string name="git_diff_unchanged_message">Yalnızca dosya kipi gibi ayrıntılar değişti.</string>
+
+    <string name="git_diff_size_bytes">%1$s B</string>
+    <string name="git_diff_size_kb">%1$s KB</string>
+    <string name="git_diff_size_mb">%1$s MB</string>
+    <string name="git_diff_size_gb">%1$s GB</string>
+
+    <string name="git_diff_error">Fark okunamadı. %1$s</string>
+    <string name="git_diff_reason_not_connected">Sunucuyla bağlantı yok.</string>
+    <string name="git_diff_reason_unreachable">Sunucuya ulaşılamadı.</string>
+    <string name="git_diff_reason_timed_out">Sunucu çok geç yanıt verdi.</string>
+    <string name="git_diff_reason_unauthorized">Sunucu girişi reddetti.</string>
+    <string name="git_diff_reason_output_too_large">Fark telefonda okunamayacak kadar büyük.</string>
+    <string name="git_diff_reason_not_repository">Klasör bir git deposu değil.</string>
+    <string name="git_diff_reason_git_missing">Sunucuda git kurulu değil.</string>
+    <string name="git_diff_reason_rejected">Dosya yolu ya da commit reddedildi.</string>
+    <string name="git_diff_reason_not_found">Dosya ya da commit bulunamadı.</string>
+    <string name="git_diff_reason_credential_required">git bir parola ya da anahtar istedi.</string>
+    <string name="git_diff_reason_non_fast_forward">Uzak depoda bu dalda olmayan commit\'ler var.</string>
+    <string name="git_diff_reason_diverged">Dallar birbirinden ayrıldı.</string>
+    <string name="git_diff_reason_would_overwrite">Yerel değişikliklerin üzerine yazılırdı.</string>
+    <string name="git_diff_reason_conflict">Depoda çözülmemiş çakışmalar var.</string>
+    <string name="git_diff_reason_git_error">git %1$d çıkış koduyla başarısız oldu.</string>
+    <string name="git_diff_reason_git_error_no_code">git başarısız oldu.</string>
+    <string name="git_diff_reason_unknown">Beklenmeyen bir hata oluştu.</string>
 </resources>
