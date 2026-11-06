@@ -307,6 +307,17 @@ internal class TunnelSocket(private val session: SshjSession) : Socket(null as S
     private inline fun <reified T : Throwable> Throwable.hasCause(): Boolean =
         generateSequence(this) { it.cause }.take(MAX_CAUSES).any { it is T }
 
+    /**
+     * Throws [IndexOutOfBoundsException] unless [len] bytes from [off] fit in [b]. Written by hand
+     * because `Objects.checkFromIndexSize` exists on Android only from API 30, and minSdk is 26.
+     * `b.size - off` cannot overflow once `off` is known to be non-negative.
+     */
+    private fun requireRange(b: ByteArray, off: Int, len: Int) {
+        if (off < 0 || len < 0 || len > b.size - off) {
+            throw IndexOutOfBoundsException("Range [$off, $off + $len) out of bounds for length ${b.size}")
+        }
+    }
+
     private inner class Input : InputStream() {
         override fun read(): Int {
             val one = ByteArray(1)
@@ -318,7 +329,7 @@ internal class TunnelSocket(private val session: SshjSession) : Socket(null as S
         }
 
         override fun read(b: ByteArray, off: Int, len: Int): Int {
-            java.util.Objects.checkFromIndexSize(off, len, b.size)
+            requireRange(b, off, len)
             return inbox.read(b, off, len) { readTimeout }
         }
 
@@ -331,7 +342,7 @@ internal class TunnelSocket(private val session: SshjSession) : Socket(null as S
         override fun write(b: Int) = write(byteArrayOf(b.toByte()), 0, 1)
 
         override fun write(b: ByteArray, off: Int, len: Int) {
-            java.util.Objects.checkFromIndexSize(off, len, b.size)
+            requireRange(b, off, len)
             val sink = writable()
             try {
                 sink.write(b, off, len)
