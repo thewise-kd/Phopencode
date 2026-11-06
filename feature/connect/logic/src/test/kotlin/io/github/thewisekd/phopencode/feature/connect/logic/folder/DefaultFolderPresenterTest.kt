@@ -38,6 +38,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DefaultFolderPresenterTest {
@@ -1239,5 +1240,185 @@ class DefaultFolderPresenterTest {
 
         assertEquals(1, client.closes.get())
         assertIs<ConnectionState.Connected>(env.connection.manager.state.value, "the connection stays")
+    }
+
+    /** The connection drops, and the test waits until the manager has closed [sftp] with it. */
+    private fun Env.dropClosing(): suspend (TrackedSftp) -> Unit = { sftp ->
+        connection.connector.sessions.last().loseConnection()
+        while (sftp.closes.get() == 0) yield()
+    }
+
+    private val Env.generation: Long
+        get() = assertIs<ConnectionState.Connected>(connection.manager.state.value).generation
+
+    /** Lets the manager's reconnect run: its one delay is a second. */
+    private fun TestScope.reconnect() {
+        advanceTimeBy(1.seconds + 1.milliseconds)
+        runCurrent()
+    }
+
+    @Test
+    fun `the manager closing the client between list and stat shows NotConnected, then a reconnect lists again`() =
+        runTest(timeout = 10.seconds) {
+            val env = env()
+            val presenter = env.presenter()
+            runCurrent()
+            open(presenter, "/srv")
+            val before = env.generation
+
+            env.connection.log.beforeStat.set(env.dropClosing())
+            presenter.onIntent(FolderIntent.Retry)
+            runCurrent()
+
+            assertEquals(FolderError.NotConnected, presenter.state.value.error)
+            assertNull(presenter.state.value.errorDetail)
+            assertFalse(presenter.state.value.loading)
+            assertEquals("/srv", presenter.state.value.path)
+            assertEquals(1, env.connection.log.opened.size)
+
+            reconnect()
+            assertTrue(env.generation > before)
+
+            assertNull(presenter.state.value.error)
+            assertEquals("/srv", presenter.state.value.path)
+            assertEquals(listOf("alpha", "app", "Beta", "link-dir", "locked"), presenter.names)
+            val opened = env.connection.log.opened
+            assertEquals(2, opened.size, "the closed client is discarded and a new one opened")
+            assertEquals(0, opened.last().closes.get())
+            val requests = opened.last().inner.requests
+
+            advanceTimeBy(30.seconds)
+            runCurrent()
+            assertEquals(2, env.connection.log.opened.size, "one listing per new connection")
+            assertEquals(requests, env.connection.log.opened.last().inner.requests, "listed once")
+        }
+
+    @Test
+    fun `the manager closing the client before list shows NotConnected, then a reconnect lists the folder shown`() =
+        runTest(timeout = 10.seconds) {
+            val env = env()
+            val presenter = env.presenter()
+            runCurrent()
+            open(presenter, "/srv")
+
+            env.connection.log.beforeList.set(env.dropClosing())
+            open(presenter, "/data")
+
+            assertEquals(FolderError.NotConnected, presenter.state.value.error)
+            assertNull(presenter.state.value.errorDetail)
+            assertEquals("/srv", presenter.state.value.path)
+
+            reconnect()
+
+            assertNull(presenter.state.value.error)
+            assertEquals("/srv", presenter.state.value.path)
+            assertEquals(listOf("alpha", "app", "Beta", "link-dir", "locked"), presenter.names)
+            assertEquals(2, env.connection.log.opened.size)
+            open(presenter, "/data")
+            assertEquals(listOf("inner"), presenter.names)
+            assertEquals(2, env.connection.log.opened.size)
+        }
+
+    @Test
+    fun `a first listing without a connection is made once the connection stands, from home`() =
+        runTest(timeout = 10.seconds) {
+            val env = env(connect = false)
+            env.givenHome()
+            val presenter = env.presenter()
+            runCurrent()
+            assertEquals(FolderError.NotConnected, presenter.state.value.error)
+
+            env.connection.connect()
+            runCurrent()
+
+            assertNull(presenter.state.value.error)
+            assertEquals("/home/tester", presenter.state.value.path)
+            assertEquals(1, env.connection.log.opened.size)
+        }
+
+    @Test
+    fun `a new connection for another profile lists nothing into the active one`() = runTest(timeout = 10.seconds) {
+        val env = env()
+        val presenter = env.presenter()
+        runCurrent()
+        open(presenter, "/srv")
+        env.connection.log.beforeList.set(env.dropClosing())
+        open(presenter, "/data")
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+
+        env.connection.connect(OTHER_PROFILE)
+        runCurrent()
+        assertEquals(
+            OTHER_PROFILE_ID,
+            assertIs<ConnectionState.Connected>(env.connection.manager.state.value).server.profileId,
+        )
+        advanceTimeBy(10.seconds)
+        runCurrent()
+
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        assertEquals("/srv", presenter.state.value.path)
+        assertEquals(1, env.connection.log.opened.size, "no client is opened on another profile's connection")
+
+        // The server switch rules as before: the new profile is listed on retry, and picks go under it.
+        env.activeServer.set(OTHER_PROFILE_ID)
+        runCurrent()
+        assertEquals(1, env.connection.log.opened.size)
+        presenter.onIntent(FolderIntent.Retry)
+        runCurrent()
+        assertNull(presenter.state.value.error)
+        presenter.onIntent(FolderIntent.Select("/srv/app"))
+        runCurrent()
+        assertEquals(listOf("/srv/app"), env.recent.list(OTHER_PROFILE_ID))
+        assertTrue(env.recent.list(PROFILE_ID).isEmpty())
+    }
+
+    @Test
+    fun `an IllegalStateException from other code on the same connection still shows Failed with its detail`() =
+        runTest(timeout = 10.seconds) {
+            val env = env()
+            val presenter = env.presenter()
+            runCurrent()
+            val before = env.generation
+
+            env.connection.log.beforeStat.set { throw IllegalStateException("not about the connection") }
+            open(presenter, "/srv")
+
+            assertEquals(before, env.generation)
+            assertEquals(FolderError.Failed, presenter.state.value.error)
+            assertEquals("java.lang.IllegalStateException", presenter.state.value.errorDetail)
+            advanceTimeBy(10.seconds)
+            runCurrent()
+            assertEquals(FolderError.Failed, presenter.state.value.error)
+            assertEquals(1, env.connection.log.opened.size)
+        }
+
+    @Test
+    fun `a listing after a reconnect that fails again waits for the next connection`() = runTest(timeout = 10.seconds) {
+        val env = env()
+        val presenter = env.presenter()
+        runCurrent()
+        open(presenter, "/srv")
+        env.connection.log.beforeList.set(env.dropClosing())
+        open(presenter, "/data")
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+
+        env.connection.log.failFirstRequest = SshException.Disconnected()
+        reconnect()
+
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        assertEquals(2, env.connection.log.opened.size)
+        advanceTimeBy(30.seconds)
+        runCurrent()
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        assertEquals(2, env.connection.log.opened.size, "no listing loop on the same connection")
+
+        env.connection.log.failFirstRequest = null
+        env.connection.connector.sessions.last().loseConnection()
+        runCurrent()
+        reconnect()
+
+        assertNull(presenter.state.value.error)
+        assertEquals("/srv", presenter.state.value.path)
+        assertEquals(3, env.connection.log.opened.size)
     }
 }

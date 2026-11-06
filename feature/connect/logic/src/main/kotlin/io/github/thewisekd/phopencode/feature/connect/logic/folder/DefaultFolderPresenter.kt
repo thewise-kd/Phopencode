@@ -69,6 +69,16 @@ import kotlinx.coroutines.yield
  * connection: then the client is closed, and the next request ([FolderIntent.Retry]) opens a new
  * one.
  *
+ * A listing that fails while, or because, its client's connection no longer serves the active
+ * profile shows [FolderError.NotConnected], whatever the failure: no connection serves it when the
+ * failure is handled, the one serving it has another generation or profile than the client, that
+ * connection has ended though the state does not show it yet, or the failure is the
+ * [IllegalStateException] of a client the presenter or the manager already closed (P9.21). Other
+ * failures on the same connection keep their own error and detail. While
+ * [FolderError.NotConnected] shows alone, with no listing under way, a connection with a newer
+ * generation that serves the active profile lists again by itself, once per generation: the folder
+ * shown, or the login home when none was. A listing that fails again waits for the next generation.
+ *
  * Which server: the connection names its own profile in [ConnectionState.Connected.server]. A
  * client is opened or used only while the state is `Connected`, its `server.profileId` is
  * [ActiveServer]'s profile, and its generation is the one the client was opened on; otherwise the
@@ -113,7 +123,7 @@ class DefaultFolderPresenter(
     private val lock = Any()
 
     /** Guarded by [lock]: the open client, or null. */
-    private var client: SftpClient? = null
+    private var client: OwnedSftp? = null
 
     /** Guarded by [lock]: the [ConnectionState.Connected.generation] [client] was opened in. */
     private var clientGeneration = 0L
@@ -133,6 +143,15 @@ class DefaultFolderPresenter(
     /** Guarded by [lock]: the listing under way; a newer one cancels it. */
     private var navigation: Job? = null
 
+    /**
+     * Guarded by [lock]: the newest [ConnectionState.Connected.generation] a listing that ended in
+     * [FolderError.NotConnected] was made on, or 0. Only a newer generation lists again by itself.
+     */
+    private var lostGeneration = 0L
+
+    /** Guarded by [lock]: the newest generation that has listed again by itself, or 0. */
+    private var relistedGeneration = 0L
+
     /** One listing at a time, so that one client is opened and the shown folder is the last asked. */
     private val browsing = Mutex()
 
@@ -143,6 +162,12 @@ class DefaultFolderPresenter(
         scope.launch {
             yield()
             followRecent()
+        }
+        scope.launch {
+            yield()
+            connection.state.collect { state ->
+                if (state is ConnectionState.Connected) relistIfReconnected(self = null)
+            }
         }
         browse(null)
     }
@@ -182,14 +207,38 @@ class DefaultFolderPresenter(
             navigation = scope.launch {
                 yield()
                 browsing.withLock { show(path) }
+                relistIfReconnected(self = currentCoroutineContext()[Job])
             }
+        }
+    }
+
+    /**
+     * Lists again, once, when [FolderError.NotConnected] shows alone and a connection with a newer
+     * generation than the lost one serves the active profile: the folder shown, or the login home
+     * when none was. A listing under way, other than [self], is left alone.
+     */
+    private fun relistIfReconnected(self: Job?) {
+        val connected = serving() ?: return
+        // Under the lock, so that a navigation the user starts meanwhile is either seen here or
+        // starts after this one and replaces it.
+        synchronized(lock) {
+            if (closed) return
+            val running = navigation
+            if (running != null && running !== self && running.isActive) return
+            if (connected.generation <= lostGeneration || connected.generation <= relistedGeneration) return
+            val state = mutableState.value
+            if (state.error != FolderError.NotConnected || state.loading) return
+            relistedGeneration = connected.generation
+            mutableState.update { if (it.error == FolderError.NotConnected) it.withError(null) else it }
+            browse(state.path)
         }
     }
 
     private suspend fun show(requested: String?) {
         mutableState.update { it.copy(loading = true) }
+        val attempt = Attempt(startGeneration = (connection.state.value as? ConnectionState.Connected)?.generation ?: 0L)
         try {
-            val (profile, path, entries) = list(requested)
+            val (profile, path, entries) = list(requested, attempt)
             currentCoroutineContext().ensureActive()
             synchronized(lock) { shownProfile = profile }
             mutableState.update { current ->
@@ -205,9 +254,15 @@ class DefaultFolderPresenter(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            val lost = lostConnection(e, attempt)
             // An SFTP failure leaves the channel usable; anything else may have broken it.
-            if (e !is SshException.Sftp) discardClient()
-            val error = errorOf(e)
+            if (lost || e !is SshException.Sftp) discardClient()
+            val error = if (lost) FolderError.NotConnected else errorOf(e)
+            if (error == FolderError.NotConnected) {
+                synchronized(lock) {
+                    lostGeneration = maxOf(lostGeneration, attempt.startGeneration, attempt.generation ?: 0L)
+                }
+            }
             // Only the class chain, never a message: see FailureDetail.
             val detail = if (error == FolderError.Failed) FailureDetail.of(e) else null
             mutableState.update { it.copy(loading = false).withError(error, detail) }
@@ -215,11 +270,36 @@ class DefaultFolderPresenter(
     }
 
     /**
-     * The profile of the client that listed, the folder listed ([requested], or the login home when
-     * null), and the folders in it.
+     * Whether [failure] of [attempt] came from a connection that no longer serves the active
+     * profile: none serves it now, or the one serving it is not the connection, by generation and
+     * profile, the attempt's client was opened on, or that connection has ended even though the state
+     * does not say so yet (asked through [ConnectionManager.withConnection]); or [failure] is the
+     * [IllegalStateException] of a client already closed, by this presenter or by the manager with
+     * its connection. Any other failure on the same connection is the listing's own.
      */
-    private suspend fun list(requested: String?): Triple<ServerProfileId, String, List<FileEntry>> {
-        val (profile, sftp) = client()
+    private suspend fun lostConnection(failure: Exception, attempt: Attempt): Boolean {
+        if (failure is NotConnectedException) return true
+        val now = serving() ?: return true
+        val generation = attempt.generation ?: return false
+        if (now.generation != generation || now.server.profileId != attempt.profile) return true
+        if (failure is IllegalStateException && attempt.client?.closed == true) return true
+        val live = try {
+            connection.withConnection { it.generation to it.server.profileId }
+        } catch (_: NotConnectedException) {
+            null
+        }
+        return live != generation to attempt.profile
+    }
+
+    /**
+     * The profile of the client that listed, the folder listed ([requested], or the login home when
+     * null), and the folders in it. The client used, and its connection, are noted in [attempt].
+     */
+    private suspend fun list(
+        requested: String?,
+        attempt: Attempt,
+    ): Triple<ServerProfileId, String, List<FileEntry>> {
+        val (profile, sftp) = client(attempt)
         val path = requested ?: home(sftp)
         val entries = sftp.list(path)
             .mapNotNull { entry -> navigable(sftp, path, entry) }
@@ -258,9 +338,10 @@ class DefaultFolderPresenter(
      * A client on the connection standing now, with the profile that connection was made for, which
      * is the active profile. A client opened on an earlier connection is closed and a new one
      * opened; without a connection that serves the active profile, the client is closed and
-     * [NotConnectedException] thrown. See [serving].
+     * [NotConnectedException] thrown. See [serving]. The client returned, and its connection, are
+     * noted in [attempt].
      */
-    private suspend fun client(): Pair<ServerProfileId, SftpClient> {
+    private suspend fun client(attempt: Attempt): Pair<ServerProfileId, SftpClient> {
         while (true) {
             val connected = serving() ?: run {
                 discardClient()
@@ -270,14 +351,17 @@ class DefaultFolderPresenter(
                 val matches = clientGeneration == connected.generation && clientProfile == connected.server.profileId
                 if (matches && client != null) client to false else null to (client != null)
             }
-            if (current != null) return connected.server.profileId to current
+            if (current != null) {
+                attempt.used(current, connected)
+                return connected.server.profileId to current
+            }
             if (stale) {
                 // Closing suspends, and the connection or the active server may change meanwhile:
                 // read both again.
                 discardClient()
                 continue
             }
-            val opened = connection.openSftp(FolderPaths.ROOT)
+            val opened = OwnedSftp(connection.openSftp(FolderPaths.ROOT))
             // openSftp opens on whatever connection stands when it runs; keep the client only if
             // that is still the one checked above, so it is never credited to another profile.
             val now = serving()
@@ -299,6 +383,7 @@ class DefaultFolderPresenter(
                 closeQuietly(opened)
                 throw NotConnectedException()
             }
+            attempt.used(opened, connected)
             return connected.server.profileId to opened
         }
     }
@@ -405,6 +490,38 @@ class DefaultFolderPresenter(
             throw e
         } catch (_: Exception) {
             mutableState.update { it.withError(FolderError.StorageFailed) }
+        }
+    }
+
+    /**
+     * One listing: the [ConnectionState.Connected.generation] standing when it started (0 if none
+     * did), and the client it used with the generation and profile that client was opened on, once
+     * it has one.
+     */
+    private class Attempt(val startGeneration: Long) {
+        var client: OwnedSftp? = null
+            private set
+        var generation: Long? = null
+            private set
+        var profile: ServerProfileId? = null
+            private set
+
+        fun used(sftp: OwnedSftp, connected: ConnectionState.Connected) {
+            client = sftp
+            generation = connected.generation
+            profile = connected.server.profileId
+        }
+    }
+
+    /** A client of this presenter, which remembers that it was closed. */
+    private class OwnedSftp(private val inner: SftpClient) : SftpClient by inner {
+        @Volatile
+        var closed = false
+            private set
+
+        override fun close() {
+            closed = true
+            inner.close()
         }
     }
 

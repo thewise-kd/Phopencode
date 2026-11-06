@@ -80,7 +80,10 @@ private object RunningServer : ServerTools {
         error("Not used")
 }
 
-/** An SFTP client that counts its closes, and reports [SftpLog.reportedHome] when one is set. */
+/**
+ * An SFTP client that counts its closes, and reports [SftpLog.reportedHome] when one is set. Once
+ * closed, a call fails with [IllegalStateException], as `SshjSftpClient` does.
+ */
 internal class TrackedSftp(val inner: FakeSftpClient, private val log: SftpLog) : SftpClient by inner {
     val closes = AtomicInteger()
 
@@ -88,14 +91,25 @@ internal class TrackedSftp(val inner: FakeSftpClient, private val log: SftpLog) 
 
     override suspend fun home(): String {
         homeCalls.incrementAndGet()
+        checkOpen()
         val reported = inner.home()
         return log.reportedHome ?: reported
     }
 
     override suspend fun list(path: String): List<FileEntry> {
+        log.beforeList.getAndSet(null)?.invoke(this)
+        checkOpen()
         log.failNextList.getAndSet(null)?.let { throw it }
         return inner.list(path)
     }
+
+    override suspend fun stat(path: String): FileEntry {
+        log.beforeStat.getAndSet(null)?.invoke(this)
+        checkOpen()
+        return inner.stat(path)
+    }
+
+    private fun checkOpen() = check(closes.get() == 0) { "The SFTP client is closed" }
 
     override fun close() {
         closes.incrementAndGet()
@@ -114,6 +128,12 @@ internal class SftpLog {
 
     /** The next listing, of any client, fails with this; unlike `failNext` it takes any exception. */
     val failNextList = AtomicReference<Exception?>(null)
+
+    /** Runs once, at the start of the next listing of any client. */
+    val beforeList = AtomicReference<(suspend (TrackedSftp) -> Unit)?>(null)
+
+    /** Runs once, at the start of the next `stat` of any client. */
+    val beforeStat = AtomicReference<(suspend (TrackedSftp) -> Unit)?>(null)
 
     /** The first request of every client opened from now on fails with this. */
     @Volatile
