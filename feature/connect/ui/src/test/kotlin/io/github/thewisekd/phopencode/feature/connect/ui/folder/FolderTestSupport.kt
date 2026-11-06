@@ -25,6 +25,9 @@ internal const val RECENT_TWO = "/data/sample"
 /** A failure's detail as the presenter builds it. */
 internal const val DETAIL = "SshException.Sftp(Failed) <- java.io.EOFException"
 
+/** A debug detail as the presenter builds it in a debuggable build; made-up text. */
+internal const val DEBUG_DETAIL = "Failure:\njava.io.IOException: test failure\n    at test.Frames.frame0(Frames.kt:1)"
+
 /** A connection error's detail as the presenter builds it for NotConnected. */
 internal const val CONNECTION_DETAIL = "Api(Unauthorized)"
 

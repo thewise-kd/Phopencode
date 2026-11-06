@@ -29,8 +29,9 @@ class AppModulesTest {
         // One graph, as the app starts it: features take core objects from other modules, which a
         // per-module check would report as missing.
         module { includes(appModules) }.verify(
-            // What Koin's Android setup and navigation provide at runtime, outside these modules.
-            extraTypes = listOf(Context::class, Application::class, SavedStateHandle::class),
+            // What Koin's Android setup and navigation provide at runtime, outside these modules;
+            // and Diagnostics' flag, which its definition passes in itself, read from the app's flags.
+            extraTypes = listOf(Context::class, Application::class, SavedStateHandle::class, Boolean::class),
         )
     }
 }

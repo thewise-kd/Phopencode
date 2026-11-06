@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -36,7 +38,10 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import io.github.thewisekd.phopencode.core.model.FileEntry
 import io.github.thewisekd.phopencode.core.model.FileEntryType
 import io.github.thewisekd.phopencode.core.navigation.ConnectRoute
@@ -86,7 +91,11 @@ fun FolderScreen(
                     onRetry = if (error.canRetry) ({ onIntent(FolderIntent.Retry) }) else null,
                     onDismiss = { onIntent(FolderIntent.DismissError) },
                 )
-                if (error.hasDetail) state.errorDetail?.let { ErrorDetail(it) }
+                if (error.hasDetail) {
+                    state.errorDetail?.let { ErrorDetail(it) }
+                    // Only in a debuggable build: the presenter leaves it null otherwise.
+                    state.debugDetail?.let { DebugDetailBox(it) }
+                }
             }
             LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
                 recentFolders(state.recent, onIntent)
@@ -130,6 +139,54 @@ private fun ErrorDetail(detail: String) {
         )
     }
 }
+
+/**
+ * The failure chain with messages and stack frames, and why the connection last ended, of a
+ * debuggable build (P9.25), under its heading: monospace, in a box of bounded height that scrolls,
+ * and selectable so that it can be copied. It may quote a server address or a path, which stays on
+ * the device; never a password or a key (see the presenter).
+ */
+@Composable
+private fun DebugDetailBox(detail: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = PhopencodeTheme.spacing.lg,
+                end = PhopencodeTheme.spacing.lg,
+                bottom = PhopencodeTheme.spacing.sm,
+            )
+            .testTag(DEBUG_DETAIL_TAG),
+    ) {
+        Text(
+            text = stringResource(R.string.connect_folder_debug_details),
+            modifier = Modifier.padding(bottom = PhopencodeTheme.spacing.xs),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelMedium,
+        )
+        Surface(
+            modifier = Modifier.fillMaxWidth().heightIn(max = DEBUG_BOX_MAX_HEIGHT),
+            shape = MaterialTheme.shapes.small,
+            color = MaterialTheme.colorScheme.surfaceVariant,
+        ) {
+            SelectionContainer(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text(
+                    text = detail,
+                    modifier = Modifier.padding(PhopencodeTheme.spacing.sm),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                )
+            }
+        }
+    }
+}
+
+/** The debug detail box's test tag. */
+internal const val DEBUG_DETAIL_TAG = "folder:debug-detail"
+
+/** Tall enough for a dozen lines; the rest scrolls, so the folder list stays in reach. */
+private val DEBUG_BOX_MAX_HEIGHT: Dp = 200.dp
 
 /** These carry a technical detail: a failure's class chain, or why the connection ended (P9.22). */
 private val FolderError.hasDetail: Boolean

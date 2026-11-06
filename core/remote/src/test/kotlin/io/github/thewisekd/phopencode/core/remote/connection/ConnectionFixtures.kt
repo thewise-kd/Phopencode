@@ -176,6 +176,8 @@ internal class Fixture(
     wrapConnector: (SshConnector) -> SshConnector = { it },
     managerScope: CoroutineScope = scope.backgroundScope,
     wrapKnownHosts: (KnownHostsStore) -> KnownHostsStore = { it },
+    diagnostics: Diagnostics = Diagnostics.Off,
+    endLog: ConnectionEndLog = ConnectionEndLog {},
 ) {
     val secrets = FakeSecretStore()
     val knownHosts = FakeKnownHostsStore()
@@ -190,6 +192,8 @@ internal class Fixture(
         clients = clients,
         scope = managerScope,
         options = options,
+        diagnostics = diagnostics,
+        endLog = endLog,
     )
 
     /** Every state the manager published, in order. */

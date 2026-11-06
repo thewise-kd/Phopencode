@@ -32,6 +32,14 @@ enum class FolderError {
  *   `Unexpected <- java.lang.IllegalStateException`; while the connection state is idle or
  *   closed, exactly `Idle` or `Closed` (P9.24); it follows the state (P9.22). Null otherwise,
  *   for example while a connect or reconnect is under way, and cleared with the error.
+ * @property debugDetail Only while diagnostics are on, that is in a debuggable build (P9.25); null
+ *   otherwise, always. With [FolderError.Failed] or [FolderError.NotConnected], the full failure
+ *   chain with messages and stack frames, and for [FolderError.NotConnected] also why the
+ *   connection last ended; it follows the connection like [errorDetail], and is cleared with the
+ *   error. It may quote server addresses and paths, which stay on the device, but never a password
+ *   or a key. [errorDetail] is the same whether diagnostics are on or off.
+ * @property debugFailure The failure [debugDetail] is built from, kept so that the detail can be
+ *   built again as the connection changes; set only while diagnostics are on.
  */
 data class FolderState(
     val loading: Boolean = true,
@@ -40,6 +48,8 @@ data class FolderState(
     val recent: List<String> = emptyList(),
     val error: FolderError? = null,
     val errorDetail: String? = null,
+    val debugDetail: String? = null,
+    internal val debugFailure: Throwable? = null,
 ) {
     /** [path] has a parent folder. */
     val canGoUp: Boolean get() = path != null && path.trimEnd('/').isNotEmpty()

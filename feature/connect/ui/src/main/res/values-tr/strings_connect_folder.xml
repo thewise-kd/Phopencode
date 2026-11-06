@@ -18,5 +18,6 @@
     <string name="connect_folder_error_not_found">Bu klasör artık yok.</string>
     <string name="connect_folder_error_failed">Klasör listelenemedi.</string>
     <string name="connect_folder_error_detail">Ayrıntı: %1$s</string>
+    <string name="connect_folder_debug_details">Hata ayıklama ayrıntıları</string>
     <string name="connect_folder_error_storage">Son klasörler bu telefonda okunamadı ya da kaydedilemedi.</string>
 </resources>

@@ -1,7 +1,9 @@
 package io.github.thewisekd.phopencode.di
 
+import android.content.pm.ApplicationInfo
 import io.github.thewisekd.phopencode.core.remote.connection.ConnectionManager
 import io.github.thewisekd.phopencode.core.remote.connection.ConnectionOptions
+import io.github.thewisekd.phopencode.core.remote.connection.Diagnostics
 import io.github.thewisekd.phopencode.core.remote.connection.OpencodeClientFactory
 import io.github.thewisekd.phopencode.core.remote.connection.ServerResolver
 import io.github.thewisekd.phopencode.core.ssh.api.SshConnector
@@ -46,15 +48,27 @@ val storageModule: Module = module {
 }
 
 /**
+ * [Diagnostics] on exactly when the installed app is debuggable, read at runtime from its
+ * [ApplicationInfo.flags], so no build file decides it: a release build is not debuggable and
+ * keeps them off.
+ */
+internal fun diagnosticsOf(info: ApplicationInfo): Diagnostics =
+    Diagnostics(enabled = (info.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0)
+
+/**
  * SSH and the connection to `opencode serve`: the sshj connector, server discovery and startup,
  * the HTTP client over the tunnel, and the one [ConnectionManager] of the app, which runs on the
  * app scope. Creating them opens nothing; the network is used only on [ConnectionManager.connect].
+ * The manager's [Diagnostics] are on only in a debuggable build (see [diagnosticsOf]); it then
+ * logs each end of a connection through `java.util.logging`, which reaches Logcat with the tag
+ * `phopencode`.
  */
 val connectionModule: Module = module {
     single<SshConnector> { SshjConnector() }
     single { ServerResolver(get<SecretStore>()) }
     single<OpencodeClientFactory> { OpencodeClientFactory.Default }
     single { ConnectionOptions() }
+    single { diagnosticsOf(androidContext().applicationInfo) }
     single {
         ConnectionManager(
             connector = get(),
@@ -64,6 +78,7 @@ val connectionModule: Module = module {
             clients = get(),
             scope = get(),
             options = get(),
+            diagnostics = get(),
         )
     }
 }

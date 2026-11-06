@@ -165,7 +165,10 @@ enum class ServerStartFailure {
 }
 
 /** Carries a [ConnectionError] out of a step. Its message is fixed text. */
-class ConnectionException(val error: ConnectionError) : Exception("Connection failed: ${error::class.simpleName}")
+class ConnectionException(
+    val error: ConnectionError,
+    cause: Throwable? = null,
+) : Exception("Connection failed: ${error::class.simpleName}", cause)
 
 /**
  * No connection stands right now: [ConnectionManager] is idle, connecting, waiting to reconnect,

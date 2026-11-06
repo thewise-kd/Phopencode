@@ -1,9 +1,12 @@
 package io.github.thewisekd.phopencode.di
 
+import android.content.Context
+import android.content.pm.ApplicationInfo
 import io.github.thewisekd.phopencode.StopKoinRule
 import io.github.thewisekd.phopencode.core.remote.connection.ConnectionManager
 import io.github.thewisekd.phopencode.core.remote.connection.ConnectionOptions
 import io.github.thewisekd.phopencode.core.remote.connection.ConnectionState
+import io.github.thewisekd.phopencode.core.remote.connection.Diagnostics
 import io.github.thewisekd.phopencode.core.remote.connection.OpencodeClientFactory
 import io.github.thewisekd.phopencode.core.remote.connection.ServerResolver
 import io.github.thewisekd.phopencode.core.ssh.api.SshConnector
@@ -29,6 +32,7 @@ import kotlin.reflect.KClass
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -63,6 +67,7 @@ class CoreModulesTest {
             ServerResolver::class,
             OpencodeClientFactory::class,
             ConnectionOptions::class,
+            Diagnostics::class,
             ConnectionManager::class,
             CoroutineScope::class,
         ).forEach(::assertSingle)
@@ -101,6 +106,27 @@ class CoreModulesTest {
         assertIs<SshjConnector>(koin.get<SshConnector>())
         assertSame(OpencodeClientFactory.Default, koin.get<OpencodeClientFactory>())
         assertEquals(ConnectionOptions(), koin.get<ConnectionOptions>())
+    }
+
+    @Test
+    fun `diagnostics follow the app's debuggable flag and reach the connection manager`() {
+        val context = koin.get<Context>()
+        val debuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+
+        val diagnostics = koin.get<Diagnostics>()
+
+        assertEquals(Diagnostics(enabled = debuggable), diagnostics)
+        assertSame(diagnostics, koin.get<ConnectionManager>().diagnostics)
+        assertNull(koin.get<ConnectionManager>().lastEnd)
+    }
+
+    @Test
+    fun `a debuggable build turns diagnostics on and a release build leaves them off`() {
+        val release = ApplicationInfo().apply { flags = ApplicationInfo.FLAG_ALLOW_BACKUP }
+        val debug = ApplicationInfo().apply { flags = ApplicationInfo.FLAG_ALLOW_BACKUP or ApplicationInfo.FLAG_DEBUGGABLE }
+
+        assertEquals(Diagnostics.Off, diagnosticsOf(release))
+        assertEquals(Diagnostics(enabled = true), diagnosticsOf(debug))
     }
 
     @Test

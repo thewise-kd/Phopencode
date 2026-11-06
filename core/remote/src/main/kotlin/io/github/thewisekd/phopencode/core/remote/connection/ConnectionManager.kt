@@ -97,11 +97,15 @@ import kotlinx.coroutines.withTimeoutOrNull
  * finish closing; [disconnect] and [close] still wait, as above. A caller's own close of an
  * [openSftp] client runs on the caller's thread; the SSH layer sends its packets elsewhere.
  *
- * Nothing is logged, and no state or error carries an address or a secret.
+ * No state or error carries an address or a secret. Nothing is logged unless [diagnostics] are
+ * on; then each end of a connection is recorded in [lastEnd] and logged through the end log.
  *
  * @param scope Runs the connections; it must have a [Job]. Cancelling it closes the manager. Its
  *   dispatcher must not be Main or Unconfined: a cancelled connection releases its resources,
  *   network closes included, on that dispatcher.
+ * @param diagnostics Off by default. When on, see [lastEnd]; the traces may hold an address or a
+ *   path, from a failure's message, but never a credential (see [Diagnostics]).
+ * @param endLog Where each recorded end is logged while [diagnostics] are on.
  */
 class ConnectionManager(
     private val connector: SshConnector,
@@ -111,6 +115,8 @@ class ConnectionManager(
     private val clients: OpencodeClientFactory,
     private val scope: CoroutineScope,
     private val options: ConnectionOptions = ConnectionOptions(),
+    val diagnostics: Diagnostics = Diagnostics.Off,
+    private val endLog: ConnectionEndLog = ConnectionEndLog.JavaLogging,
 ) {
     private val lock = Any()
     private val scopeJob: Job = requireNotNull(scope.coroutineContext[Job]) { "The scope has no Job" }
@@ -140,6 +146,19 @@ class ConnectionManager(
     @Volatile
     private var scopeWatch: DisposableHandle? = null
 
+    /** Declared before `init`, whose scope handler may record at once. */
+    @Volatile
+    private var lastEndTrace: Throwable? = null
+
+    /**
+     * Only while [diagnostics] are on, else always null: why the connection last ended, as a trace
+     * captured at that moment. A [ConnectionEndTrace] whose stack shows the caller for
+     * [disconnect], [close], a [connect] that replaced a connection, the end of the scope (with its
+     * cancellation cause) and a drop; or the failure itself, when a connect or a connection failed
+     * with one. Read-only; a later end replaces it.
+     */
+    val lastEnd: Throwable? get() = lastEndTrace
+
     val state: StateFlow<ConnectionState> = mutableState.asStateFlow()
 
     /**
@@ -149,14 +168,25 @@ class ConnectionManager(
     @Volatile
     internal var beforeStoreWrite: (suspend () -> Unit)? = null
 
+    /**
+     * Test hook: runs on the caller's thread after [connect] has changed the state and recorded
+     * the end of the connection it replaced, outside the lock and before that end is logged, so a
+     * test can close the manager in between.
+     */
+    @Volatile
+    internal var afterConnectSwitched: (() -> Unit)? = null
+
     init {
         // Runs immediately for a scope that already ended.
-        scopeWatch = scopeJob.invokeOnCompletion { closeNow() }
+        scopeWatch = scopeJob.invokeOnCompletion { cause ->
+            closeNow { ConnectionEndTrace("closed by the end of the manager's scope", cause) }
+        }
     }
 
     /** Connects to [profile], ending any current connection first. Does nothing once closed. */
     fun connect(profile: ServerProfile) {
         val run: Run
+        var ended: Throwable? = null
         val previous = synchronized(lock) {
             if (closed) return
             // The job exists before anyone can see this run, so a stop at any moment cancels it.
@@ -165,9 +195,13 @@ class ConnectionManager(
             if (closed) return
             val previous = current
             current = run
+            // The end first, so that a collector woken by the state reads it.
+            if (previous != null) ended = recordEnd { ConnectionEndTrace("connect() replaced the current connection") }
             mutableState.value = ConnectionState.Ssh()
             previous
         }
+        afterConnectSwitched?.invoke()
+        logEnd(ended)
         previous?.stop()
         run.start()
     }
@@ -380,8 +414,11 @@ class ConnectionManager(
      * its cleanup. After [close], it waits for the close to finish instead.
      */
     suspend fun disconnect() {
+        var ended: Throwable? = null
         val stopping = synchronized(lock) {
             if (closed) null else {
+                // The end first, so that a collector woken by the state reads it.
+                ended = recordEnd { ConnectionEndTrace("disconnect() called") }
                 mutableState.value = ConnectionState.Idle
                 current = null
                 runs.toList()
@@ -391,6 +428,7 @@ class ConnectionManager(
             awaitClosed()
             return
         }
+        logEnd(ended)
         val releases = stopping.map(Run::stop)
         withContext(NonCancellable) {
             stopping.forEach { it.join() }
@@ -403,7 +441,7 @@ class ConnectionManager(
      * when another close or a cancelled scope started the close. Safe to call again.
      */
     suspend fun close() {
-        closeNow()
+        closeNow { ConnectionEndTrace("close() called") }
         awaitClosed()
     }
 
@@ -414,18 +452,46 @@ class ConnectionManager(
     /**
      * Marks the manager closed and stops every run, without waiting; [fullyClosed] completes when
      * the last run has completed. Never suspends, so a scope's completion handler can call it.
+     * [reason] makes the trace for [lastEnd], only when this call closes and diagnostics are on.
      */
-    private fun closeNow() {
+    private fun closeNow(reason: () -> Throwable) {
+        var ended: Throwable? = null
         val stopping = synchronized(lock) {
             if (closed) return
             closed = true
+            // The end first, so that a collector woken by the state reads it.
+            ended = recordEnd(reason)
             mutableState.value = ConnectionState.Closed
             current = null
             if (runs.isEmpty()) fullyClosed.complete(Unit)
             runs.toList()
         }
+        logEnd(ended)
         scopeWatch?.dispose()
         stopping.forEach(Run::stop)
+    }
+
+    /**
+     * Called under [lock], in the same critical section as the state change the end explains and
+     * just before its write, so the order of the traces is the order of the state changes (an end
+     * recorded for an older change never replaces a newer one), and a collector woken by the new
+     * state, even on the writer's thread, reads the end that explains it. With [diagnostics] on, makes [trace] now, so that its
+     * stack is the caller's, keeps it as [lastEnd] and returns it, for [logEnd] to log once the
+     * lock is released. With diagnostics off it returns null, and [trace] is never called.
+     */
+    private fun recordEnd(trace: () -> Throwable): Throwable? {
+        if (!diagnostics.enabled) return null
+        return trace().also { lastEndTrace = it }
+    }
+
+    /** Logs [ended], an end [recordEnd] returned; outside [lock]. Does nothing for null. */
+    private fun logEnd(ended: Throwable?) {
+        if (ended == null) return
+        try {
+            endLog.ended(ended)
+        } catch (_: Exception) {
+            // Logging is best effort; it must never change how a connection ends.
+        }
     }
 
     /** Called once per run, when its job has completed: cleanup has run by then. */
@@ -501,7 +567,10 @@ class ConnectionManager(
     }
 
     /** Why a connection that was published as connected ended, and whether its event stream opened. */
-    private class Drop(val cause: ConnectionError, val stood: Boolean)
+    private class Drop(val cause: ConnectionError, val stood: Boolean, val trace: Throwable?)
+
+    /** What [Run.watchServer] saw end the server, and the failure behind it, if any. */
+    private class ServerEnd(val error: ConnectionError, val failure: Throwable?)
 
     /**
      * One [connect], or one [acceptChangedHostKey], which first stores [replacement]: its job, what
@@ -573,9 +642,9 @@ class ConnectionManager(
         private fun ended(cause: Throwable) {
             if (stopped) return
             if (cause is CancellationException && !scopeJob.isActive) {
-                closeNow()
+                closeNow { ConnectionEndTrace("closed by the end of the manager's scope under a connection", cause) }
             } else {
-                publish(ConnectionState.Error(ConnectionError.Unexpected(cause)))
+                publishEnd(ConnectionState.Error(ConnectionError.Unexpected(cause))) { cause }
             }
         }
 
@@ -610,6 +679,18 @@ class ConnectionManager(
                     mutableState.value = held
                 }
             }
+        }
+
+        /**
+         * Publishes [state], as [publish] does, and when it was published records [trace] as the
+         * connection's end in the same locked step, before the state write (see [recordEnd]), then
+         * logs it. A state equal to the one already held is no new end: observers get no update
+         * for it, so nothing is recorded and the end recorded with that state stays.
+         */
+        fun publishEnd(state: ConnectionState, trace: () -> Throwable) {
+            var ended: Throwable? = null
+            publish(state) { held -> if (held !== mutableState.value) ended = recordEnd(trace) }
+            logEnd(ended)
         }
 
         /**
@@ -663,7 +744,7 @@ class ConnectionManager(
                     ConnectionError.Unexpected(failure)
                 }
                 // The state first, so that a caller who resumes at once finds it told.
-                publish(ConnectionState.Error(error))
+                publishEnd(ConnectionState.Error(error)) { failure }
                 replacement.outcome.complete(HostKeyReplacement.Failed(error))
                 return false
             }
@@ -788,6 +869,7 @@ class ConnectionManager(
             var attempt = 0
             var everConnected = false
             while (true) {
+                var failure: Throwable? = null
                 val error = try {
                     val live = establish(profile, attempt)
                     everConnected = true
@@ -803,26 +885,32 @@ class ConnectionManager(
                     // stream never opened counts as a failed attempt, or a server that answers its
                     // info call but nothing else would be retried forever.
                     if (dropped.stood) attempt = 0
+                    failure = dropped.trace
                     dropped.cause
-                } catch (failure: ConnectionException) {
-                    failure.error
+                } catch (thrown: ConnectionException) {
+                    // The exception itself when it wraps nothing: its stack shows the step.
+                    failure = thrown.cause ?: thrown
+                    thrown.error
                 } catch (cancelled: CancellationException) {
                     // A stray that no step mapped; a stop or the scope's end passes.
                     if (stopping()) throw cancelled
+                    failure = cancelled
                     ConnectionError.Unexpected(cancelled)
                 }
+                val ended = failure
+                val trace = { ended ?: ConnectionEndTrace("ended: ${error.javaClass.simpleName}") }
                 if (!everConnected || !error.retryable) {
-                    publish(ConnectionState.Error(error))
+                    publishEnd(ConnectionState.Error(error), trace)
                     return
                 }
                 attempt++
                 val limit = policy.maxAttempts
                 if (limit != null && attempt > limit) {
-                    publish(ConnectionState.Error(error))
+                    publishEnd(ConnectionState.Error(error), trace)
                     return
                 }
                 val wait = policy.delayBefore(attempt)
-                publish(ConnectionState.Reconnecting(attempt, wait, error))
+                publishEnd(ConnectionState.Reconnecting(attempt, wait, error), trace)
                 withTimeoutOrNull(wait) { kicks.receive() }
             }
         }
@@ -837,27 +925,42 @@ class ConnectionManager(
          */
         private suspend fun awaitDrop(live: Live): Drop {
             val stood = AtomicBoolean(false)
-            val cause = try {
+            val traced = diagnostics.enabled
+            val end = try {
                 coroutineScope {
                     val sshDropped = async { live.session.connected.first { !it } }
                     val serverDropped = async { watchServer(live.client) { stood.set(true) } }
-                    val cause = select<ConnectionError> {
-                        sshDropped.onAwait { ConnectionError.Disconnected }
+                    fun disconnected(why: String) = ServerEnd(
+                        ConnectionError.Disconnected,
+                        if (traced) ConnectionEndTrace("dropped: Disconnected; $why") else null,
+                    )
+                    val end = select<ServerEnd> {
+                        sshDropped.onAwait { disconnected("the SSH session reported it is no longer connected") }
                         serverDropped.onAwait { it }
-                        kicks.onReceive { ConnectionError.Disconnected }
+                        kicks.onReceive { disconnected("reconnect() asked for a new connection") }
                     }
                     sshDropped.cancel()
                     serverDropped.cancel()
-                    cause
+                    end
                 }
             } catch (cancelled: CancellationException) {
                 // A watch that ended cancelled while this run was not: the connection is dropped
                 // as after any failure, and the caller releases it.
                 if (stopping()) throw cancelled
-                ConnectionError.Unexpected(cancelled)
+                ServerEnd(ConnectionError.Unexpected(cancelled), cancelled)
             }
             // The server's stream breaks with the SSH connection that carries it; that is an SSH drop.
-            return Drop(if (!live.session.connected.value) ConnectionError.Disconnected else cause, stood.get())
+            val sshGone = !live.session.connected.value
+            val cause = if (sshGone) ConnectionError.Disconnected else end.error
+            val trace = when {
+                !traced -> null
+                sshGone && end.error != ConnectionError.Disconnected -> ConnectionEndTrace(
+                    "dropped: Disconnected; the SSH session ended under ${end.error.javaClass.simpleName}",
+                    end.failure,
+                )
+                else -> end.failure ?: ConnectionEndTrace("dropped: ${cause.javaClass.simpleName}")
+            }
+            return Drop(cause, stood.get(), trace)
         }
 
         /**
@@ -877,19 +980,29 @@ class ConnectionManager(
          *
          * @param opened Called on each [ServerEvent.Connected], that is once the stream is open.
          */
-        private suspend fun watchServer(client: OpencodeClient, opened: () -> Unit): ConnectionError = try {
+        private suspend fun watchServer(client: OpencodeClient, opened: () -> Unit): ServerEnd = try {
+            var last: ServerEvent? = null
             client.events.events(WATCHED_EVENTS)
                 .onEach { if (it is ServerEvent.Connected) opened() }
-                .takeWhile { !it.endsServer() }
+                .takeWhile { event ->
+                    last = event
+                    !event.endsServer()
+                }
                 .collect { }
-            ConnectionError.ServerLost
+            val trace = if (diagnostics.enabled) {
+                val seen = last?.takeIf { it.endsServer() }?.javaClass?.simpleName ?: "the stream completing"
+                ConnectionEndTrace("dropped: ServerLost; the server's event stream ended with $seen")
+            } else {
+                null
+            }
+            ServerEnd(ConnectionError.ServerLost, trace)
         } catch (cancelled: CancellationException) {
             if (stopping()) throw cancelled
-            ConnectionError.Unexpected(cancelled)
+            ServerEnd(ConnectionError.Unexpected(cancelled), cancelled)
         } catch (failure: ApiException) {
-            ConnectionError.Api(failure.error)
+            ServerEnd(ConnectionError.Api(failure.error), failure)
         } catch (failure: Exception) {
-            ConnectionError.Unexpected(failure)
+            ServerEnd(ConnectionError.Unexpected(failure), failure)
         }
 
         /**
@@ -901,12 +1014,12 @@ class ConnectionManager(
         } catch (failure: ConnectionException) {
             throw failure
         } catch (failure: SshException) {
-            throw ConnectionException(sshError(failure))
+            throw ConnectionException(sshError(failure), failure)
         } catch (failure: ApiException) {
-            throw ConnectionException(ConnectionError.Api(failure.error))
+            throw ConnectionException(ConnectionError.Api(failure.error), failure)
         } catch (failure: Exception) {
             if (failure is CancellationException && stopping()) throw failure
-            throw ConnectionException(ConnectionError.Unexpected(failure))
+            throw ConnectionException(ConnectionError.Unexpected(failure), failure)
         }
 
         private suspend fun establish(profile: ServerProfile, attempt: Int): Live {
@@ -954,7 +1067,7 @@ class ConnectionManager(
                 try {
                     return hold(connector.connect(target, credential, verifier, options.ssh))
                 } catch (rejected: SshException.HostKeyRejected) {
-                    throw ConnectionException(verifier.reason ?: ConnectionError.HostKeyRejected(rejected.hostKey))
+                    throw ConnectionException(verifier.reason ?: ConnectionError.HostKeyRejected(rejected.hostKey), rejected)
                 } catch (failure: SshException) {
                     val dropped = failure is SshException.ConnectionFailed ||
                         failure is SshException.Timeout ||
@@ -963,10 +1076,10 @@ class ConnectionManager(
                         retried = true
                         continue
                     }
-                    throw ConnectionException(sshError(failure))
+                    throw ConnectionException(sshError(failure), failure)
                 } catch (failure: Exception) {
                     if (failure is CancellationException && stopping()) throw failure
-                    throw ConnectionException(ConnectionError.Unexpected(failure))
+                    throw ConnectionException(ConnectionError.Unexpected(failure), failure)
                 } finally {
                     credential.wipe()
                 }
@@ -1030,9 +1143,9 @@ class ConnectionManager(
                         ?: return refuse(ConnectionError.HostKeyRejected(key))
                 } catch (cancelled: CancellationException) {
                     if (stopping()) throw cancelled
-                    return refuseApproved(waiting, ConnectionError.Unexpected(cancelled))
-                } catch (_: IOException) {
-                    return refuseApproved(waiting, ConnectionError.StorageUnavailable)
+                    return refuseApproved(waiting, ConnectionError.Unexpected(cancelled), cancelled)
+                } catch (failure: IOException) {
+                    return refuseApproved(waiting, ConnectionError.StorageUnavailable, failure)
                 }
                 return when (update) {
                     HostKeyUpdate.Stored -> {
@@ -1055,10 +1168,18 @@ class ConnectionManager(
             /**
              * An approved key that was not stored ends the connect with [error]. The error is
              * published before the approver hears false, so it finds [state] telling why; the
-             * connect's own end publishes the same error again, which changes nothing.
+             * connect's own end publishes the same error again, which changes nothing, its recorded
+             * end included (see [publishEnd]). The end is [failure], or a trace of this step when
+             * there is none, recorded with the publish.
              */
-            private fun refuseApproved(waiting: PendingApproval, error: ConnectionError): HostKeyDecision {
-                publish(ConnectionState.Error(error))
+            private fun refuseApproved(
+                waiting: PendingApproval,
+                error: ConnectionError,
+                failure: Throwable? = null,
+            ): HostKeyDecision {
+                publishEnd(ConnectionState.Error(error)) {
+                    failure ?: ConnectionEndTrace("approved host key not stored: ${error.javaClass.simpleName}")
+                }
                 waiting.stored.complete(false)
                 return refuse(error)
             }

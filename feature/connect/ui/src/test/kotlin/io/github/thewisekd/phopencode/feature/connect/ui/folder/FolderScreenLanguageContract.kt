@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import io.github.thewisekd.phopencode.feature.connect.logic.contract.FolderError
 import io.github.thewisekd.phopencode.feature.connect.logic.contract.FolderState
@@ -15,7 +16,10 @@ import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
 
-/** The texts of the folder picker in one language. Formats take a folder path, [details] a failure's detail. */
+/**
+ * The texts of the folder picker in one language. Formats take a folder path, [details] a failure's
+ * detail; [debugHeading] heads the debug detail box of a debuggable build.
+ */
 internal data class ExpectedFolderStrings(
     val title: String,
     val up: String,
@@ -32,6 +36,7 @@ internal data class ExpectedFolderStrings(
     val dismiss: String,
     val errors: Map<FolderError, String>,
     val details: (String) -> String,
+    val debugHeading: String,
 )
 
 /** What the folder picker shows, the same in each language; a subclass sets the language and its texts. */
@@ -144,6 +149,58 @@ abstract class FolderScreenLanguageContract {
 
             compose.onNodeWithText(strings.errors.getValue(error)).assertIsDisplayed()
             compose.onNodeWithText(DETAIL, substring = true).assertDoesNotExist()
+        }
+    }
+
+    @Test
+    fun `a failure with a debug detail shows it in a box under its heading`() {
+        compose.setFolderScreen(
+            browsing.copy(error = FolderError.Failed, errorDetail = DETAIL, debugDetail = DEBUG_DETAIL),
+        )
+
+        compose.onNodeWithText(strings.details(DETAIL)).assertIsDisplayed()
+        compose.onNodeWithText(strings.debugHeading).assertIsDisplayed()
+        compose.onNodeWithText(DEBUG_DETAIL).assertIsDisplayed()
+        compose.onNodeWithTag(DEBUG_DETAIL_TAG).assertIsDisplayed()
+    }
+
+    @Test
+    fun `not connected with a debug detail shows it in a box under its heading`() {
+        compose.setFolderScreen(
+            browsing.copy(error = FolderError.NotConnected, errorDetail = "Idle", debugDetail = DEBUG_DETAIL),
+        )
+
+        compose.onNodeWithText(strings.details("Idle")).assertIsDisplayed()
+        compose.onNodeWithText(strings.debugHeading).assertIsDisplayed()
+        compose.onNodeWithText(DEBUG_DETAIL).assertIsDisplayed()
+    }
+
+    @Test
+    fun `without a debug detail there is no debug box`() {
+        var state by mutableStateOf(browsing)
+        compose.setContent { FolderScreenUnderTest(state) }
+
+        for (error in listOf(FolderError.Failed, FolderError.NotConnected)) {
+            state = browsing.copy(error = error, errorDetail = DETAIL)
+            compose.waitForIdle()
+
+            compose.onNodeWithText(strings.details(DETAIL)).assertIsDisplayed()
+            compose.onNodeWithText(strings.debugHeading).assertDoesNotExist()
+            compose.onNodeWithTag(DEBUG_DETAIL_TAG).assertDoesNotExist()
+        }
+    }
+
+    @Test
+    fun `other errors show no debug box`() {
+        var state by mutableStateOf(browsing)
+        compose.setContent { FolderScreenUnderTest(state) }
+
+        for (error in FolderError.entries - FolderError.Failed - FolderError.NotConnected) {
+            state = browsing.copy(error = error, debugDetail = DEBUG_DETAIL)
+            compose.waitForIdle()
+
+            compose.onNodeWithText(strings.debugHeading).assertDoesNotExist()
+            compose.onNodeWithText(DEBUG_DETAIL).assertDoesNotExist()
         }
     }
 

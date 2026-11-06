@@ -103,6 +103,14 @@ import kotlinx.coroutines.yield
  * listing has finished it is stored under the profile of the connection serving the active
  * profile at the pick, and refused with [FolderError.NotConnected] when none does.
  *
+ * Diagnostics (P9.25): while the manager's `diagnostics` are on, that is only in a debuggable
+ * build, [FolderError.Failed] and [FolderError.NotConnected] also carry [FolderState.debugDetail]:
+ * the failure's full chain with messages and stack frames, and for [FolderError.NotConnected] the
+ * manager's `lastEnd`, as [DebugDetail] formats them. It is built with the release detail, inside
+ * the same `update`, so it follows the connection the same way, and goes with the error. With
+ * diagnostics off it is always null and nothing else changes. It may quote server addresses and
+ * paths, which stay on the device; never a password or a key (see [DebugDetail]).
+ *
  * Nothing runs in the constructor; when [scope] ends, the client is closed.
  *
  * @param connection Browses through `ConnectionManager.openSftp`, which fails with
@@ -257,6 +265,8 @@ class DefaultFolderPresenter(
                     // A storage failure is not about browsing; it stays until dismissed.
                     error = current.error.takeIf { it == FolderError.StorageFailed },
                     errorDetail = null,
+                    debugDetail = null,
+                    debugFailure = null,
                 )
             }
         } catch (e: CancellationException) {
@@ -273,7 +283,9 @@ class DefaultFolderPresenter(
             }
             // Only class names, never a message: see FailureDetail and ConnectionDetail.
             val detail = if (error == FolderError.Failed) FailureDetail.of(e) else null
-            mutableState.update { it.copy(loading = false).withError(error, detail).withConnectionDetail() }
+            // Kept only for the debug detail, so never while diagnostics are off.
+            val failure = e.takeIf { connection.diagnostics.enabled }
+            mutableState.update { it.copy(loading = false).withError(error, detail, failure).withConnectionDetail() }
             if (error == FolderError.NotConnected) followConnectionError()
         }
     }
@@ -401,16 +413,34 @@ class DefaultFolderPresenter(
      * This state with the detail of [FolderError.NotConnected], when that shows, set to the
      * connection state read now (see [ConnectionDetail.ofState]): the error of
      * [ConnectionState.Error], `Idle` or `Closed`, and null while a connect or reconnect is under
-     * way. Any other error keeps its own detail.
+     * way. Any other error keeps its own detail. The debug detail is brought up to date too (see
+     * [withDebugDetail]).
      *
      * Called only inside [mutableState]'s `update`, so the state is read inside the compare-and-set:
      * a write that loses the race runs again and reads the state again, and the last write that
      * lands has read the state after every write before it. It reads and changes nothing else.
      */
     private fun FolderState.withConnectionDetail(): FolderState {
-        if (error != FolderError.NotConnected) return this
+        val debugged = withDebugDetail()
+        if (debugged.error != FolderError.NotConnected) return debugged
         val detail = ConnectionDetail.ofState(connection.state.value)
-        return if (errorDetail == detail) this else copy(errorDetail = detail)
+        return if (debugged.errorDetail == detail) debugged else debugged.copy(errorDetail = detail)
+    }
+
+    /**
+     * With diagnostics on, this state with [FolderState.debugDetail] built from its failure and,
+     * for [FolderError.NotConnected], the manager's `lastEnd` read now; null for any other error.
+     * With diagnostics off, this state as it is: its debug detail is null, since nothing sets it.
+     * Called only inside [mutableState]'s `update`, as [withConnectionDetail] is.
+     */
+    private fun FolderState.withDebugDetail(): FolderState {
+        if (!connection.diagnostics.enabled) return this
+        val detail = when (error) {
+            FolderError.NotConnected -> DebugDetail.of(debugFailure, connection.lastEnd)
+            FolderError.Failed -> DebugDetail.of(debugFailure, lastEnd = null)
+            else -> null
+        }
+        return if (debugDetail == detail) this else copy(debugDetail = detail)
     }
 
     /**
@@ -570,9 +600,12 @@ class DefaultFolderPresenter(
         val BY_NAME: Comparator<FileEntry> =
             compareBy<FileEntry, String>(String.CASE_INSENSITIVE_ORDER) { it.name }.thenBy { it.name }
 
-        /** [error] in place of the one shown; [detail] goes with it, so no detail outlives its error. */
-        fun FolderState.withError(error: FolderError?, detail: String? = null): FolderState =
-            copy(error = error, errorDetail = detail)
+        /**
+         * [error] in place of the one shown; [detail] goes with it, so no detail outlives its error.
+         * The debug detail is cleared, and [failure] kept for it; see [withDebugDetail].
+         */
+        fun FolderState.withError(error: FolderError?, detail: String? = null, failure: Throwable? = null): FolderState =
+            copy(error = error, errorDetail = detail, debugDetail = null, debugFailure = failure)
 
         fun errorOf(e: Exception): FolderError = when (e) {
             is NotConnectedException, is SshException.Disconnected -> FolderError.NotConnected

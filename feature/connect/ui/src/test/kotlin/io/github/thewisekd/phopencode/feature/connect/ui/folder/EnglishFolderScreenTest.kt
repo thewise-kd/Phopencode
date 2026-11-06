@@ -34,4 +34,5 @@ internal val ENGLISH_FOLDER_STRINGS = ExpectedFolderStrings(
         FolderError.StorageFailed to "Recent folders could not be read or saved on this phone.",
     ),
     details = { "Details: $it" },
+    debugHeading = "Debug details",
 )

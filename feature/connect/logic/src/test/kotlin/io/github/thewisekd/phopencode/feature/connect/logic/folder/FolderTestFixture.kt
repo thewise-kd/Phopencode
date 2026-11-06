@@ -11,6 +11,7 @@ import io.github.thewisekd.phopencode.core.model.ServerProfileId
 import io.github.thewisekd.phopencode.core.model.SshAuth
 import io.github.thewisekd.phopencode.core.remote.connection.ConnectionManager
 import io.github.thewisekd.phopencode.core.remote.connection.ConnectionOptions
+import io.github.thewisekd.phopencode.core.remote.connection.Diagnostics
 import io.github.thewisekd.phopencode.core.remote.connection.OpencodeClientFactory
 import io.github.thewisekd.phopencode.core.remote.connection.ReconnectPolicy
 import io.github.thewisekd.phopencode.core.remote.connection.ServerResolver
@@ -55,8 +56,8 @@ private val SSH_REF = SecretRef("folder-ssh-login")
 private val OPENCODE_REF = SecretRef("folder-opencode-login")
 
 /** Assembled at runtime, so that no literal looks like a real secret. */
-private val SSH_PASSWORD = "test-" + "ssh-" + "login"
-private val OPENCODE_PASSWORD = "test-" + "opencode-" + "login"
+internal val SSH_PASSWORD = "test-" + "ssh-" + "login"
+internal val OPENCODE_PASSWORD = "test-" + "opencode-" + "login"
 
 private val SERVER_KEY = HostKey("ssh-ed25519", ByteArray(32) { it.toByte() })
 
@@ -170,7 +171,7 @@ private class LoggingConnector(private val real: FakeSshConnector, private val l
  * A [ConnectionManager] on fakes, whose sessions all share one [files] tree, so a reconnect sees
  * the same server.
  */
-internal class FolderConnection(scope: CoroutineScope) {
+internal class FolderConnection(scope: CoroutineScope, diagnostics: Diagnostics = Diagnostics.Off) {
     val files = FakeRemoteFiles()
     val log = SftpLog()
     private val secrets = FakeSecretStore()
@@ -211,6 +212,8 @@ internal class FolderConnection(scope: CoroutineScope) {
         },
         scope = scope,
         options = ConnectionOptions(reconnect = ReconnectPolicy(delays = listOf(1.seconds), maxAttempts = 3)),
+        diagnostics = diagnostics,
+        endLog = {},
     )
 
     init {
