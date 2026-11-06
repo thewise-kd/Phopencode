@@ -47,11 +47,14 @@ import net.schmizz.sshj.userauth.UserAuthException
  *
  * @param resolver For tests; the system resolver otherwise.
  * @param beforeHandOver For tests: runs with the finished session just before it is returned.
+ * @param beforeSocketWrite For tests: runs on the writing thread before every write to the
+ *   connection's socket; see [TrackingSocketFactory].
  */
 class SshjConnector internal constructor(
     private val features: SessionFeatures,
     private val resolver: HostResolver = HostResolver.System,
     private val beforeHandOver: (SshSession) -> Unit = {},
+    private val beforeSocketWrite: () -> Unit = {},
 ) : SshConnector {
     constructor() : this(SshjSessionFeatures)
 
@@ -87,7 +90,7 @@ class SshjConnector internal constructor(
         private val options: SshConnectOptions,
         private val created: AtomicReference<SshSession?>,
     ) {
-        private val sockets = TrackingSocketFactory()
+        private val sockets = TrackingSocketFactory(beforeSocketWrite)
         private val gate = HostKeyGate()
         private val budget = Budget(options.connectTimeout)
         private val client = SSHClient(CONFIG).apply {

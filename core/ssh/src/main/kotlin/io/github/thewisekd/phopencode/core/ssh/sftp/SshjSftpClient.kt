@@ -111,7 +111,10 @@ internal class SshjSftpClient private constructor(
 
     override suspend fun mkdir(path: String, parents: Boolean) = changes().mkdir(path, parents)
 
-    /** Closes the channel once. The session stays open. */
+    /**
+     * Closes the channel once. The session stays open. Returns at once: the channel's close is
+     * written on a thread of its own, never on the caller's (see [SshjSession.release]).
+     */
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
         reader.close()
@@ -166,11 +169,8 @@ internal class SshjSftpClient private constructor(
                         }
                     }
                     if (!session.track(sftp)) throw SshException.Disconnected()
-                    val release = {
-                        session.untrack(sftp)
-                        runCatching { sftp.close() }
-                        Unit
-                    }
+                    // Closed off the caller's thread; see SshjSession.release.
+                    val release = { session.release(sftp) }
                     opened = try {
                         // The writer checks on the server that the root is a folder.
                         val writer = SftpWriter.open(sftp, root)

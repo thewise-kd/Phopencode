@@ -5,6 +5,8 @@ import io.github.thewisekd.phopencode.core.ssh.api.SftpClient
 import io.github.thewisekd.phopencode.core.ssh.api.SshConnectOptions
 import io.github.thewisekd.phopencode.core.ssh.api.SshException
 import io.github.thewisekd.phopencode.core.ssh.api.SshSession
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.net.SocketFactory
 import kotlin.concurrent.thread
@@ -36,6 +38,11 @@ import net.schmizz.sshj.transport.DisconnectListener
  * after [SshConnectOptions.keepAliveMaxMissed] ticks in a row with a request unanswered or unsent,
  * the connection counts as lost, within interval × (keepAliveMaxMissed + 1) of the last reply.
  * A lost connection releases itself; [close] after that is a no-op.
+ *
+ * No close here writes to the connection on its caller's thread: sshj encrypts a packet before it
+ * writes it, and a write the platform refuses on that thread (Android's main thread) after that
+ * would leave the connection out of step with the server. [close] and [release] hand every channel
+ * close to a thread of their own; see also [GuardedSocket].
  */
 internal class SshjSession(
     internal val client: SSHClient,
@@ -46,6 +53,9 @@ internal class SshjSession(
     private val state = MutableStateFlow(true)
     private val closed = AtomicBoolean()
     private val resources = LinkedHashSet<AutoCloseable>()
+
+    /** Guarded by [resources]: one latch per [release] whose close has not finished yet. */
+    private val releasing = HashSet<CountDownLatch>()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + CoroutineName("ssh-session"))
 
     override val connected: StateFlow<Boolean> = state.asStateFlow()
@@ -65,6 +75,10 @@ internal class SshjSession(
 
     internal val keepAliveRunning: Boolean get() = keepAlive?.isActive == true
 
+    /** How long [close] waits, in all, for channel closes; tests shorten it. */
+    @Volatile
+    internal var closeBudgetMillis: Long = CLOSE_BUDGET_MILLIS
+
     override suspend fun openSftp(root: String): SftpClient = features.openSftp(this, root)
 
     override fun socketFactory(): SocketFactory = features.socketFactory(this)
@@ -80,6 +94,8 @@ internal class SshjSession(
      */
     internal fun track(resource: AutoCloseable): Boolean {
         val added = synchronized(resources) { !closed.get() && resources.add(resource) }
+        // On this thread, so the resource is closed when this returns: the SFTP and command opens
+        // call this on an IO thread, and a tunnel socket's close writes nothing on its caller's.
         if (!added) closeQuietly(resource)
         return added
     }
@@ -88,17 +104,57 @@ internal class SshjSession(
         synchronized(resources) { resources.remove(resource) }
     }
 
+    /**
+     * Untracks [resource], a channel of this session, and closes it on a thread of its own; returns
+     * at once. Closing a channel writes to the connection, and waits for the server's answer.
+     *
+     * The close stays visible to the session until it has finished: [close] waits for it before
+     * the goodbye, so a closed session has no channel close still under way.
+     */
+    internal fun release(resource: AutoCloseable) {
+        val done = CountDownLatch(1)
+        // One step with the snapshot in [close]: the resource is either still tracked there, or
+        // its release is pending.
+        synchronized(resources) {
+            resources.remove(resource)
+            releasing += done
+        }
+        thread(isDaemon = true, name = CLOSER_THREAD) {
+            try {
+                closeQuietly(resource)
+            } finally {
+                synchronized(resources) { releasing -= done }
+                done.countDown()
+            }
+        }
+    }
+
+    /**
+     * Closes every tracked channel, newest first, and waits for every [release] still under way;
+     * then the connection. Returns once that is done, as before; only the writes run elsewhere:
+     * the channels close on one thread, which this one waits for, and the goodbye on another, see
+     * below. The channel closes get [closeBudgetMillis] in all: a close blocked on a peer that
+     * reads nothing would never end, and closing the socket afterwards breaks it.
+     */
     override fun close() {
         state.value = false
         if (!closed.compareAndSet(false, true)) return
         scope.cancel()
-        val open = synchronized(resources) { resources.toList().also { resources.clear() } }
-        open.asReversed().forEach(::closeQuietly)
-        // The polite goodbye writes to the socket, and a write blocks while the peer reads
-        // nothing. So it gets its own thread and a short grace period; closing the socket then
-        // breaks any blocked write, which also ends that thread.
-        val goodbye = thread(isDaemon = true, name = "phopencode-ssh-disconnect") { runCatching { client.disconnect() } }
+        val (open, pending) = synchronized(resources) {
+            (resources.toList() to releasing.toList()).also { resources.clear() }
+        }
+        val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(closeBudgetMillis)
+        val remaining = { TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime()).coerceAtLeast(1) }
         try {
+            if (open.isNotEmpty()) {
+                thread(isDaemon = true, name = CLOSER_THREAD) { open.asReversed().forEach(::closeQuietly) }
+                    .join(remaining())
+            }
+            pending.forEach { it.await(remaining(), TimeUnit.MILLISECONDS) }
+            // The polite goodbye writes to the socket, and a write blocks while the peer reads
+            // nothing. So it gets its own thread and a short grace period; closing the socket
+            // then breaks any blocked write, which also ends that thread.
+            val goodbye = thread(isDaemon = true, name = "phopencode-ssh-disconnect") { runCatching { client.disconnect() } }
             goodbye.join(DISCONNECT_GRACE_MILLIS)
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
@@ -152,5 +208,9 @@ internal class SshjSession(
     private companion object {
         const val KEEP_ALIVE_REQUEST = "keepalive@openssh.com"
         const val DISCONNECT_GRACE_MILLIS = 500L
+
+        /** Above a process close's own bound (RemoteProcess: 5 s and three short interrupts). */
+        const val CLOSE_BUDGET_MILLIS = 7_000L
+        const val CLOSER_THREAD = "phopencode-ssh-close"
     }
 }

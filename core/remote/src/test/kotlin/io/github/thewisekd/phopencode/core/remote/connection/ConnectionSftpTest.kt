@@ -404,9 +404,11 @@ class ConnectionSftpTest {
         probe.gate!!.complete(Unit)
         runCurrent()
 
+        // Checked first: the client closes on an IO thread, and while the open waits for that,
+        // virtual time may run on to the reconnect.
+        assertIs<ConnectionState.Reconnecting>(fx.manager.state.value)
         assertIs<NotConnectedException>(opening.await().exceptionOrNull())
         assertEquals(1, probe.opened.single().closes.get())
-        assertIs<ConnectionState.Reconnecting>(fx.manager.state.value)
     }
 
     @Test
@@ -475,8 +477,13 @@ class ConnectionSftpTest {
     }
 
     @Test
-    fun `a replacing connect never returns before a client the caller is closing is closed`() = runTest {
-        cleanupWaitsForCallerClose { manager -> manager.connect(profile()) }
+    fun `the cleanup a replacing connect starts never ends before a client the caller is closing is closed`() = runTest {
+        // A connect returns at once and closes the old connection off its caller's thread; a
+        // disconnect then waits for that cleanup as for every other.
+        cleanupWaitsForCallerClose { manager ->
+            manager.connect(profile())
+            runBlocking { manager.disconnect() }
+        }
     }
 
     /**

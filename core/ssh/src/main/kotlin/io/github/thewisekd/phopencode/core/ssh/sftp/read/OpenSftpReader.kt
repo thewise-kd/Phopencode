@@ -41,15 +41,10 @@ internal suspend fun openSftpReader(session: SshjSession, root: String): SftpRea
             if (!session.track(sftp)) throw SshException.Disconnected()
             sftp
         }
-        return SftpReader(sftp, normalised, connected) {
-            session.untrack(sftp)
-            runCatching { sftp.close() }
-        }
+        // Closed off the caller's thread; see SshjSession.release.
+        return SftpReader(sftp, normalised, connected) { session.release(sftp) }
     } catch (failure: Throwable) {
-        opened.getAndSet(null)?.let { sftp ->
-            session.untrack(sftp)
-            runCatching { sftp.close() }
-        }
+        opened.getAndSet(null)?.let(session::release)
         throw failure
     }
 }

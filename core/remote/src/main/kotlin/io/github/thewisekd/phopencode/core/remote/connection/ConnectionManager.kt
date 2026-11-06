@@ -29,13 +29,16 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.DisposableHandle
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -79,9 +82,18 @@ import kotlinx.coroutines.withTimeoutOrNull
  * [scope] closes the manager too, whatever it is doing, idle included; the state turns
  * [ConnectionState.Closed] at once and the connections finish their cleanup on their own.
  *
+ * Threads: nothing is ever closed on the thread that calls [connect], [disconnect], [close],
+ * [acceptChangedHostKey] or [openSftp], which may be the main thread: closing an SSH resource
+ * writes to the network. A connection's cleanup runs in its own job on [scope] and, once stopped,
+ * also on [Dispatchers.IO]. [connect] returns without waiting for the connection it replaces to
+ * finish closing; [disconnect] and [close] still wait, as above. A caller's own close of an
+ * [openSftp] client runs on the caller's thread; the SSH layer sends its packets elsewhere.
+ *
  * Nothing is logged, and no state or error carries an address or a secret.
  *
- * @param scope Runs the connections; it must have a [Job]. Cancelling it closes the manager.
+ * @param scope Runs the connections; it must have a [Job]. Cancelling it closes the manager. Its
+ *   dispatcher must not be Main or Unconfined: a cancelled connection releases its resources,
+ *   network closes included, on that dispatcher.
  */
 class ConnectionManager(
     private val connector: SshConnector,
@@ -371,8 +383,11 @@ class ConnectionManager(
             awaitClosed()
             return
         }
-        stopping.forEach(Run::stop)
-        withContext(NonCancellable) { stopping.forEach { it.join() } }
+        val releases = stopping.map(Run::stop)
+        withContext(NonCancellable) {
+            stopping.forEach { it.join() }
+            releases.joinAll()
+        }
     }
 
     /**
@@ -486,6 +501,12 @@ class ConnectionManager(
      */
     private inner class Run(val profile: ServerProfile, private val replacement: Replacement? = null) {
         private val held = ArrayList<AutoCloseable>()
+        /**
+         * Set without [held], so that [stop] never waits for a cleanup that holds it across a
+         * close. Read under [held] where a resource is taken in, so a resource that got in before
+         * the stop is in [held] for the release that follows it.
+         */
+        @Volatile
         private var stopped = false
 
         /** Guarded by [lock]: the last state this run published, as [state] holds it. */
@@ -534,7 +555,7 @@ class ConnectionManager(
          * Resources are already released by then.
          */
         private fun ended(cause: Throwable) {
-            if (synchronized(held) { stopped }) return
+            if (stopped) return
             if (cause is CancellationException) {
                 closeNow()
             } else {
@@ -643,9 +664,10 @@ class ConnectionManager(
 
         /**
          * Takes [client], just opened on [live]'s session, into this run and [live]. One arriving
-         * after a stop or after [live] dropped is closed at once, and the open fails.
+         * after a stop or after [live] dropped is closed, on [Dispatchers.IO] and not on the
+         * caller's thread, and the open fails once it is closed.
          */
-        fun track(live: Live, client: SftpClient): SftpClient {
+        suspend fun track(live: Live, client: SftpClient): SftpClient {
             val tracked = TrackedSftp(client, held) { self ->
                 held.remove(self)
                 live.sftp.remove(self)
@@ -657,7 +679,7 @@ class ConnectionManager(
                     return tracked
                 }
             }
-            closeQuietly(client)
+            withContext(NonCancellable + Dispatchers.IO) { closeQuietly(client) }
             throw NotConnectedException()
         }
 
@@ -703,7 +725,7 @@ class ConnectionManager(
 
         /** Newest first, so the client closes before the session that carries it. */
         private fun releaseAll() {
-            synchronized(lock) { live }?.gone?.complete(Unit)
+            endWatchers()
             synchronized(held) {
                 // A copy: closing an SFTP client takes it out of [held].
                 val all = held.toList()
@@ -712,11 +734,22 @@ class ConnectionManager(
             }
         }
 
-        fun stop() {
-            synchronized(held) { stopped = true }
+        /** Ends the [withConnection] calls on the live connection, if any. */
+        private fun endWatchers() {
+            synchronized(lock) { live }?.gone?.complete(Unit)
+        }
+
+        /**
+         * Stops the run and returns at once. The release runs on [Dispatchers.IO], never on the
+         * caller's thread, since closing writes to the network; the job's own cleanup releases
+         * too, so [join] returns only once nothing is open. The returned job ends with that release.
+         */
+        fun stop(): Job {
+            stopped = true
             pending?.decision?.complete(false)
             job.cancel()
-            releaseAll()
+            endWatchers()
+            return RELEASES.launch { releaseAll() }
         }
 
         private suspend fun execute(profile: ServerProfile) {
@@ -984,6 +1017,9 @@ class ConnectionManager(
 
         fun ServerEvent.endsServer(): Boolean =
             this is ServerEvent.Disconnected || (this is ServerEvent.Unknown && rawType == SHUTDOWN_EVENT)
+
+        /** Runs the releases of stopped connections, off their callers' threads. */
+        val RELEASES = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
         fun closeQuietly(resource: AutoCloseable) {
             try {

@@ -42,11 +42,8 @@ internal suspend fun openSftpWriter(
                 throw SshException.Sftp(SftpFailure.Failed, RedactedFailure.of(e))
             }
             if (!session.track(sftp)) throw SshException.Disconnected()
-            val release = {
-                session.untrack(sftp)
-                runCatching { sftp.close() }
-                Unit
-            }
+            // Closed off the caller's thread; see SshjSession.release.
+            val release = { session.release(sftp) }
             val writer = try {
                 SftpWriter.open(sftp, root, release, hooks)
             } catch (e: Throwable) {
