@@ -2,8 +2,10 @@ package io.github.thewisekd.phopencode.feature.files.ui.tree
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -95,22 +97,33 @@ abstract class TreeScreenLanguageContract {
     fun `each kind of entry has its own icon description`() {
         compose.setTreeScreen(listing)
 
-        compose.onAllNodesWithContentDescription(strings.folder, useUnmergedTree = true).assertCountEquals(2)
-        compose.onAllNodesWithContentDescription(strings.file, useUnmergedTree = true).assertCountEquals(2)
-        compose.onNodeWithContentDescription(strings.symlink, useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithContentDescription(strings.other, useUnmergedTree = true).assertIsDisplayed()
+        // Row by row: on a short screen the rows below it are not composed, so a count would miss them.
+        val kinds = listOf(
+            docsFolder to strings.folder,
+            buildFolder to strings.folder,
+            readme to strings.file,
+            newFile to strings.file,
+            link to strings.symlink,
+            socket to strings.other,
+        )
+        assertEquals(listing.entries, kinds.map { it.first })
+        kinds.forEach { (row, kind) ->
+            val shown = hasTestTag(TreeTags.ROW) and hasText(row.entry.name) and hasContentDescription(kind)
+            compose.scrollTreeTo(shown)
+            compose.onNode(shown).assertIsDisplayed()
+        }
     }
 
     @Test
     fun `badges and the ignored marker are named`() {
         compose.setTreeScreen(listing)
 
-        compose.onNodeWithContentDescription(strings.badges.getValue(GitBadge.Modified), useUnmergedTree = true)
-            .assertIsDisplayed()
-        compose.onNodeWithContentDescription(strings.badges.getValue(GitBadge.Untracked), useUnmergedTree = true)
-            .assertIsDisplayed()
-        compose.onNodeWithContentDescription(strings.badges.getValue(GitBadge.ContainsChanges), useUnmergedTree = true)
-            .assertIsDisplayed()
+        listOf(GitBadge.Modified, GitBadge.Untracked, GitBadge.ContainsChanges).forEach { badge ->
+            val description = strings.badges.getValue(badge)
+            compose.scrollTreeTo(hasContentDescription(description))
+            compose.onNodeWithContentDescription(description, useUnmergedTree = true).assertIsDisplayed()
+        }
+        compose.scrollTreeTo(hasText(strings.ignored))
         compose.onNodeWithText(strings.ignored, useUnmergedTree = true).assertIsDisplayed()
     }
 
@@ -132,6 +145,7 @@ abstract class TreeScreenLanguageContract {
     fun `a row's action button names the entry`() {
         compose.setTreeScreen(listing)
 
+        compose.scrollTreeTo(hasContentDescription(strings.actionsFor(readme.entry.name)))
         compose.onNodeWithContentDescription(strings.actionsFor(readme.entry.name)).assertIsDisplayed()
     }
 

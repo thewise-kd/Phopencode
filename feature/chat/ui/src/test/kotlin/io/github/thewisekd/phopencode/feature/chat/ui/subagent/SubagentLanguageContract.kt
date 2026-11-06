@@ -5,6 +5,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -95,9 +96,10 @@ abstract class SubagentLanguageContract {
         compose.setList(LOADED)
 
         compose.onNodeWithText(strings.title).assertIsDisplayed()
-        compose.onNodeWithTag(SubagentTags.SUMMARY).performScrollTo().assertTextEquals(strings.summary)
+        compose.scrollListTo(hasTestTag(SubagentTags.SUMMARY))
+        compose.onNodeWithTag(SubagentTags.SUMMARY).assertTextEquals(strings.summary)
         strings.rows.forEach { (id, texts) ->
-            val row = compose.onNodeWithTag(SubagentTags.row(id)).performScrollTo()
+            val row = compose.listRow(id)
             row.assertTextEquals(*texts.toTypedArray())
             assertEquals(strings.rowOpen, row.fetchSemanticsNode().config.getOrNull(SemanticsActions.OnClick)?.label)
         }
@@ -108,7 +110,7 @@ abstract class SubagentLanguageContract {
         val harness = compose.setList(LOADED)
         strings.statuses.forEach { (status, label) ->
             harness.state.value = LOADED.copy(subagents = listOf(SubagentNode(EXPLORE, title = EXPLORE_TITLE, status = status)))
-            compose.onNodeWithTag(SubagentTags.row(EXPLORE)).performScrollTo().assertTextEquals(EXPLORE_TITLE, label)
+            compose.listRow(EXPLORE).assertTextEquals(EXPLORE_TITLE, label)
         }
         kotlin.test.assertEquals(SubagentStatus.entries.toSet(), strings.statuses.keys)
     }
@@ -120,7 +122,7 @@ abstract class SubagentLanguageContract {
             harness.state.value = LOADED.copy(
                 subagents = listOf(SubagentNode(EXPLORE, title = EXPLORE_TITLE, status = SubagentStatus.Succeeded, duration = duration)),
             )
-            compose.onNodeWithTag(SubagentTags.row(EXPLORE)).performScrollTo()
+            compose.listRow(EXPLORE)
                 .assertTextEquals(EXPLORE_TITLE, strings.statuses.getValue(SubagentStatus.Succeeded), shown)
         }
         assertEquals(SAMPLE_DURATIONS.toSet(), strings.durations.keys)
@@ -129,21 +131,21 @@ abstract class SubagentLanguageContract {
     @Test
     fun `a row without a title is named by its agent, else as untitled`() {
         val harness = compose.setList(LOADED.copy(subagents = listOf(SubagentNode(EXPLORE, agent = "explore"))))
-        compose.onNodeWithTag(SubagentTags.row(EXPLORE)).performScrollTo()
+        compose.listRow(EXPLORE)
             .assertTextEquals("explore", strings.statuses.getValue(SubagentStatus.Idle))
 
         harness.state.value = LOADED.copy(subagents = listOf(SubagentNode(EXPLORE)))
-        compose.onNodeWithTag(SubagentTags.row(EXPLORE)).performScrollTo()
+        compose.listRow(EXPLORE)
             .assertTextEquals(strings.untitled, strings.statuses.getValue(SubagentStatus.Idle))
     }
 
     @Test
     fun `the list says when it is loading or has nothing yet`() {
         val harness = compose.setList(SubagentState())
-        compose.onNodeWithText(strings.loading).performScrollTo().assertIsDisplayed()
+        compose.listText(strings.loading).assertIsDisplayed()
 
         harness.state.value = SubagentState(loading = false)
-        compose.onNodeWithText(strings.emptyTitle).performScrollTo().assertIsDisplayed()
+        compose.listText(strings.emptyTitle).assertIsDisplayed()
     }
 
     @Test
@@ -151,9 +153,9 @@ abstract class SubagentLanguageContract {
         val harness = compose.setList(LOADED.copy(error = ChatFailure.Unknown))
         strings.errors.forEach { (failure, message) ->
             harness.state.value = LOADED.copy(error = failure)
-            compose.onNodeWithText(message).performScrollTo().assertIsDisplayed()
+            compose.listText(message).assertIsDisplayed()
         }
-        compose.onNodeWithText(strings.retry).performScrollTo().assertIsDisplayed()
+        compose.listText(strings.retry).assertIsDisplayed()
         kotlin.test.assertEquals(ChatFailure.entries.toSet(), strings.errors.keys)
     }
 

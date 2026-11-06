@@ -1,10 +1,11 @@
 package io.github.thewisekd.phopencode.feature.sessions.ui.list
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performScrollTo
 import io.github.thewisekd.phopencode.core.model.Cost
 import io.github.thewisekd.phopencode.core.model.SessionId
 import io.github.thewisekd.phopencode.core.model.TokenUsage
@@ -101,7 +102,8 @@ abstract class SessionListScreenLanguageContract {
         compose.setSessionList(listed.copy(rows = rows))
 
         strings.badges.values.forEach {
-            compose.onNodeWithText(it, useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+            compose.scrollListTo(hasText(it), useUnmergedTree = true)
+            compose.onNodeWithText(it, useUnmergedTree = true).assertIsDisplayed()
         }
     }
 
@@ -117,15 +119,18 @@ abstract class SessionListScreenLanguageContract {
         compose.setSessionList(listed.copy(refreshing = true, endReached = false, loadingMore = true))
 
         compose.onNodeWithContentDescription(strings.refreshing).assertIsDisplayed()
-        compose.onNodeWithContentDescription(strings.loadingMore).performScrollTo().assertIsDisplayed()
+        compose.scrollListTo(hasContentDescription(strings.loadingMore))
+        compose.onNodeWithContentDescription(strings.loadingMore).assertIsDisplayed()
     }
 
     @Test
     fun `a failed next page says so`() {
         compose.setSessionList(listed.copy(endReached = false, loadMoreError = SessionsFailure.Unreachable))
 
-        compose.onNodeWithText(strings.loadMoreError).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText(strings.retry).performScrollTo().assertIsDisplayed()
+        compose.scrollListTo(hasText(strings.loadMoreError))
+        compose.onNodeWithText(strings.loadMoreError).assertIsDisplayed()
+        compose.scrollListTo(hasText(strings.retry))
+        compose.onNodeWithText(strings.retry).assertIsDisplayed()
     }
 
     @Test

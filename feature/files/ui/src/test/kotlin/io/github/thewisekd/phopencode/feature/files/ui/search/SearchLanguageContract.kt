@@ -101,17 +101,17 @@ abstract class SearchLanguageContract {
     fun `a content hit gives its line`() {
         compose.setSearch(CONTENT)
 
-        compose.onNodeWithText(strings.line42).performScrollTo().assertIsDisplayed()
+        compose.listText(strings.line42).assertIsDisplayed()
     }
 
     @Test
     fun `a name hit gives its type`() {
         compose.setSearch(NAMES)
 
-        compose.onNodeWithText("${strings.folder} · docs").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("${strings.file} · docs/README.md").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("${strings.symlink} · current").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("${strings.other} · agent.sock").performScrollTo().assertIsDisplayed()
+        compose.listText("${strings.folder} · docs").assertIsDisplayed()
+        compose.listText("${strings.file} · docs/README.md").assertIsDisplayed()
+        compose.listText("${strings.symlink} · current").assertIsDisplayed()
+        compose.listText("${strings.other} · agent.sock").assertIsDisplayed()
     }
 
     @Test

@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -23,6 +24,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -182,7 +184,7 @@ class SubagentBehaviorTest {
         val harness = compose.setList(LOADED)
 
         listOf(EXPLORE, NESTED, REVIEW).forEach {
-            compose.onNodeWithTag(SubagentTags.row(it)).performScrollTo().performClick()
+            compose.listRow(it).performClick()
         }
 
         assertEquals(listOf(EXPLORE, NESTED, REVIEW).map<SessionId, SubagentIntent> { SubagentIntent.Open(it) }, harness.intents)
@@ -192,15 +194,19 @@ class SubagentBehaviorTest {
     fun `a nested subagent sits under its parent, further in`() {
         compose.setList(LOADED)
 
-        val parent = compose.onNodeWithTag(SubagentTags.row(EXPLORE)).performScrollTo().fetchSemanticsNode()
-        val nested = compose.onNodeWithTag(SubagentTags.row(NESTED)).performScrollTo().fetchSemanticsNode()
-        val next = compose.onNodeWithTag(SubagentTags.row(REVIEW)).performScrollTo().fetchSemanticsNode()
+        // Each pair is measured at one scroll position: scrolling between two reads would move one.
+        compose.listRow(NESTED)
+        val parent = compose.onNodeWithTag(SubagentTags.row(EXPLORE)).fetchSemanticsNode()
+        val nested = compose.onNodeWithTag(SubagentTags.row(NESTED)).fetchSemanticsNode()
         val parentText = compose.onNodeWithText(EXPLORE_TITLE, useUnmergedTree = true).fetchSemanticsNode()
         val nestedText = compose.onNodeWithText(NESTED_TITLE, useUnmergedTree = true).fetchSemanticsNode()
-
         assertTrue(nested.boundsInRoot.top >= parent.boundsInRoot.bottom)
-        assertTrue(next.boundsInRoot.top >= nested.boundsInRoot.bottom)
         assertTrue(nestedText.boundsInRoot.left > parentText.boundsInRoot.left)
+
+        compose.listRow(REVIEW)
+        val nestedAgain = compose.onNodeWithTag(SubagentTags.row(NESTED)).fetchSemanticsNode()
+        val next = compose.onNodeWithTag(SubagentTags.row(REVIEW)).fetchSemanticsNode()
+        assertTrue(next.boundsInRoot.top >= nestedAgain.boundsInRoot.bottom)
     }
 
     @Test
@@ -208,7 +214,7 @@ class SubagentBehaviorTest {
         compose.setList(LOADED)
 
         listOf(EXPLORE, NESTED, REVIEW).forEach {
-            compose.onNodeWithTag(SubagentTags.row(it)).performScrollTo().assertTouchSizeIsAtLeast(48.dp)
+            compose.listRow(it).assertTouchSizeIsAtLeast(48.dp)
         }
     }
 
@@ -217,9 +223,9 @@ class SubagentBehaviorTest {
         val harness = compose.setList(LOADED.copy(error = ChatFailure.Unreachable))
 
         listOf(EXPLORE, NESTED, REVIEW).forEach {
-            compose.onNodeWithTag(SubagentTags.row(it)).performScrollTo().assertIsDisplayed()
+            compose.listRow(it).assertIsDisplayed()
         }
-        compose.onNodeWithText("Try again").performScrollTo().performClick()
+        compose.listText("Try again").performClick()
 
         assertEquals(listOf<SubagentIntent>(SubagentIntent.Retry), harness.intents)
     }
@@ -235,18 +241,20 @@ class SubagentBehaviorTest {
     fun `a row leaves out what is not known`() {
         compose.setList(LOADED.copy(subagents = listOf(TREE[0].children[0].copy(duration = null, agent = null))))
 
-        compose.onNodeWithTag(SubagentTags.row(NESTED)).performScrollTo()
+        compose.listRow(NESTED)
             .assertTextEquals(NESTED_TITLE, "Running")
-        compose.onNodeWithTag(SubagentTags.SUMMARY).performScrollTo().assertIsDisplayed()
+        compose.scrollListTo(hasTestTag(SubagentTags.SUMMARY))
+        compose.onNodeWithTag(SubagentTags.SUMMARY).assertIsDisplayed()
     }
 
     @Test
     fun `the list follows the state as it changes`() {
         val harness = compose.setList(LOADED)
-        compose.onNodeWithTag(SubagentTags.row(SessionId("ses_9"))).assertDoesNotExist()
+        // Through the whole list: on a short screen a row below it would not be composed anyway.
+        assertFailsWith<AssertionError> { compose.scrollListTo(hasTestTag(SubagentTags.row(SessionId("ses_9")))) }
 
         harness.state.value = LOADED.copy(subagents = TREE + TREE[1].copy(sessionId = SessionId("ses_9")))
 
-        compose.onNodeWithTag(SubagentTags.row(SessionId("ses_9"))).performScrollTo().assertIsDisplayed()
+        compose.listRow(SessionId("ses_9")).assertIsDisplayed()
     }
 }

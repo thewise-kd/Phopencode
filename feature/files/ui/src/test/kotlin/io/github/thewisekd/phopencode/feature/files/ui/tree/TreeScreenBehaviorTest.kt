@@ -4,6 +4,7 @@ import android.text.format.Formatter
 import androidx.activity.OnBackPressedDispatcher
 import androidx.compose.ui.platform.LocalContext
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
@@ -11,6 +12,7 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -60,8 +62,10 @@ class TreeScreenBehaviorTest {
     fun `tapping a folder or a file opens it`() {
         show(listing)
 
-        compose.onNodeWithText(docsFolder.entry.name).performScrollTo().performClick()
-        compose.onNodeWithText(readme.entry.name).performScrollTo().performClick()
+        compose.scrollTreeTo(hasText(docsFolder.entry.name))
+        compose.onNodeWithText(docsFolder.entry.name).performClick()
+        compose.scrollTreeTo(hasText(readme.entry.name))
+        compose.onNodeWithText(readme.entry.name).performClick()
 
         assertEquals(listOf<TreeIntent>(TreeIntent.Open(docsFolder), TreeIntent.Open(readme)), intents)
     }
@@ -70,7 +74,8 @@ class TreeScreenBehaviorTest {
     fun `a long press shows the entry's actions`() {
         show(listing)
 
-        compose.onNodeWithText(readme.entry.name).performScrollTo().performTouchInput { longClick() }
+        compose.scrollTreeTo(hasText(readme.entry.name))
+        compose.onNodeWithText(readme.entry.name).performTouchInput { longClick() }
 
         assertEquals(listOf<TreeIntent>(TreeIntent.ShowActions(readme)), intents)
     }
@@ -79,7 +84,8 @@ class TreeScreenBehaviorTest {
     fun `a row's action button shows the entry's actions`() {
         show(listing)
 
-        compose.onNodeWithContentDescription(en.actionsFor(link.entry.name)).performScrollTo().performClick()
+        compose.scrollTreeTo(hasContentDescription(en.actionsFor(link.entry.name)))
+        compose.onNodeWithContentDescription(en.actionsFor(link.entry.name)).performClick()
 
         assertEquals(listOf<TreeIntent>(TreeIntent.ShowActions(link)), intents)
     }
@@ -261,7 +267,8 @@ class TreeScreenBehaviorTest {
         show(listing.copy(error = FilesFailure.Unreachable))
 
         compose.onNodeWithTag(TreeTags.ERROR).assertExists()
-        compose.onNodeWithText(readme.entry.name).performScrollTo()
+        compose.scrollTreeTo(hasText(readme.entry.name))
+        compose.onNodeWithText(readme.entry.name).assertIsDisplayed()
     }
 
     @Test

@@ -2,7 +2,6 @@ package io.github.thewisekd.phopencode.feature.files.ui.search
 
 import android.os.Bundle
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithTag
 import io.github.thewisekd.phopencode.core.model.FileEntry
 import io.github.thewisekd.phopencode.core.model.FileEntryType
 import io.github.thewisekd.phopencode.feature.files.logic.contract.ContentHit
@@ -84,17 +83,17 @@ class SearchKeysTest {
 
     @Test
     fun `the colliding list from the review draws every hit`() {
-        compose.setSearch(NAMES.copy(results = listOf(name("$ROOT/a"), name("$ROOT/a"), name("$ROOT/a#2"))))
+        val results = listOf(name("$ROOT/a"), name("$ROOT/a"), name("$ROOT/a#2"))
+        compose.setSearch(NAMES.copy(results = results))
 
-        assertEquals(3, compose.onAllNodesWithTag(SearchTags.NAME_ROW).fetchSemanticsNodes().size)
+        compose.assertEachHitDrawn(results, SearchTags.NAME_ROW)
     }
 
     @Test
     fun `colliding content hits draw every hit`() {
-        compose.setSearch(
-            CONTENT.copy(results = listOf(content("$ROOT/a", 1), content("$ROOT/a", 1), content("$ROOT/a#2", 1))),
-        )
+        val results = listOf(content("$ROOT/a", 1), content("$ROOT/a", 1), content("$ROOT/a#2", 1))
+        compose.setSearch(CONTENT.copy(results = results))
 
-        assertEquals(3, compose.onAllNodesWithTag(SearchTags.CONTENT_ROW).fetchSemanticsNodes().size)
+        compose.assertEachHitDrawn(results, SearchTags.CONTENT_ROW)
     }
 }

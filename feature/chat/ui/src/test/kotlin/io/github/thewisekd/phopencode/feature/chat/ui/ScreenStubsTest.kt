@@ -1,11 +1,15 @@
 package io.github.thewisekd.phopencode.feature.chat.ui
 
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTouchInput
 import io.github.thewisekd.phopencode.core.model.FormId
 import io.github.thewisekd.phopencode.core.model.MessageId
@@ -37,12 +41,15 @@ import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.Su
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SwitcherState
 import io.github.thewisekd.phopencode.feature.chat.ui.revert.TurnDiffScreen
 import io.github.thewisekd.phopencode.feature.chat.ui.subagent.SubagentListScreen
+import io.github.thewisekd.phopencode.feature.chat.ui.timeline.TIMELINE_LIST_TAG
+import io.github.thewisekd.phopencode.feature.chat.ui.timeline.timelineItemTag
 import io.github.thewisekd.phopencode.feature.chat.ui.usage.UsageDetailScreen
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import kotlin.test.assertTrue
 
 /**
  * The chat keeps, on its root, the `placeholder:<route>` tag the app's navigation test looks for,
@@ -117,6 +124,22 @@ class ScreenStubsTest {
         }
     }
 
+    /**
+     * Scrolls the timeline until the node tagged [tag] is in view. The timeline composes only the
+     * items in view and starts at the latest, so on a short screen an older item does not exist yet.
+     * A timeline with no height cannot scroll at all; that fails here rather than in an endless scroll.
+     */
+    private fun timelineItem(tag: String): SemanticsNodeInteraction {
+        scrollTimelineTo(hasTestTag(tag))
+        return compose.onNodeWithTag(tag)
+    }
+
+    private fun scrollTimelineTo(matcher: SemanticsMatcher) {
+        val timeline = compose.onNodeWithTag(TIMELINE_LIST_TAG)
+        assertTrue(timeline.fetchSemanticsNode().size.height > 0, "the timeline has no height left to show")
+        timeline.performScrollToNode(matcher)
+    }
+
     @Test
     fun `the chat keeps its route's tag while loading`() {
         setChat(StatusState())
@@ -140,18 +163,21 @@ class ScreenStubsTest {
 
     @Test
     fun `a loaded chat places every part in its slot`() {
+        // Not following the latest: this fixed state never takes the timeline's report that the user
+        // scrolled away, so a following timeline would pull itself back down from an older item.
         setChat(
             StatusState(ChatStatus.Idle),
-            TimelineState(loading = false, items = listOf(thinking, emptyThinking, call)),
+            TimelineState(loading = false, items = listOf(thinking, emptyThinking, call), followLatest = false),
         )
 
         compose.onNodeWithTag("placeholder:$route").assertIsDisplayed()
         listOf(ChatSlotTags.USAGE, ChatSlotTags.STATUS, ChatSlotTags.TIMELINE, ChatSlotTags.COMPOSER).forEach {
             compose.onNodeWithTag(it).assertExists()
         }
-        compose.onNodeWithTag(ChatSlotTags.reasoning(thinking.key)).assertExists()
-        compose.onNodeWithTag(ChatSlotTags.tool(call.key)).assertExists()
-        // A reasoning without a card, such as an empty one, draws nothing.
+        timelineItem(ChatSlotTags.reasoning(thinking.key)).assertExists()
+        timelineItem(ChatSlotTags.tool(call.key)).assertExists()
+        // A reasoning without a card, such as an empty one, draws nothing: its item is there, its slot not.
+        timelineItem(timelineItemTag(emptyThinking.key)).assertExists()
         compose.onNodeWithTag(ChatSlotTags.reasoning(emptyThinking.key)).assertDoesNotExist()
         interactionSlots.forEach { compose.onNodeWithTag(it).assertExists() }
     }
@@ -169,9 +195,10 @@ class ScreenStubsTest {
     fun `a long press on a prompt opens its actions slot`() {
         val prompt = TimelineItem.User(TimelineKey.message(MessageId("msg_u1")), MessageId("msg_u1"), text = "Fix the build")
         setChat(StatusState(ChatStatus.Idle), TimelineState(loading = false, items = listOf(prompt)))
+        scrollTimelineTo(hasText("Fix the build"))
         compose.onNodeWithTag(ChatSlotTags.messageActions(prompt.key)).assertDoesNotExist()
 
-        compose.onNodeWithText("Fix the build").performScrollTo().performTouchInput { longClick() }
+        compose.onNodeWithText("Fix the build").performTouchInput { longClick() }
         compose.waitForIdle()
 
         compose.onNodeWithTag(ChatSlotTags.messageActions(prompt.key)).assertExists()
@@ -206,7 +233,7 @@ class ScreenStubsTest {
         listOf(ChatSlotTags.SUBAGENT_HEADER, ChatSlotTags.STATUS, ChatSlotTags.TIMELINE).forEach {
             compose.onNodeWithTag(it).assertExists()
         }
-        compose.onNodeWithTag(ChatSlotTags.reasoning(thinking.key)).assertExists()
+        timelineItem(ChatSlotTags.reasoning(thinking.key)).assertExists()
         compose.onNodeWithTag(ChatSlotTags.form(form.formId)).assertExists()
         compose.onNodeWithTag(ChatSlotTags.permission(permission.requestId)).assertExists()
         // A subagent's timeline is read only: no composer.

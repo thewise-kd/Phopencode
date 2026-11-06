@@ -11,8 +11,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.thewisekd.phopencode.core.model.SessionId
@@ -142,6 +149,27 @@ internal fun ComposeContentTestRule.setHeader(state: SubagentState): HeaderHarne
 
 internal fun ComposeContentTestRule.setList(state: SubagentState): ListHarness =
     ListHarness(state).also { harness -> setContent { harness.Content() } }
+
+/**
+ * Scrolls the list page until a node matching [matcher] is in view. The list composes only the rows
+ * in view, so on a short screen a row below it does not exist yet, and a plain `performScrollTo` on
+ * it finds nothing. The page's only lazy list is the one that can scroll to an index.
+ */
+internal fun ComposeContentTestRule.scrollListTo(matcher: SemanticsMatcher) {
+    onNode(hasScrollToIndexAction()).performScrollToNode(matcher)
+}
+
+/** The row of [id] on the list page, scrolled into view. */
+internal fun ComposeContentTestRule.listRow(id: SessionId): SemanticsNodeInteraction {
+    scrollListTo(hasTestTag(SubagentTags.row(id)))
+    return onNodeWithTag(SubagentTags.row(id))
+}
+
+/** The node on the list page showing [text], scrolled into view. */
+internal fun ComposeContentTestRule.listText(text: String): SemanticsNodeInteraction {
+    scrollListTo(hasText(text))
+    return onNodeWithText(text)
+}
 
 private val TOUCH_SIZE_TOLERANCE = 0.5.dp
 

@@ -13,6 +13,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -130,7 +131,8 @@ class SessionListScreenBehaviorTest {
     fun `tapping a session opens it`() {
         show(listed)
 
-        compose.onNodeWithText(second.title!!).performScrollTo().assertTouchSizeIsAtLeast().performClick()
+        compose.scrollListTo(hasText(second.title!!))
+        compose.onNodeWithText(second.title!!).assertTouchSizeIsAtLeast().performClick()
 
         compose.runOnIdle { assertEquals(listOf<SessionListIntent>(SessionListIntent.Open(second.id)), sentByUser()) }
     }
@@ -139,8 +141,8 @@ class SessionListScreenBehaviorTest {
     fun `each session has a labelled manage button of tappable size`() {
         show(listed)
 
+        compose.scrollListTo(hasContentDescription(strings.manage(first.title!!)))
         compose.onNodeWithContentDescription(strings.manage(first.title!!))
-            .performScrollTo()
             .assertTouchSizeIsAtLeast()
             .performClick()
 
@@ -162,7 +164,8 @@ class SessionListScreenBehaviorTest {
         show(listed.copy(rows = rows))
 
         strings.badges.values.forEach { label ->
-            compose.onNodeWithText(label, useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+            compose.scrollListTo(hasText(label), useUnmergedTree = true)
+            compose.onNodeWithText(label, useUnmergedTree = true).assertIsDisplayed()
         }
         assertEquals(SessionBadge.entries.toSet() - SessionBadge.Idle, strings.badges.keys)
     }
@@ -384,7 +387,8 @@ class SessionListScreenBehaviorTest {
     fun `loading the next page says so under the rows`() {
         show(listed.copy(endReached = false, loadingMore = true))
 
-        compose.onNodeWithContentDescription(strings.loadingMore).performScrollTo().assertIsDisplayed()
+        compose.scrollListTo(hasContentDescription(strings.loadingMore))
+        compose.onNodeWithContentDescription(strings.loadingMore).assertIsDisplayed()
         compose.runOnIdle { assertTrue(SessionListIntent.LoadMore !in intents) }
     }
 
@@ -392,8 +396,10 @@ class SessionListScreenBehaviorTest {
     fun `a failed next page is retried on request, not by itself`() {
         show(listed.copy(endReached = false, loadMoreError = SessionsFailure.Unreachable))
 
-        compose.onNodeWithText(strings.loadMoreError).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText(strings.retry).performScrollTo().assertTouchSizeIsAtLeast().performClick()
+        compose.scrollListTo(hasText(strings.loadMoreError))
+        compose.onNodeWithText(strings.loadMoreError).assertIsDisplayed()
+        compose.scrollListTo(hasText(strings.retry))
+        compose.onNodeWithText(strings.retry).assertTouchSizeIsAtLeast().performClick()
 
         compose.runOnIdle { assertEquals(listOf<SessionListIntent>(SessionListIntent.Retry), intents) }
     }

@@ -10,6 +10,7 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -133,8 +134,8 @@ class SearchBehaviorTest {
     fun `tapping a name hit opens it`() {
         val harness = compose.setSearch(NAMES)
 
-        compose.onNodeWithText("Folder · docs").performScrollTo().performClick()
-        compose.onNodeWithText("File · docs/README.md").performScrollTo().performClick()
+        compose.listText("Folder · docs").performClick()
+        compose.listText("File · docs/README.md").performClick()
 
         assertEquals(listOf<SearchIntent>(SearchIntent.Open(docsHit), SearchIntent.Open(readmeHit)), harness.intents)
     }
@@ -143,31 +144,31 @@ class SearchBehaviorTest {
     fun `a name hit shows its path relative to the project and its type`() {
         compose.setSearch(NAMES)
 
-        compose.onNodeWithText("Link · current").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Other · agent.sock").performScrollTo().assertIsDisplayed()
+        compose.listText("Link · current").assertIsDisplayed()
+        compose.listText("Other · agent.sock").assertIsDisplayed()
     }
 
     @Test
     fun `a content hit shows its path, line and text`() {
         compose.setSearch(CONTENT)
 
-        compose.onNodeWithText("src/main.kt").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Line 42").assertIsDisplayed()
-        compose.onNodeWithText("fun main() = println(\"merhaba\")").assertIsDisplayed()
+        compose.listText("src/main.kt").assertIsDisplayed()
+        compose.listText("Line 42").assertIsDisplayed()
+        compose.listText("fun main() = println(\"merhaba\")").assertIsDisplayed()
     }
 
     @Test
     fun `a path outside the project shows whole`() {
         compose.setSearch(CONTENT.copy(results = listOf(outsideHit)))
 
-        compose.onNodeWithText("/elsewhere/x.kt").performScrollTo().assertIsDisplayed()
+        compose.listText("/elsewhere/x.kt").assertIsDisplayed()
     }
 
     @Test
     fun `tapping a content hit opens it`() {
         val harness = compose.setSearch(CONTENT)
 
-        compose.onNodeWithText("Line 7").performScrollTo().performClick()
+        compose.listText("Line 7").performClick()
 
         assertEquals(listOf<SearchIntent>(SearchIntent.Open(utilHit)), harness.intents)
     }
@@ -193,8 +194,9 @@ class SearchBehaviorTest {
         compose.onNodeWithTag(SearchTags.QUERY).performTextInput("main")
         compose.onNodeWithTag(SearchTags.MODE_CONTENT).performClick()
         compose.onNodeWithTag(SearchTags.RUN).performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag(SearchTags.CONTENT_ROW).fetchSemanticsNodes().size == 2 }
-        compose.onNodeWithText("Line 42").performScrollTo().performClick()
+        // The first hit: on a short screen the second may not be composed.
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Line 42").fetchSemanticsNodes().isNotEmpty() }
+        compose.listText("Line 42").performClick()
 
         val event = runBlocking { withTimeout(5_000) { presenter.events.first() } }
         assertEquals(SearchEvent.OpenFile(mainHit.hit.path, 42), event)
@@ -213,9 +215,10 @@ class SearchBehaviorTest {
 
     @Test
     fun `the same hit twice draws twice`() {
-        compose.setSearch(CONTENT.copy(results = listOf(mainHit, mainHit)))
+        val results = listOf(mainHit, mainHit)
+        compose.setSearch(CONTENT.copy(results = results))
 
-        assertEquals(2, compose.onAllNodesWithTag(SearchTags.CONTENT_ROW).fetchSemanticsNodes().size)
+        compose.assertEachHitDrawn(results, SearchTags.CONTENT_ROW)
     }
 
     @Test
@@ -223,7 +226,7 @@ class SearchBehaviorTest {
         compose.setSearch(CONTENT.copy(searching = true))
 
         compose.onNodeWithTag(SearchTags.SEARCHING).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Line 42").performScrollTo().assertIsDisplayed()
+        compose.listText("Line 42").assertIsDisplayed()
     }
 
     @Test

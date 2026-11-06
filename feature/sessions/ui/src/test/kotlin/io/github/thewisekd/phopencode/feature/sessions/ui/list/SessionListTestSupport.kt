@@ -2,8 +2,11 @@ package io.github.thewisekd.phopencode.feature.sessions.ui.list
 
 import androidx.compose.material3.Surface
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.thewisekd.phopencode.core.model.Cost
@@ -56,6 +59,15 @@ internal fun ComposeContentTestRule.setSessionList(
             Surface { SessionListScreen(route = route, state = state, onIntent = onIntent) }
         }
     }
+}
+
+/**
+ * Scrolls the list until a node matching [matcher] is in view. The list composes only the rows in
+ * view, so on a short screen a row below it does not exist yet, and a plain `performScrollTo` on it
+ * finds nothing. [useUnmergedTree] matches inside a row, for example its badge.
+ */
+internal fun ComposeContentTestRule.scrollListTo(matcher: SemanticsMatcher, useUnmergedTree: Boolean = false) {
+    onNodeWithTag(SESSION_LIST_TAG, useUnmergedTree).performScrollToNode(matcher)
 }
 
 /** The smallest size of anything tappable, as `PhopencodeSpacing.touchTarget`. */

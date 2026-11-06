@@ -2,7 +2,10 @@ package io.github.thewisekd.phopencode.feature.files.ui.tree
 
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollToNode
 import io.github.thewisekd.phopencode.core.model.FileEntry
 import io.github.thewisekd.phopencode.core.model.FileEntryType
 import io.github.thewisekd.phopencode.core.navigation.FilesRoute
@@ -45,6 +48,15 @@ internal fun TreeContent(state: TreeState, onIntent: (TreeIntent) -> Unit) {
     PhopencodeTheme(darkTheme = false) {
         Surface { TreeScreen(route = route, state = state, onIntent = onIntent) }
     }
+}
+
+/**
+ * Scrolls the list until a node matching [matcher] is in view. The list composes only the rows in
+ * view, so on a short screen a row below it does not exist yet, and a plain `performScrollTo` on it
+ * finds nothing. A row's icon, name, badge and ignored marker merge into the row.
+ */
+internal fun ComposeContentTestRule.scrollTreeTo(matcher: SemanticsMatcher) {
+    onNodeWithTag(TreeTags.LIST).performScrollToNode(matcher)
 }
 
 internal fun ComposeContentTestRule.setTreeScreen(state: TreeState, onIntent: (TreeIntent) -> Unit = {}) {
