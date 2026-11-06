@@ -160,7 +160,7 @@ class StatusRealGitTest {
     }
 
     @Test
-    fun `ahead and behind are counted against a remote, and a gone upstream shows as none`() {
+    fun `ahead and behind are counted against a remote, and a pruned upstream shows as gone`() {
         val origin = tmp.resolve("origin.git")
         sandbox.git(tmp, "init", "-q", "--bare", origin.absolutePathString())
         val seed = sandbox.newRepo("seed")
@@ -187,10 +187,11 @@ class StatusRealGitTest {
         sandbox.git(work, "fetch", "-q", "--prune")
 
         val gone = presenter(work).awaitLoaded().branch!!
-        assertEquals("topic", gone.head)
-        assertFalse(gone.hasUpstream)
-        assertEquals(0, gone.ahead)
-        assertEquals(0, gone.behind)
+        assertEquals(
+            GitBranchStatus(head = "topic", commit = branch.commit, upstream = "origin/topic", upstreamGone = true),
+            gone,
+        )
+        assertTrue(gone.aheadBehindKnown)
     }
 
     @Test

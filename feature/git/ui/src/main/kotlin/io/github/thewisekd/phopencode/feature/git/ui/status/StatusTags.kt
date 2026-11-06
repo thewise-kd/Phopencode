@@ -10,6 +10,7 @@ internal object StatusTags {
     const val BRANCH = "git_status_branch"
     const val UPSTREAM = "git_status_upstream"
     const val NO_UPSTREAM = "git_status_no_upstream"
+    const val UPSTREAM_GONE = "git_status_upstream_gone"
     const val COMMIT = "git_status_commit"
     const val LOG = "git_status_log"
     const val BRANCHES = "git_status_branches"

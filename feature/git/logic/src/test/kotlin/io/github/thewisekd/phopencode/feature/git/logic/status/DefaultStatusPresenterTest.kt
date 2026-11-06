@@ -255,17 +255,35 @@ class DefaultStatusPresenterTest {
     }
 
     @Test
-    fun `an upstream that is gone is shown as no upstream`() = runTest(timeout = 10.seconds) {
+    fun `an upstream that is gone keeps its name and is marked gone`() = runTest(timeout = 10.seconds) {
         val branch = loaded(statusOutput(upstream = "origin/removed")).state.value.branch!!
 
-        assertEquals(GitBranchStatus(head = "main", commit = OID), branch)
+        assertEquals(GitBranchStatus(head = "main", commit = OID, upstream = "origin/removed", upstreamGone = true), branch)
+        assertTrue(branch.hasUpstream)
     }
 
     @Test
-    fun `uncounted ahead and behind keep the upstream with zero counts`() = runTest(timeout = 10.seconds) {
+    fun `uncounted ahead and behind keep the upstream with zero counts marked unknown`() = runTest(timeout = 10.seconds) {
         val branch = loaded(statusOutput(upstream = "origin/main", ab = "+? -?")).state.value.branch!!
 
-        assertEquals(GitBranchStatus(head = "main", commit = OID, upstream = "origin/main"), branch)
+        assertEquals(GitBranchStatus(head = "main", commit = OID, upstream = "origin/main", aheadBehindKnown = false), branch)
+        assertFalse(branch.upstreamGone)
+    }
+
+    @Test
+    fun `counted ahead and behind are known and not gone`() = runTest(timeout = 10.seconds) {
+        val branch = loaded(statusOutput(upstream = "origin/main", ab = "+0 -0")).state.value.branch!!
+
+        assertTrue(branch.aheadBehindKnown)
+        assertFalse(branch.upstreamGone)
+    }
+
+    @Test
+    fun `without an upstream nothing is gone and the zero counts are known`() = runTest(timeout = 10.seconds) {
+        val branch = loaded(statusOutput()).state.value.branch!!
+
+        assertFalse(branch.upstreamGone)
+        assertTrue(branch.aheadBehindKnown)
     }
 
     // Failures

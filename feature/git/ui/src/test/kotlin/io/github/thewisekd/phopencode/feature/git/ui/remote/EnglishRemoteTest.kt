@@ -20,6 +20,8 @@ class EnglishRemoteTest : RemoteLanguageContract() {
         behind = { "$it behind" },
         upToDate = "Up to date",
         noUpstream = "No upstream branch; a push sets one",
+        upstreamGone = { "Upstream $it is gone from the remote" },
+        countsUnknown = "Ahead and behind not counted",
         remote = { "Remote: $it" },
         chooseRemote = "Choose a remote",
         noRemotesTitle = "No remotes",

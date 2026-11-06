@@ -9,6 +9,7 @@ internal object RemoteTags {
     const val BRANCH = "git_remote_branch"
     const val UPSTREAM = "git_remote_upstream"
     const val NO_UPSTREAM = "git_remote_no_upstream"
+    const val UPSTREAM_GONE = "git_remote_upstream_gone"
     const val REMOTE = "git_remote_remote"
     const val NO_REMOTES = "git_remote_no_remotes"
     const val FETCH = "git_remote_fetch"

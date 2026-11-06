@@ -23,6 +23,10 @@
     </plurals>
     <string name="git_status_up_to_date">Up to date</string>
     <string name="git_status_no_upstream">No upstream branch</string>
+    <!-- %1$s: the upstream branch the branch still tracks, deleted on the remote. -->
+    <string name="git_status_upstream_gone">Upstream %1$s is gone</string>
+    <!-- Git did not count the commits ahead and behind the upstream. -->
+    <string name="git_status_counts_unknown">Ahead and behind not counted</string>
 
     <string name="git_status_commit">Commit</string>
     <string name="git_status_log">History</string>

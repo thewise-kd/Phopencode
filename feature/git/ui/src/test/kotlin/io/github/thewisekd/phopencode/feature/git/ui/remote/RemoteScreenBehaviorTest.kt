@@ -250,6 +250,16 @@ class RemoteScreenBehaviorTest {
     }
 
     @Test
+    fun `a gone upstream shows its name on its own line, without counts or the no-upstream line`() {
+        show(loaded.copy(branch = branch.copy(ahead = 0, behind = 0, upstreamGone = true)))
+
+        compose.onNode(hasTestTag(RemoteTags.UPSTREAM_GONE) and hasText("origin/özellik", substring = true))
+            .assertIsDisplayed()
+        compose.onNodeWithTag(RemoteTags.UPSTREAM).assertDoesNotExist()
+        compose.onNodeWithTag(RemoteTags.NO_UPSTREAM).assertDoesNotExist()
+    }
+
+    @Test
     fun `a result can be dismissed`() {
         show(loaded.copy(result = RemoteResult.Succeeded(RemoteOp.Fetch)))
 

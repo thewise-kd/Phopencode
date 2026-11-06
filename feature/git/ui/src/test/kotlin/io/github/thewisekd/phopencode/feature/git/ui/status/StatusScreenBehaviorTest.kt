@@ -387,6 +387,24 @@ class StatusScreenBehaviorTest {
         compose.onNode(hasTestTag(StatusTags.NO_UPSTREAM)).assertIsDisplayed()
     }
 
+    @Test
+    fun `a gone upstream shows its name on its own line, without counts or the no-upstream line`() {
+        show(clean.copy(branch = GitBranchStatus(head = "topic", commit = HASH, upstream = "origin/topic", upstreamGone = true)))
+
+        compose.onNode(hasTestTag(StatusTags.UPSTREAM_GONE) and hasText("origin/topic", substring = true))
+            .assertIsDisplayed()
+        compose.onNodeWithTag(StatusTags.UPSTREAM).assertDoesNotExist()
+        compose.onNodeWithTag(StatusTags.NO_UPSTREAM).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a gone flag without an upstream name shows as no upstream`() {
+        show(clean.copy(branch = GitBranchStatus(head = "topic", commit = HASH, upstreamGone = true)))
+
+        compose.onNodeWithTag(StatusTags.NO_UPSTREAM).assertIsDisplayed()
+        compose.onNodeWithTag(StatusTags.UPSTREAM_GONE).assertDoesNotExist()
+    }
+
     private fun tapAction(description: String, row: SemanticsMatcher) {
         compose.scrollStatusTo(row)
         compose.onNode(hasContentDescription(description) and hasAnyAncestor(row)).assertIsEnabled().performClick()

@@ -22,6 +22,8 @@ class EnglishStatusTest : StatusLanguageContract() {
         behind = { "$it behind" },
         upToDate = "Up to date",
         noUpstream = "No upstream branch",
+        upstreamGone = { "Upstream $it is gone" },
+        countsUnknown = "Ahead and behind not counted",
         commit = "Commit",
         log = "History",
         branches = "Branches",

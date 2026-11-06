@@ -21,6 +21,10 @@
     </plurals>
     <string name="git_remote_up_to_date">Up to date</string>
     <string name="git_remote_no_upstream">No upstream branch; a push sets one</string>
+    <!-- %1$s: the upstream branch the branch still tracks, deleted on the remote. -->
+    <string name="git_remote_upstream_gone">Upstream %1$s is gone from the remote</string>
+    <!-- Git did not count the commits ahead and behind the upstream. -->
+    <string name="git_remote_counts_unknown">Ahead and behind not counted</string>
 
     <!-- %1$s: the name of the remote, such as origin. -->
     <string name="git_remote_remote">Remote: %1$s</string>

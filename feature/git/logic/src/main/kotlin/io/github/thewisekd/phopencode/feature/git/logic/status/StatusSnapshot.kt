@@ -71,17 +71,18 @@ internal class StatusSnapshot(
         }
 
         /**
-         * The contract has no field for counts git did not make or for an upstream that is gone. A
-         * gone upstream shows as none, which is what the branch can act on (push it anew); uncounted
-         * ahead/behind (never asked for: `GitCommands.status` passes `--ahead-behind`) keeps the
-         * upstream with zero counts.
+         * A gone upstream keeps its name and is marked gone, with zero counts. Uncounted ahead/behind
+         * (never asked for: `GitCommands.status` passes `--ahead-behind`) keeps the upstream with
+         * zero counts marked unknown.
          */
         private fun branchOf(branch: StatusBranch) = GitBranchStatus(
             head = branch.head,
             commit = branch.oid,
-            upstream = branch.upstream.takeUnless { branch.isUpstreamGone },
+            upstream = branch.upstream,
             ahead = branch.ahead ?: 0,
             behind = branch.behind ?: 0,
+            upstreamGone = branch.isUpstreamGone,
+            aheadBehindKnown = !branch.aheadBehindUnknown,
         )
 
         private val GitChangeKind.hasOrigin: Boolean

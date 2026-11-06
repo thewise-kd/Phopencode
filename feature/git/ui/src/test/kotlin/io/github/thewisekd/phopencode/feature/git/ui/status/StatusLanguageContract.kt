@@ -37,6 +37,9 @@ internal data class ExpectedStatusStrings(
     val behind: (Int) -> String,
     val upToDate: String,
     val noUpstream: String,
+    /** The upstream the branch tracked, deleted on the remote. */
+    val upstreamGone: (String) -> String,
+    val countsUnknown: String,
     val commit: String,
     val log: String,
     val branches: String,
@@ -185,6 +188,26 @@ abstract class StatusLanguageContract {
 
         compose.onNode(hasTestTag(StatusTags.UPSTREAM) and hasText(strings.upToDate, substring = true))
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun `a gone upstream is named as gone, not as up to date or as none`() {
+        compose.setStatusScreen(clean.copy(branch = branch.copy(ahead = 0, behind = 0, upstreamGone = true)))
+
+        compose.onNode(hasTestTag(StatusTags.UPSTREAM_GONE) and hasText(strings.upstreamGone("origin/main")))
+            .assertIsDisplayed()
+        compose.onNode(hasText(strings.upToDate, substring = true)).assertDoesNotExist()
+        compose.onNode(hasText(strings.noUpstream, substring = true)).assertDoesNotExist()
+    }
+
+    @Test
+    fun `uncounted ahead and behind are not called up to date`() {
+        compose.setStatusScreen(clean.copy(branch = branch.copy(ahead = 0, behind = 0, aheadBehindKnown = false)))
+
+        for (part in listOf(strings.tracking("origin/main"), strings.countsUnknown)) {
+            compose.onNode(hasTestTag(StatusTags.UPSTREAM) and hasText(part, substring = true)).assertIsDisplayed()
+        }
+        compose.onNode(hasText(strings.upToDate, substring = true)).assertDoesNotExist()
     }
 
     @Test

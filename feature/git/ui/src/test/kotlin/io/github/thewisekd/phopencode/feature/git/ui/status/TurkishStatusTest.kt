@@ -22,6 +22,8 @@ class TurkishStatusTest : StatusLanguageContract() {
         behind = { "$it geride" },
         upToDate = "Güncel",
         noUpstream = "İzlenen uzak dal yok",
+        upstreamGone = { "İzlenen uzak dal $it artık yok" },
+        countsUnknown = "İleride ve geride sayılmadı",
         commit = "Commit",
         log = "Geçmiş",
         branches = "Dallar",

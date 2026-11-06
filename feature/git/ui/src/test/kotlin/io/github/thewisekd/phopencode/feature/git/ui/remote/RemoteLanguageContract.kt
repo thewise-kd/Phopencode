@@ -33,6 +33,9 @@ internal data class ExpectedRemoteStrings(
     val behind: (Int) -> String,
     val upToDate: String,
     val noUpstream: String,
+    /** The upstream the branch tracked, deleted on the remote. */
+    val upstreamGone: (String) -> String,
+    val countsUnknown: String,
     val remote: (String) -> String,
     val chooseRemote: String,
     val noRemotesTitle: String,
@@ -128,6 +131,24 @@ abstract class RemoteLanguageContract {
     fun `one commit ahead is worded for one`() {
         compose.setRemoteScreen(loaded.copy(branch = branch.copy(ahead = 1, behind = 0)))
         compose.onNode(hasTestTag(RemoteTags.UPSTREAM) and hasText(strings.ahead(1), substring = true)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a gone upstream is named as gone, not as up to date or as none`() {
+        compose.setRemoteScreen(loaded.copy(branch = branch.copy(ahead = 0, behind = 0, upstreamGone = true)))
+        compose.onNode(hasTestTag(RemoteTags.UPSTREAM_GONE) and hasText(strings.upstreamGone("origin/özellik")))
+            .assertIsDisplayed()
+        compose.onNode(hasText(strings.upToDate, substring = true)).assertDoesNotExist()
+        compose.onNode(hasText(strings.noUpstream, substring = true)).assertDoesNotExist()
+    }
+
+    @Test
+    fun `uncounted ahead and behind are not called up to date`() {
+        compose.setRemoteScreen(loaded.copy(branch = branch.copy(ahead = 0, behind = 0, aheadBehindKnown = false)))
+        for (part in listOf(strings.tracking("origin/özellik"), strings.countsUnknown)) {
+            compose.onNode(hasTestTag(RemoteTags.UPSTREAM) and hasText(part, substring = true)).assertIsDisplayed()
+        }
+        compose.onNode(hasText(strings.upToDate, substring = true)).assertDoesNotExist()
     }
 
     @Test

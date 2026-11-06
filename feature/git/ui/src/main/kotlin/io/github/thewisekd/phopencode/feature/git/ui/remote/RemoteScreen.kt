@@ -300,8 +300,14 @@ private fun BranchHeader(branch: GitBranchStatus) {
         }
         val upstream = branch.upstream
         when {
+            upstream != null && branch.upstreamGone -> Text(
+                text = stringResource(R.string.git_remote_upstream_gone, upstream),
+                modifier = Modifier.testTag(RemoteTags.UPSTREAM_GONE),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium,
+            )
             upstream != null -> Text(
-                text = upstreamLine(upstream, branch.ahead, branch.behind),
+                text = upstreamLine(upstream, branch.ahead, branch.behind, branch.aheadBehindKnown),
                 modifier = Modifier.testTag(RemoteTags.UPSTREAM),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium,
@@ -316,10 +322,14 @@ private fun BranchHeader(branch: GitBranchStatus) {
     }
 }
 
-/** The upstream, then the commits ahead and behind it, or that the branch is even with it. */
+/**
+ * The upstream, then the commits ahead and behind it, or that the branch is even with it; when git
+ * did not count, that the counts are unknown rather than up to date.
+ */
 @Composable
-private fun upstreamLine(upstream: String, ahead: Int, behind: Int): String {
+private fun upstreamLine(upstream: String, ahead: Int, behind: Int, countsKnown: Boolean): String {
     val parts = mutableListOf(stringResource(R.string.git_remote_tracking, upstream))
+    if (!countsKnown) return (parts + stringResource(R.string.git_remote_counts_unknown)).joinToString(SEPARATOR)
     if (ahead > 0) parts += pluralStringResource(R.plurals.git_remote_ahead, ahead, ahead)
     if (behind > 0) parts += pluralStringResource(R.plurals.git_remote_behind, behind, behind)
     if (ahead == 0 && behind == 0) parts += stringResource(R.string.git_remote_up_to_date)

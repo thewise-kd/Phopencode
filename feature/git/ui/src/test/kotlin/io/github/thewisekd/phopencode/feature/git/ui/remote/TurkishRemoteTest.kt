@@ -20,6 +20,8 @@ class TurkishRemoteTest : RemoteLanguageContract() {
         behind = { "$it geride" },
         upToDate = "Güncel",
         noUpstream = "İzlenen uzak dal yok; push bir tane ayarlar",
+        upstreamGone = { "İzlenen uzak dal $it uzak depoda artık yok" },
+        countsUnknown = "İleride ve geride sayılmadı",
         remote = { "Uzak depo: $it" },
         chooseRemote = "Uzak depo seçin",
         noRemotesTitle = "Uzak depo yok",

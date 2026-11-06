@@ -70,6 +70,19 @@ class ContractTypesTest {
     }
 
     @Test
+    fun `a branch status says nothing is gone or uncounted unless told, and masks a gone upstream`() {
+        with(GitBranchStatus(head = "main", upstream = "origin/main")) {
+            assertFalse(upstreamGone)
+            assertTrue(aheadBehindKnown)
+        }
+        val gone = GitBranchStatus(head = secretBranch, commit = hash, upstream = "origin/$secretBranch", upstreamGone = true)
+        assertMasked(gone, secretBranch)
+        assertTrue(gone.hasUpstream, "a gone upstream is still the configured one")
+        assertTrue("upstreamGone=true" in gone.toString())
+        assertTrue("aheadBehindKnown=false" in gone.copy(upstreamGone = false, aheadBehindKnown = false).toString())
+    }
+
+    @Test
     fun `status starts loading and is clean only once loaded without changes`() {
         with(StatusState(directory = root)) {
             assertTrue(loading)

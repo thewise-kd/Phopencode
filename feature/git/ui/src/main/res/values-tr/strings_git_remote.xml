@@ -19,6 +19,8 @@
     </plurals>
     <string name="git_remote_up_to_date">Güncel</string>
     <string name="git_remote_no_upstream">İzlenen uzak dal yok; push bir tane ayarlar</string>
+    <string name="git_remote_upstream_gone">İzlenen uzak dal %1$s uzak depoda artık yok</string>
+    <string name="git_remote_counts_unknown">İleride ve geride sayılmadı</string>
 
     <string name="git_remote_remote">Uzak depo: %1$s</string>
     <string name="git_remote_choose">Uzak depo seçin</string>
