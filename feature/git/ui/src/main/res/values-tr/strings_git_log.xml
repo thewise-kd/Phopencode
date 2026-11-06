@@ -1,3 +1,68 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="git_log_title">Geçmiş</string>
+    <string name="git_log_refresh">Yenile</string>
+    <string name="git_log_loading">Geçmiş okunuyor…</string>
+    <string name="git_log_loading_more">Daha fazla commit yükleniyor…</string>
+    <string name="git_log_end">Geçmişin başı</string>
+    <string name="git_log_empty_title">Henüz commit yok</string>
+    <string name="git_log_empty_message">Bu dalda commit yok.</string>
+
+    <!-- %1$s: the branch the history shows, or git_log_filter_head. -->
+    <string name="git_log_filter">Dal: %1$s</string>
+    <!-- The filter's choice for the branch that is checked out (git's HEAD). -->
+    <string name="git_log_filter_head">Geçerli dal</string>
+    <string name="git_log_filter_selected">Seçili</string>
+
+    <!-- A commit with more than one parent. -->
+    <string name="git_log_merge">Birleştirme</string>
+    <string name="git_log_open_commit">Commit\'i göster</string>
+
+    <!-- %1$s: the first seven characters of the commit hash. -->
+    <string name="git_log_detail_title">Commit %1$s</string>
+    <string name="git_log_detail_loading">Commit okunuyor…</string>
+    <string name="git_log_detail_author">Yazar</string>
+    <string name="git_log_detail_committer">Commit eden</string>
+    <string name="git_log_detail_parent">Üst commit</string>
+    <string name="git_log_detail_parents">Üst commitler</string>
+    <string name="git_log_detail_root">Kök commit, üst commiti yok</string>
+    <plurals name="git_log_detail_files">
+        <item quantity="one">%1$d dosya değişti</item>
+        <item quantity="other">%1$d dosya değişti</item>
+    </plurals>
+    <string name="git_log_detail_no_files">Bu commit hiçbir dosyayı değiştirmedi.</string>
+    <string name="git_log_detail_binary">İkili dosya</string>
+    <plurals name="git_log_detail_additions">
+        <item quantity="one">%1$d satır eklendi</item>
+        <item quantity="other">%1$d satır eklendi</item>
+    </plurals>
+    <plurals name="git_log_detail_deletions">
+        <item quantity="one">%1$d satır silindi</item>
+        <item quantity="other">%1$d satır silindi</item>
+    </plurals>
+    <string name="git_log_detail_open_diff">Değişiklikleri göster</string>
+    <!-- %1$s: the path the file had before it was renamed or copied. -->
+    <string name="git_log_detail_renamed_from">eski adı: %1$s</string>
+
+    <string name="git_log_kind_added">Eklendi</string>
+    <string name="git_log_kind_modified">Değiştirildi</string>
+    <string name="git_log_kind_deleted">Silindi</string>
+    <string name="git_log_kind_renamed">Yeniden adlandırıldı</string>
+    <string name="git_log_kind_copied">Kopyalandı</string>
+    <string name="git_log_kind_type_changed">Türü değişti</string>
+    <string name="git_log_kind_untracked">Yeni dosya</string>
+    <string name="git_log_kind_unmerged">Çakışma</string>
+
+    <string name="git_log_error_not_connected">Sunucuya bağlı değilsiniz. Geri dönüp yeniden bağlanın.</string>
+    <string name="git_log_error_unreachable">Sunucuya ulaşılamadı.</string>
+    <string name="git_log_error_timed_out">Git çok uzun sürede yanıt verdi.</string>
+    <string name="git_log_error_unauthorized">Sunucu girişi reddetti. Geri dönüp yeniden bağlanın.</string>
+    <string name="git_log_error_output_too_large">Git\'in yanıtı telefonda gösterilemeyecek kadar büyük.</string>
+    <string name="git_log_error_not_repository">Bu klasör bir git deposunda değil.</string>
+    <string name="git_log_error_git_missing">Sunucuda git kurulu değil.</string>
+    <string name="git_log_error_rejected">Dal adı ya da commit hash\'i reddedildi.</string>
+    <string name="git_log_error_not_found">Commit ya da dal artık yok.</string>
+    <string name="git_log_error_read">Geçmiş okunamadı.</string>
+    <string name="git_log_error_more">Daha fazla commit okunamadı.</string>
+    <string name="git_log_error_detail">Commit okunamadı.</string>
 </resources>

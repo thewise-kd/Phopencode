@@ -1,3 +1,71 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="git_log_title">History</string>
+    <string name="git_log_refresh">Refresh</string>
+    <string name="git_log_loading">Reading the history…</string>
+    <string name="git_log_loading_more">Loading more commits…</string>
+    <string name="git_log_end">Start of the history</string>
+    <string name="git_log_empty_title">No commits yet</string>
+    <string name="git_log_empty_message">This branch has no commits.</string>
+
+    <!-- %1$s: the branch the history shows, or git_log_filter_head. -->
+    <string name="git_log_filter">Branch: %1$s</string>
+    <!-- The filter's choice for the branch that is checked out (git's HEAD). -->
+    <string name="git_log_filter_head">Current branch</string>
+    <string name="git_log_filter_selected">Selected</string>
+
+    <!-- A commit with more than one parent. -->
+    <string name="git_log_merge">Merge</string>
+    <string name="git_log_open_commit">Show commit</string>
+
+    <!-- %1$s: the first seven characters of the commit hash. -->
+    <string name="git_log_detail_title">Commit %1$s</string>
+    <string name="git_log_detail_loading">Reading the commit…</string>
+    <string name="git_log_detail_author">Author</string>
+    <string name="git_log_detail_committer">Committer</string>
+    <string name="git_log_detail_parent">Parent</string>
+    <string name="git_log_detail_parents">Parents</string>
+    <string name="git_log_detail_root">Root commit, no parents</string>
+    <plurals name="git_log_detail_files">
+        <item quantity="one">%1$d file changed</item>
+        <item quantity="other">%1$d files changed</item>
+    </plurals>
+    <string name="git_log_detail_no_files">This commit changed no files.</string>
+    <string name="git_log_detail_binary">Binary</string>
+    <plurals name="git_log_detail_additions">
+        <item quantity="one">%1$d line added</item>
+        <item quantity="other">%1$d lines added</item>
+    </plurals>
+    <plurals name="git_log_detail_deletions">
+        <item quantity="one">%1$d line removed</item>
+        <item quantity="other">%1$d lines removed</item>
+    </plurals>
+    <!-- The counts as diff tools print them; the same in every language. -->
+    <string name="git_log_detail_additions_mark" translatable="false">+%1$d</string>
+    <string name="git_log_detail_deletions_mark" translatable="false">−%1$d</string>
+    <string name="git_log_detail_open_diff">Show changes</string>
+    <!-- %1$s: the path the file had before it was renamed or copied. -->
+    <string name="git_log_detail_renamed_from">from %1$s</string>
+
+    <string name="git_log_kind_added">Added</string>
+    <string name="git_log_kind_modified">Modified</string>
+    <string name="git_log_kind_deleted">Deleted</string>
+    <string name="git_log_kind_renamed">Renamed</string>
+    <string name="git_log_kind_copied">Copied</string>
+    <string name="git_log_kind_type_changed">Type changed</string>
+    <string name="git_log_kind_untracked">New file</string>
+    <string name="git_log_kind_unmerged">Conflict</string>
+
+    <string name="git_log_error_not_connected">Not connected to the server. Go back and connect again.</string>
+    <string name="git_log_error_unreachable">The server could not be reached.</string>
+    <string name="git_log_error_timed_out">Git took too long to answer.</string>
+    <string name="git_log_error_unauthorized">The server refused the login. Go back and connect again.</string>
+    <string name="git_log_error_output_too_large">Git\'s answer is too large to show on the phone.</string>
+    <string name="git_log_error_not_repository">This folder is not in a git repository.</string>
+    <string name="git_log_error_git_missing">Git is not installed on the server.</string>
+    <string name="git_log_error_rejected">The branch name or commit hash was refused.</string>
+    <string name="git_log_error_not_found">The commit or branch is no longer there.</string>
+    <string name="git_log_error_read">The history could not be read.</string>
+    <string name="git_log_error_more">More commits could not be read.</string>
+    <string name="git_log_error_detail">The commit could not be read.</string>
 </resources>
