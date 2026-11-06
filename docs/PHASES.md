@@ -529,6 +529,7 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | P8.19 | Lint errors | P5.1, P5.3, P6.12, P7.7, P7.13, P8.7 | `feature/sessions/ui/…/SessionsGraph.kt`, `…/list/SessionUsageText.kt`, `feature/chat/ui/…/revert/RevertText.kt`, `…/subagent/SubagentText.kt`, `…/usage/UsageText.kt`, `feature/files/ui/…/viewer/ViewerText.kt`, their tests | `lint` passes in the sessions, chat and files UI modules; numbers and dates follow the app's language when it changes | `CI` |
 | P8.20 | List tests on a small screen | P5.3, P7.7, P8.5, P8.15 | the list tests of `feature/sessions/ui`, `feature/chat/ui` and `feature/files/ui` | The list tests pass at API 36 in CI and on a small screen at API 26; rows below the visible part are reached by scrolling the list | `CI` |
 | P8.21 | API 36 emulator boot | — | `.github/workflows/emulator.yml` | The API 36 emulator boots in CI and runs the connected tests; the API 26 job is unchanged | `CI` |
+| P8.22 | Chat timeline on a short window | P6.1, P7.1 | `feature/chat/ui/…/ChatScreen.kt`, `ChatShortWindowTest.kt` | On a short window the timeline keeps a usable height, pending cards scroll in their own area, and the composer stays visible; tall windows are unchanged | `CI` |
 
 `CP8`: push, CI and emulator green, `PHONE`: upload and download a file.
 

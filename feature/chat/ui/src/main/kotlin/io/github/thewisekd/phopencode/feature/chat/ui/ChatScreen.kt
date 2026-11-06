@@ -1,12 +1,10 @@
 package io.github.thewisekd.phopencode.feature.chat.ui
 
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -14,8 +12,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.min
 import io.github.thewisekd.phopencode.core.model.FormId
 import io.github.thewisekd.phopencode.core.model.PermissionRequestId
 import io.github.thewisekd.phopencode.core.navigation.ChatRoute
@@ -78,6 +81,7 @@ object ChatSlotTags {
     const val SWITCHER: String = "chat:slot:switcher"
     const val FORMS_ERROR: String = "chat:slot:forms_error"
     const val PERMISSIONS_ERROR: String = "chat:slot:permissions_error"
+    const val INTERACTIONS: String = "chat:slot:interactions"
 
     fun reasoning(key: TimelineKey): String = "chat:slot:reasoning:${key.value}"
 
@@ -103,6 +107,10 @@ object ChatSlotTags {
  *   most half the screen and scrolling beyond that;
  * - the command palette, the attachment chips and the agent and model switcher;
  * - the composer.
+ *
+ * On a short window, as in landscape or with the keyboard open, the pending cards give way first,
+ * so the timeline keeps [timelineMinHeight] and the composer and switcher stay whole: see
+ * [ChatColumn].
  *
  * When [StatusState.blocksChat] holds, as for a session the active server does not have, the
  * status takes the place of the others.
@@ -142,45 +150,54 @@ fun ChatScreen(
     onActionsIntent: (ActionsIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    BoxWithConstraints(modifier.fillMaxSize().safeDrawingPadding().testTag("placeholder:$route")) {
-        val interactionsMax = maxHeight / 2
-        Column(Modifier.fillMaxSize()) {
-            if (status.blocksChat) {
-                StatusBanner(status, onStatusIntent, Modifier.fillMaxWidth().weight(1f).testTag(ChatSlotTags.STATUS))
-            } else {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    UsageBar(usage, onUsageIntent, Modifier.weight(1f).testTag(ChatSlotTags.USAGE))
-                    SubagentBadge(subagents, onSubagentIntent, Modifier.testTag(ChatSlotTags.SUBAGENTS))
-                    SessionActionsMenu(actions, onActionsIntent, Modifier.testTag(ChatSlotTags.ACTIONS))
-                }
-                StatusBanner(status, onStatusIntent, Modifier.fillMaxWidth().testTag(ChatSlotTags.STATUS))
-                ChatTimeline(
-                    timeline = timeline,
-                    onTimelineIntent = onTimelineIntent,
-                    reasoning = reasoning,
-                    onReasoningIntent = onReasoningIntent,
-                    tool = tool,
-                    onToolIntent = onToolIntent,
-                    userActions = { item, dismiss ->
-                        MessageActions(
-                            messageId = item.messageId,
-                            state = actions,
-                            onIntent = onActionsIntent,
-                            onDismiss = dismiss,
-                            modifier = Modifier.testTag(ChatSlotTags.messageActions(item.key)),
-                        )
-                    },
-                )
-                Interactions(forms, onFormIntent, permissions, onPermissionIntent, interactionsMax)
-                CommandPalette(palette, onPaletteIntent, Modifier.fillMaxWidth().testTag(ChatSlotTags.PALETTE))
-                AttachmentChips(
-                    attachments = composer.attachments,
-                    onDetach = { onComposerIntent(ComposerIntent.Detach(it)) },
-                    modifier = Modifier.fillMaxWidth().testTag(ChatSlotTags.ATTACHMENTS),
-                )
-                AgentModelSwitcher(switcher, onSwitcherIntent, Modifier.fillMaxWidth().testTag(ChatSlotTags.SWITCHER))
-                Composer(composer, onComposerIntent, Modifier.fillMaxWidth().testTag(ChatSlotTags.COMPOSER))
-            }
+    Box(modifier.fillMaxSize().safeDrawingPadding().testTag("placeholder:$route")) {
+        if (status.blocksChat) {
+            StatusBanner(status, onStatusIntent, Modifier.fillMaxSize().testTag(ChatSlotTags.STATUS))
+        } else {
+            ChatColumn(
+                top = {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        UsageBar(usage, onUsageIntent, Modifier.weight(1f).testTag(ChatSlotTags.USAGE))
+                        SubagentBadge(subagents, onSubagentIntent, Modifier.testTag(ChatSlotTags.SUBAGENTS))
+                        SessionActionsMenu(actions, onActionsIntent, Modifier.testTag(ChatSlotTags.ACTIONS))
+                    }
+                    StatusBanner(status, onStatusIntent, Modifier.fillMaxWidth().testTag(ChatSlotTags.STATUS))
+                },
+                timeline = {
+                    ChatTimeline(
+                        timeline = timeline,
+                        onTimelineIntent = onTimelineIntent,
+                        reasoning = reasoning,
+                        onReasoningIntent = onReasoningIntent,
+                        tool = tool,
+                        onToolIntent = onToolIntent,
+                        userActions = { item, dismiss ->
+                            MessageActions(
+                                messageId = item.messageId,
+                                state = actions,
+                                onIntent = onActionsIntent,
+                                onDismiss = dismiss,
+                                modifier = Modifier.testTag(ChatSlotTags.messageActions(item.key)),
+                            )
+                        },
+                    )
+                },
+                interactions = { Interactions(forms, onFormIntent, permissions, onPermissionIntent) },
+                bottom = {
+                    CommandPalette(palette, onPaletteIntent, Modifier.fillMaxWidth().testTag(ChatSlotTags.PALETTE))
+                    AttachmentChips(
+                        attachments = composer.attachments,
+                        onDetach = { onComposerIntent(ComposerIntent.Detach(it)) },
+                        modifier = Modifier.fillMaxWidth().testTag(ChatSlotTags.ATTACHMENTS),
+                    )
+                    AgentModelSwitcher(
+                        switcher,
+                        onSwitcherIntent,
+                        Modifier.fillMaxWidth().testTag(ChatSlotTags.SWITCHER),
+                    )
+                    Composer(composer, onComposerIntent, Modifier.fillMaxWidth().testTag(ChatSlotTags.COMPOSER))
+                },
+            )
         }
     }
 }
@@ -215,28 +232,90 @@ fun ChildSessionScreen(
     onPermissionIntent: (PermissionIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    BoxWithConstraints(modifier.fillMaxSize().safeDrawingPadding().testTag("placeholder:$route")) {
-        val interactionsMax = maxHeight / 2
-        Column(Modifier.fillMaxSize()) {
-            if (status.blocksChat) {
-                StatusBanner(status, onStatusIntent, Modifier.fillMaxWidth().weight(1f).testTag(ChatSlotTags.STATUS))
-            } else {
-                SubagentHeader(
-                    subagents,
-                    onSubagentIntent,
-                    Modifier.fillMaxWidth().testTag(ChatSlotTags.SUBAGENT_HEADER),
-                )
-                StatusBanner(status, onStatusIntent, Modifier.fillMaxWidth().testTag(ChatSlotTags.STATUS))
-                ChatTimeline(
-                    timeline = timeline,
-                    onTimelineIntent = onTimelineIntent,
-                    reasoning = reasoning,
-                    onReasoningIntent = onReasoningIntent,
-                    tool = tool,
-                    onToolIntent = onToolIntent,
-                    userActions = NoUserActions,
-                )
-                Interactions(forms, onFormIntent, permissions, onPermissionIntent, interactionsMax)
+    Box(modifier.fillMaxSize().safeDrawingPadding().testTag("placeholder:$route")) {
+        if (status.blocksChat) {
+            StatusBanner(status, onStatusIntent, Modifier.fillMaxSize().testTag(ChatSlotTags.STATUS))
+        } else {
+            ChatColumn(
+                top = {
+                    SubagentHeader(
+                        subagents,
+                        onSubagentIntent,
+                        Modifier.fillMaxWidth().testTag(ChatSlotTags.SUBAGENT_HEADER),
+                    )
+                    StatusBanner(status, onStatusIntent, Modifier.fillMaxWidth().testTag(ChatSlotTags.STATUS))
+                },
+                timeline = {
+                    ChatTimeline(
+                        timeline = timeline,
+                        onTimelineIntent = onTimelineIntent,
+                        reasoning = reasoning,
+                        onReasoningIntent = onReasoningIntent,
+                        tool = tool,
+                        onToolIntent = onToolIntent,
+                        userActions = NoUserActions,
+                    )
+                },
+                interactions = { Interactions(forms, onFormIntent, permissions, onPermissionIntent) },
+                bottom = {},
+            )
+        }
+    }
+}
+
+/**
+ * The timeline's least height on a short window: 120dp, a few lines of a reply and room to scroll,
+ * but never more than a third of [window], so even a tiny window keeps two thirds for the rest.
+ */
+internal fun timelineMinHeight(window: Dp): Dp = min(TIMELINE_MIN_HEIGHT, window / 3)
+
+private val TIMELINE_MIN_HEIGHT: Dp = 120.dp
+
+/**
+ * The chat's column: [top], [timeline], [interactions] and [bottom], stacked in that order, each
+ * child of [top] and [bottom] at its own height and the timeline filling what is left.
+ *
+ * Height goes first to [bottom], from its last child up, so the composer and the switcher stay
+ * whole; then to [top]. The interactions get at most half the window, and never so much that the
+ * timeline falls under [timelineMinHeight]; beyond that they scroll in their own area. On a tall
+ * window that floor never binds, so this is a plain column with the interactions capped at half.
+ */
+@Composable
+private fun ChatColumn(
+    top: @Composable () -> Unit,
+    timeline: @Composable () -> Unit,
+    interactions: @Composable () -> Unit,
+    bottom: @Composable () -> Unit,
+) {
+    Layout(
+        contents = listOf(top, timeline, interactions, bottom),
+        modifier = Modifier.fillMaxSize(),
+    ) { (tops, timelines, cards, bottoms), constraints ->
+        val width = constraints.maxWidth
+        val height = constraints.maxHeight
+        fun upTo(max: Int) = Constraints(maxWidth = width, maxHeight = max.coerceAtLeast(0))
+        var left = height
+        val bottomPlaced = arrayOfNulls<Placeable>(bottoms.size)
+        for (i in bottoms.indices.reversed()) {
+            bottomPlaced[i] = bottoms[i].measure(upTo(left)).also { left -= it.height }
+        }
+        val topPlaced = tops.map { child -> child.measure(upTo(left)).also { left -= it.height } }
+        left = left.coerceAtLeast(0)
+        val floor = timelineMinHeight(height.toDp()).roundToPx().coerceAtMost(left)
+        var cap = minOf(height / 2, left - floor)
+        val cardPlaced = cards.map { child ->
+            child.measure(upTo(cap)).also {
+                cap -= it.height
+                left -= it.height
+            }
+        }
+        val rest = left.coerceAtLeast(0)
+        val timelinePlaced = timelines.map { it.measure(Constraints(maxWidth = width, minHeight = rest, maxHeight = rest)) }
+        layout(width, height) {
+            var y = 0
+            (topPlaced + timelinePlaced + cardPlaced + bottomPlaced.filterNotNull()).forEach {
+                it.placeRelative(0, y)
+                y += it.height
             }
         }
     }
@@ -244,7 +323,7 @@ fun ChildSessionScreen(
 
 /** The timeline with its reasoning and tool cards, taking the height the other parts leave. */
 @Composable
-private fun ColumnScope.ChatTimeline(
+private fun ChatTimeline(
     timeline: TimelineState,
     onTimelineIntent: (TimelineIntent) -> Unit,
     reasoning: ReasoningState,
@@ -266,7 +345,7 @@ private fun ColumnScope.ChatTimeline(
                 ToolCard(item.key, card, onToolIntent, Modifier.testTag(ChatSlotTags.tool(item.key)))
             }
         },
-        modifier = Modifier.fillMaxWidth().weight(1f).testTag(ChatSlotTags.TIMELINE),
+        modifier = Modifier.fillMaxSize().testTag(ChatSlotTags.TIMELINE),
         userActions = userActions,
     )
 }
@@ -274,8 +353,8 @@ private fun ColumnScope.ChatTimeline(
 /**
  * The pending permission requests, then the pending forms, oldest first, each in its card's slot
  * and keyed by its ID, so a card keeps what it remembers as others come and go, with each list's
- * failure after it. At most [max] tall, scrolling beyond that; nothing when there
- * is nothing to show.
+ * failure after it. At most as tall as [ChatColumn] lets it be, scrolling beyond that; nothing
+ * when there is nothing to show.
  */
 @Composable
 private fun Interactions(
@@ -283,13 +362,17 @@ private fun Interactions(
     onFormIntent: (FormIntent) -> Unit,
     permissions: PermissionsState,
     onPermissionIntent: (PermissionIntent) -> Unit,
-    max: Dp,
 ) {
     val formsError = forms.error
     val permissionsError = permissions.error
     val empty = forms.cards.isEmpty() && permissions.cards.isEmpty() && formsError == null && permissionsError == null
     if (empty) return
-    Column(Modifier.fillMaxWidth().heightIn(max = max).verticalScroll(rememberScrollState())) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .testTag(ChatSlotTags.INTERACTIONS)
+            .verticalScroll(rememberScrollState()),
+    ) {
         permissions.cards.forEach { card ->
             key(card.requestId.value) {
                 PermissionCard(
