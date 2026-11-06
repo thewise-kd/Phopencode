@@ -67,6 +67,15 @@ sealed interface ConnectionError {
         override val retryable: Boolean get() = true
     }
 
+    /**
+     * The profile names opencode [port], and an `opencode serve` of the login user runs, but none
+     * listens on that loopback port. Nothing is started next to the running servers and none is
+     * stopped; the user may fix the port, or a server may still be getting its socket.
+     */
+    data class ServerNotOnPort(val port: Int) : ConnectionError {
+        override val retryable: Boolean get() = true
+    }
+
     /** The SSH server refused the login. */
     data object AuthenticationFailed : ConnectionError
 

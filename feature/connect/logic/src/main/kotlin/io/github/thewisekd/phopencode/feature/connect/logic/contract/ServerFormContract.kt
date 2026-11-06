@@ -7,7 +7,7 @@ import io.github.thewisekd.phopencode.core.storage_api.SshKeyId
 
 enum class ServerFormAuthMethod { Password, Key }
 
-enum class ServerFormField { Name, Host, Port, Username, Password, Key }
+enum class ServerFormField { Name, Host, Port, Username, Password, Key, OpencodePort }
 
 enum class ServerFormFieldError {
     /** Empty, or only spaces. */
@@ -43,6 +43,8 @@ enum class ServerFormError {
  * @property selectedKey The key for [ServerFormAuthMethod.Key].
  * @property storedOpencodePassword The server has a saved `opencode serve` password, for a server
  *   this app did not start.
+ * @property opencodePort The loopback port of the `opencode serve` to use, as typed; empty leaves it
+ *   to automatic detection.
  * @property fieldErrors Filled by the last save attempt; empty when the form is valid.
  */
 data class ServerFormState(
@@ -59,6 +61,7 @@ data class ServerFormState(
     val selectedKey: SshKeyId? = null,
     val opencodePasswordEntered: Boolean = false,
     val storedOpencodePassword: Boolean = false,
+    val opencodePort: String = "",
     val fieldErrors: Map<ServerFormField, ServerFormFieldError> = emptyMap(),
     val saving: Boolean = false,
     val error: ServerFormError? = null,
@@ -78,6 +81,9 @@ sealed interface ServerFormIntent {
     }
 
     data class PortChanged(val port: String) : ServerFormIntent
+
+    /** The `opencode serve` port as typed; empty means automatic detection. */
+    data class OpencodePortChanged(val port: String) : ServerFormIntent
 
     data class UsernameChanged(val username: String) : ServerFormIntent {
         override fun toString(): String = "UsernameChanged(***)"

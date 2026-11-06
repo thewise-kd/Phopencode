@@ -24,6 +24,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.coroutines.CoroutineContext
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Runnable
@@ -124,6 +125,50 @@ class DefaultProgressPresenterTest {
         assertEquals(setOf(ProgressAction.Retry), state.actions)
         assertTrue(fx.tools.starts.isEmpty())
         assertTrue(events.isEmpty())
+    }
+
+    @Test
+    fun `no server on the profile's port names the port and offers the server form`() = runTest(timeout = 10.seconds) {
+        val fx = ProgressFixture(this)
+        fx.seed(profile(opencodePort = 4096))
+        fx.trust()
+        fx.tools.server = ServerLookup.NotOnPort(4096, setOf(1200L))
+        val presenter = fx.presenter()
+        val events = fx.events(presenter)
+
+        runCurrent()
+
+        val state = presenter.state.value
+        assertEquals(ProgressError.ServerNotOnPort, state.error)
+        assertEquals(4096, state.errorPort)
+        assertEquals(ProgressStep.Server, state.step)
+        assertEquals(setOf(ProgressAction.EditServer, ProgressAction.Retry), state.actions)
+        assertEquals(listOf<Int?>(4096), fx.tools.ports)
+        assertTrue(fx.tools.starts.isEmpty(), "nothing is started next to a running server")
+        assertTrue(events.isEmpty())
+
+        presenter.onIntent(ProgressIntent.Retry)
+        runCurrent()
+        assertEquals(ProgressError.ServerNotOnPort, presenter.state.value.error)
+        fx.tools.server = ServerLookup.Running("127.0.0.1", 4096, 3400, ServerSource.ProcessScan)
+        presenter.onIntent(ProgressIntent.Retry)
+        runCurrent()
+        assertNull(presenter.state.value.error)
+        assertNull(presenter.state.value.errorPort, "the port goes with the error")
+    }
+
+    @Test
+    fun `with a port and no server running, one is started on that port`() = runTest(timeout = 10.seconds) {
+        val fx = ProgressFixture(this)
+        fx.seed(profile(opencodePort = 4096))
+        fx.trust()
+        fx.tools.server = ServerLookup.NotRunning()
+        val presenter = fx.presenter()
+
+        runCurrent()
+
+        assertEquals(listOf<Int?>(4096), fx.tools.starts.map { it.port })
+        assertEquals(ProgressStep.Connected, presenter.state.value.step)
     }
 
     @Test

@@ -51,6 +51,7 @@ internal val OTHER_KEY = HostKey("ssh-ed25519", ByteArray(32) { (it + 1).toByte(
 internal fun profile(
     auth: SshAuth = SshAuth.Password(SSH_SECRET_REF),
     opencodeCredential: SecretRef? = OPENCODE_REF,
+    opencodePort: Int? = null,
 ) = ServerProfile(
     id = ServerProfileId("profile-1"),
     name = "Test server",
@@ -59,6 +60,7 @@ internal fun profile(
     username = USER,
     auth = auth,
     opencodeCredential = opencodeCredential,
+    opencodePort = opencodePort,
 )
 
 internal val TARGET = SshTarget(HOST, SSH_PORT, USER)
@@ -88,8 +90,14 @@ internal class FakeServerTools : ServerTools {
     val startedWith = mutableListOf<Pair<ServerStartOptions, String>>()
     var findServerCalls = 0
 
-    override suspend fun findServer(session: SshSession): ServerLookup {
+    /** The port each lookup was asked for, in order. */
+    val findServerPorts = mutableListOf<Int?>()
+
+    override suspend fun findServer(session: SshSession): ServerLookup = findServer(session, null)
+
+    override suspend fun findServer(session: SshSession, port: Int?): ServerLookup {
         findServerCalls++
+        findServerPorts += port
         gate?.await()
         return server
     }

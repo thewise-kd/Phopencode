@@ -231,6 +231,19 @@ private fun ServerForm(
         }
 
         FormTextField(
+            value = state.opencodePort,
+            onValueChange = { onIntent(ServerFormIntent.OpencodePortChanged(it)) },
+            label = stringResource(R.string.connect_serverform_opencode_port),
+            tag = ServerFormTags.OPENCODE_PORT,
+            error = state.fieldErrors[ServerFormField.OpencodePort]?.let {
+                stringResource(fieldErrorRes(ServerFormField.OpencodePort, it))
+            },
+            hint = stringResource(R.string.connect_serverform_opencode_port_help),
+            enabled = enabled,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+        )
+
+        FormTextField(
             value = opencodePassword,
             onValueChange = onOpencodePasswordChange,
             label = stringResource(R.string.connect_serverform_opencode_password),
@@ -454,6 +467,9 @@ private fun fieldErrorRes(field: ServerFormField, error: ServerFormFieldError): 
         ServerFormField.Password ->
             R.string.connect_serverform_error_password_required to R.string.connect_serverform_error_password_invalid
         ServerFormField.Key -> R.string.connect_serverform_error_key_required to R.string.connect_serverform_error_key_invalid
+        // Never required: an empty opencode port means automatic detection.
+        ServerFormField.OpencodePort ->
+            R.string.connect_serverform_error_opencode_port_invalid to R.string.connect_serverform_error_opencode_port_invalid
     }
     return when (error) {
         ServerFormFieldError.Required -> required

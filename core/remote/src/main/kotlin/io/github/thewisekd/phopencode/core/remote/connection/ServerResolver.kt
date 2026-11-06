@@ -20,6 +20,12 @@ import java.io.IOException
 interface ServerTools {
     suspend fun findServer(session: SshSession): ServerLookup
 
+    /**
+     * Like [findServer], but with [port] set only the server on that loopback port counts (see
+     * [ServerDetector.findServer]). The default ignores [port], for tools that know one server only.
+     */
+    suspend fun findServer(session: SshSession, port: Int?): ServerLookup = findServer(session)
+
     suspend fun findBinary(session: SshSession): BinaryLookup
 
     suspend fun start(session: SshSession, password: SecretValue, options: ServerStartOptions): StartedServer
@@ -27,6 +33,9 @@ interface ServerTools {
     companion object Default : ServerTools {
         override suspend fun findServer(session: SshSession): ServerLookup =
             ServerDetector.forSession(session).findServer()
+
+        override suspend fun findServer(session: SshSession, port: Int?): ServerLookup =
+            ServerDetector.forSession(session).findServer(port)
 
         override suspend fun findBinary(session: SshSession): BinaryLookup =
             ServerDetector.forSession(session).findBinary()
@@ -62,8 +71,11 @@ class ResolvedServer(val baseUrl: String, val passwords: List<SecretValue>) : Au
  *   [ConnectionError.ServerUnresponsive]: nothing is started next to it and it is never stopped.
  * - A server that runs on no loopback port the app can reach (another address only, or no socket
  *   yet) fails with the retryable [ConnectionError.ServerUnusable], likewise.
+ * - A profile with an `opencodePort` uses only the server on that loopback port. When other
+ *   servers run but none there, it fails with the retryable [ConnectionError.ServerNotOnPort]:
+ *   nothing is started and nothing is stopped. A server found on another port is never used.
  * - Only when no `opencode serve` process runs at all is the opencode binary looked up and
- *   started with a new random password. The password is stored under [startedPasswordRef] before the start, so that a server which comes
+ *   started with a new random password, on the profile's `opencodePort` when it has one. The password is stored under [startedPasswordRef] before the start, so that a server which comes
  *   up can always be reached again, even if the start itself then reports a failure.
  *
  * Failures are thrown as [ConnectionException]; SSH failures pass through as they are.
@@ -73,16 +85,25 @@ class ServerResolver(
     private val tools: ServerTools = ServerTools,
     private val startedPasswordRef: (ServerProfile) -> SecretRef = Companion::startedPasswordRef,
 ) {
-    suspend fun resolve(session: SshSession, profile: ServerProfile): ResolvedServer =
-        when (val lookup = tools.findServer(session)) {
-            is ServerLookup.Running -> ResolvedServer(baseUrl(lookup.host, lookup.port), knownPasswords(profile, lookup.source))
+    suspend fun resolve(session: SshSession, profile: ServerProfile): ResolvedServer {
+        val port = profile.opencodePort
+        if (port != null && port !in VALID_PORTS) throw ConnectionException(ConnectionError.InvalidProfile)
+        return when (val lookup = tools.findServer(session, port)) {
+            is ServerLookup.Running -> {
+                // A server on another port than the profile names is never used, whoever found it.
+                if (port != null && lookup.port != port) throw ConnectionException(ConnectionError.ServerNotOnPort(port))
+                ResolvedServer(baseUrl(lookup.host, lookup.port), knownPasswords(profile, lookup.source))
+            }
             // A live server that does not answer is waited for: never started next to, never stopped.
             is ServerLookup.Unresponsive -> throw ConnectionException(ConnectionError.ServerUnresponsive)
             // A live server on no reachable loopback port is waited for too: it may still be starting.
             is ServerLookup.Unusable -> throw ConnectionException(ConnectionError.ServerUnusable)
-            is ServerLookup.NotRunning -> start(session, profile)
+            // Servers run, only not on the profile's port: nothing is started next to them.
+            is ServerLookup.NotOnPort -> throw ConnectionException(ConnectionError.ServerNotOnPort(lookup.port))
+            is ServerLookup.NotRunning -> start(session, profile, port)
             is ServerLookup.Failed -> throw ConnectionException(ConnectionError.ServerDetectionFailed(lookup.reason))
         }
+    }
 
     /**
      * Every password known for a running server, likeliest first. A server the state file confirms
@@ -103,7 +124,7 @@ class ServerResolver(
         return found
     }
 
-    private suspend fun start(session: SshSession, profile: ServerProfile): ResolvedServer {
+    private suspend fun start(session: SshSession, profile: ServerProfile, port: Int?): ResolvedServer {
         val binary = when (val lookup = tools.findBinary(session)) {
             is BinaryLookup.Found -> lookup.path
             BinaryLookup.Missing -> throw ConnectionException(ConnectionError.OpencodeMissing)
@@ -117,7 +138,7 @@ class ServerResolver(
                 throw ConnectionException(ConnectionError.StorageUnavailable)
             }
             val started = try {
-                tools.start(session, password, ServerStartOptions(binary = binary))
+                tools.start(session, password, ServerStartOptions(binary = binary, port = port))
             } catch (failure: ServerStartException) {
                 throw ConnectionException(ConnectionError.ServerStartFailed(ServerStartFailure.of(failure)))
             }
@@ -130,6 +151,7 @@ class ServerResolver(
 
     companion object {
         private const val LOOPBACK_V4 = "127.0.0.1"
+        private val VALID_PORTS = 1..65535
 
         /** Where the password of a server started for [profile] is kept. */
         fun startedPasswordRef(profile: ServerProfile): SecretRef = SecretRef("opencode-started-server:${profile.id.value}")

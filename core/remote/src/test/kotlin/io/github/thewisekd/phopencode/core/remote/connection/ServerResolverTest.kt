@@ -6,6 +6,7 @@ import io.github.thewisekd.phopencode.core.remote.detect.ServerLookup
 import io.github.thewisekd.phopencode.core.remote.detect.ServerNote
 import io.github.thewisekd.phopencode.core.remote.detect.ServerSource
 import io.github.thewisekd.phopencode.core.remote.start.ServerStartException
+import io.github.thewisekd.phopencode.core.remote.start.StartedServer
 import io.github.thewisekd.phopencode.core.storage_api.SecretReadResult
 import io.github.thewisekd.phopencode.core.storage_api.SecretValue
 import io.github.thewisekd.phopencode.core.testing.ssh.FakeSshSession
@@ -174,6 +175,89 @@ class ServerResolverTest {
         tools.server = ServerLookup.NotRunning()
         secrets.unavailable = true
         assertEquals(ConnectionError.StorageUnavailable, failure { resolver.resolve(session, profile()) })
+        assertTrue(tools.startedWith.isEmpty())
+    }
+
+    @Test
+    fun `without a port the lookup is asked for none, as before`() = runTest {
+        seedOpencode()
+        resolver.resolve(session, profile()).use { assertEquals("http://127.0.0.1:4096", it.baseUrl) }
+        assertEquals(listOf<Int?>(null), tools.findServerPorts)
+    }
+
+    @Test
+    fun `with a port the lookup is asked for it and its server is reached`() = runTest {
+        seedOpencode()
+        tools.server = ServerLookup.Running("127.0.0.1", 4096, 3400, ServerSource.ProcessScan)
+        resolver.resolve(session, profile(opencodePort = 4096)).use { server ->
+            assertEquals("http://127.0.0.1:4096", server.baseUrl)
+            assertEquals(listOf(OPENCODE_PASSWORD), server.passwords.map { it.revealText() })
+        }
+        assertEquals(listOf<Int?>(4096), tools.findServerPorts)
+        assertTrue(tools.startedWith.isEmpty())
+    }
+
+    @Test
+    fun `with a port, a server found on another port is never used`() = runTest {
+        seedOpencode()
+        tools.server = ServerLookup.Running("127.0.0.1", 49374, 1200, ServerSource.ProcessScan)
+        val error = failure { resolver.resolve(session, profile(opencodePort = 4096)) }
+        assertEquals(ConnectionError.ServerNotOnPort(4096), error)
+        assertTrue(tools.startedWith.isEmpty())
+    }
+
+    @Test
+    fun `with a port and a server only elsewhere, nothing is started and the failure is retryable`() = runTest {
+        seedOpencode()
+        tools.server = ServerLookup.NotOnPort(4096, setOf(1200L))
+        val error = failure { resolver.resolve(session, profile(opencodePort = 4096)) }
+        assertEquals(ConnectionError.ServerNotOnPort(4096), error)
+        assertTrue(error.retryable)
+        assertTrue(tools.startedWith.isEmpty(), "no start next to a live server")
+        assertEquals(0, tools.findBinaryCalls, "not even the binary is looked up")
+    }
+
+    @Test
+    fun `with a port and no server at all, one is started on that port`() = runTest {
+        tools.server = ServerLookup.NotRunning()
+        tools.startResult = { StartedServer("http://127.0.0.1:${it.port}", checkNotNull(it.port), 200) }
+        resolver.resolve(session, profile(opencodePort = 4096)).use { server ->
+            assertEquals("http://127.0.0.1:4096", server.baseUrl)
+            val (options, _) = tools.startedWith.single()
+            assertEquals(4096, options.port)
+            assertEquals("/opt/opencode/bin/opencode", options.binary)
+        }
+    }
+
+    @Test
+    fun `without a port a started server picks its own`() = runTest {
+        tools.server = ServerLookup.NotRunning()
+        resolver.resolve(session, profile()).use { }
+        assertEquals(null, tools.startedWith.single().first.port)
+    }
+
+    @Test
+    fun `with a port held by a server that does not answer, it is unresponsive`() = runTest {
+        seedOpencode()
+        tools.server = ServerLookup.Unresponsive("127.0.0.1", 4096, 3400, ServerSource.ProcessScan)
+        assertEquals(ConnectionError.ServerUnresponsive, failure { resolver.resolve(session, profile(opencodePort = 4096)) })
+        assertTrue(tools.startedWith.isEmpty())
+    }
+
+    @Test
+    fun `with a port on a non-loopback address only, it is unusable`() = runTest {
+        seedOpencode()
+        tools.server = ServerLookup.Unusable(setOf(3400L), setOf(ServerNote.NonLoopbackListener))
+        assertEquals(ConnectionError.ServerUnusable, failure { resolver.resolve(session, profile(opencodePort = 4096)) })
+        assertTrue(tools.startedWith.isEmpty())
+    }
+
+    @Test
+    fun `a stored port out of range is an invalid profile, and nothing is looked up`() = runTest {
+        for (port in listOf(0, -1, 65536)) {
+            assertEquals(ConnectionError.InvalidProfile, failure { resolver.resolve(session, profile(opencodePort = port)) })
+        }
+        assertEquals(0, tools.findServerCalls)
         assertTrue(tools.startedWith.isEmpty())
     }
 

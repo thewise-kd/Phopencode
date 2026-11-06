@@ -59,6 +59,13 @@ internal fun checkPort(text: String): Checked<Int> {
     return if (port in 1..MAX_PORT) Checked.Valid(port) else INVALID
 }
 
+/**
+ * An optional TCP port by the rules of [checkPort]; empty text, or only spaces, is no port. Never
+ * [ServerFormFieldError.Required].
+ */
+internal fun checkOptionalPort(text: String): Checked<Int?> =
+    if (text.isBlank()) Checked.Valid(null) else checkPort(text)
+
 /** A login name in the POSIX portable set, at most 32 characters and not only digits. */
 internal fun checkUsername(text: String): Checked<String> {
     val trimmed = text.trim()

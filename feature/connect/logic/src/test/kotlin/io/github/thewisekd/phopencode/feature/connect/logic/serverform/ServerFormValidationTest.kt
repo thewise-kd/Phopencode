@@ -117,6 +117,24 @@ class ServerFormValidationTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = ["1", "4096", "49374", "65535", " 4096 "])
+    fun `an opencode port in 1 to 65535 is accepted`(port: String) {
+        assertEquals(Checked.Valid(port.trim().toInt()), checkOptionalPort(port))
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["", "  ", "\t"])
+    fun `an empty opencode port means automatic detection`(port: String) {
+        assertEquals(Checked.Valid(null), checkOptionalPort(port))
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["0", "65536", "-1", "+22", "40 96", "4096a", "0x16", "99999999999", "٤٠٩٦", "1e3"])
+    fun `an opencode port outside 1 to 65535 or not in digits is invalid`(port: String) {
+        assertEquals(Checked.Invalid(ServerFormFieldError.Invalid), checkOptionalPort(port))
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = ["root", "deploy", "j.doe", "user_1", "_svc", "web-admin", "Admin", "u2", "a"])
     fun `a login name is accepted`(user: String) {
         assertEquals(Checked.Valid(user), checkUsername(user))

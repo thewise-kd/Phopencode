@@ -61,6 +61,7 @@ internal val OTHER_KEY = HostKey("ssh-ed25519", ByteArray(32) { (it + 1).toByte(
 internal fun profile(
     id: ServerProfileId = SERVER_ID,
     opencodeCredential: SecretRef? = OPENCODE_REF,
+    opencodePort: Int? = null,
 ) = ServerProfile(
     id = id,
     name = "Test server",
@@ -68,6 +69,7 @@ internal fun profile(
     username = USER,
     auth = SshAuth.Password(SSH_REF),
     opencodeCredential = opencodeCredential,
+    opencodePort = opencodePort,
 )
 
 /** Plays server discovery and startup, and records every start. */
@@ -81,7 +83,15 @@ internal class FakeServerTools : ServerTools {
 
     val starts = mutableListOf<ServerStartOptions>()
 
-    override suspend fun findServer(session: SshSession): ServerLookup = server
+    /** The port each lookup was asked for. */
+    val ports = mutableListOf<Int?>()
+
+    override suspend fun findServer(session: SshSession): ServerLookup = findServer(session, null)
+
+    override suspend fun findServer(session: SshSession, port: Int?): ServerLookup {
+        ports += port
+        return server
+    }
 
     override suspend fun findBinary(session: SshSession): BinaryLookup = binary
 

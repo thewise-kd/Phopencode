@@ -37,6 +37,9 @@ sealed interface SshAuth {
  *
  * @property opencodeCredential The `opencode serve` password, for a server this app did not start.
  * @property lastUsedAt For ordering the server list.
+ * @property opencodePort The loopback port of the `opencode serve` to use on the server. Null leaves
+ *   it to automatic detection. When set, no server on another port is used, and a server this app
+ *   starts listens on it. Profiles stored before this field existed read as null.
  */
 @Serializable
 data class ServerProfile(
@@ -48,6 +51,7 @@ data class ServerProfile(
     val auth: SshAuth,
     val opencodeCredential: SecretRef? = null,
     val lastUsedAt: Instant? = null,
+    val opencodePort: Int? = null,
 ) {
     /** Leaves out address, account and display name: logs and crash reports must not carry them. */
     override fun toString(): String = "ServerProfile(id=${id.value}, auth=$auth)"

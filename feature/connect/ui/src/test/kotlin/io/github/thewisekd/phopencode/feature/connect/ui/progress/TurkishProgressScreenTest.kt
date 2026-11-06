@@ -65,6 +65,8 @@ class TurkishProgressScreenTest : ProgressScreenLanguageContract() {
                 "Bir opencode sunucusu çalışıyor ama loopback (127.0.0.1) üzerinden ulaşılamıyor. Uygulama ikinci " +
                 "bir sunucu başlatmaz ve onu durdurmaz: sunucuda 127.0.0.1 üzerinde dinleyecek şekilde yeniden " +
                 "başlatıp tekrar deneyin.",
+            ProgressError.ServerNotOnPort to
+                "4096 portunda dinleyen bir opencode sunucusu yok. Sunucu ayarlarındaki portu denetleyin ya da boş bırakın.",
             ProgressError.ServerDetectionFailed to
                 "Sunucuda opencode'un çalışıp çalışmadığı anlaşılamadı. Tekrar deneyin.",
             ProgressError.ServerStartFailed to

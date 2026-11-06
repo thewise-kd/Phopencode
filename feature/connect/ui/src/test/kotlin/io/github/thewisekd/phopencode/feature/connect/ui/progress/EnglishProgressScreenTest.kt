@@ -64,6 +64,8 @@ class EnglishProgressScreenTest : ProgressScreenLanguageContract() {
             ProgressError.ServerUnusable to
                 "An opencode server is running but cannot be reached on loopback (127.0.0.1). The app will not " +
                 "start a second one or stop it: restart it on the server listening on 127.0.0.1, then try again.",
+            ProgressError.ServerNotOnPort to
+                "No opencode server is listening on port 4096. Check the port in the server settings or leave it empty.",
             ProgressError.ServerDetectionFailed to
                 "Could not tell whether opencode is running on the server. Try again.",
             ProgressError.ServerStartFailed to

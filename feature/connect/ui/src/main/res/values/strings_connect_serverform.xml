@@ -20,6 +20,8 @@
     <string name="connect_serverform_opencode_password_help">Optional. Only for a server already running opencode serve with a password.</string>
     <string name="connect_serverform_opencode_password_keep">Leave empty to keep the saved opencode serve password</string>
     <string name="connect_serverform_opencode_password_entered">An opencode serve password is entered. Type to replace it.</string>
+    <string name="connect_serverform_opencode_port">opencode port</string>
+    <string name="connect_serverform_opencode_port_help">Optional. Leave empty to detect the running opencode server automatically.</string>
     <string name="connect_serverform_opencode_password_clear">Remove the saved opencode serve password</string>
     <string name="connect_serverform_save">Save</string>
     <string name="connect_serverform_saving">Saving…</string>
@@ -37,6 +39,7 @@
     <string name="connect_serverform_error_password_invalid">This password cannot be used</string>
     <string name="connect_serverform_error_key_required">Choose a key</string>
     <string name="connect_serverform_error_key_invalid">This key can no longer be used</string>
+    <string name="connect_serverform_error_opencode_port_invalid">Enter a port from 1 to 65535, or leave it empty</string>
 
     <string name="connect_serverform_error_load_failed">Could not read the server or the keys</string>
     <string name="connect_serverform_error_not_found">This server no longer exists</string>

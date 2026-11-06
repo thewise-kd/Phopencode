@@ -190,6 +190,7 @@ class DetectIntegrationTest {
             is ServerLookup.NotRunning -> result.notes
             is ServerLookup.Unresponsive -> error("A gone process cannot be unresponsive: $result")
             is ServerLookup.Unusable -> result.notes
+            is ServerLookup.NotOnPort -> error("No port was asked for: $result")
             is ServerLookup.Failed -> error("Detection failed: $result")
         }
         assertTrue(ServerNote.StaleStateFile in notes, "$result")

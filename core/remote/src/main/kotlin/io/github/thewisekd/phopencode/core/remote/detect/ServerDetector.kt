@@ -77,13 +77,23 @@ class ServerDetector(
         return checkNotNull(first)
     }
 
-    suspend fun findServer(): ServerLookup {
+    /**
+     * The `opencode serve` to use. Without [port], the first loopback listener that answers, the
+     * state file's server first, then by process and port.
+     *
+     * With [port], only a loopback listener on that port, held by the login user's server, counts,
+     * and the state file only when it names that port. Servers on other ports are never probed or
+     * reported as running; when only such servers run the result is [ServerLookup.NotOnPort].
+     */
+    suspend fun findServer(port: Int? = null): ServerLookup {
+        require(port == null || port in 1..MAX_PORT) { "Port is out of range" }
         val state = readState()
         val report = when (val scanned = run(DetectCommands.SCAN, timeouts.scan, MAX_SCAN_BYTES)) {
             is Outcome.Failed -> return ServerLookup.Failed(scanned.reason)
             is Outcome.Done -> ScanReport.parse(scanned.stdout)
         }
         if (!report.processToolSeen) return ServerLookup.Failed(DetectFailure.ToolsUnavailable)
+        if (port != null) return findOnPort(port, state, report)
 
         val notes = linkedSetOf<ServerNote>()
         val probed = mutableSetOf<Pair<String, Int>>()
@@ -129,6 +139,53 @@ class ServerDetector(
         // A live server that holds no loopback port is still a server: never reported as absent,
         // so that nothing is started next to it.
         if (report.processes.isNotEmpty()) return ServerLookup.Unusable(report.processes.toSet(), notes)
+        return ServerLookup.NotRunning(notes)
+    }
+
+    /** [findServer] for a set [port]: every server on another port is left out. */
+    private suspend fun findOnPort(port: Int, state: StateRead, report: ScanReport): ServerLookup {
+        val notes = linkedSetOf<ServerNote>()
+        val probed = mutableSetOf<Pair<String, Int>>()
+        var unresponsive: ServerLookup.Unresponsive? = null
+        when (state) {
+            StateRead.Absent -> Unit
+            StateRead.Invalid -> notes += ServerNote.InvalidStateFile
+            // A state file for another port names a server this profile does not use; it is not
+            // stale for that, only beside the point.
+            is StateRead.Valid -> if (state.state.port == port) {
+                when (val checked = checkState(state.state, report, notes, probed)) {
+                    is ServerLookup.Running -> return checked
+                    is ServerLookup.Unresponsive -> unresponsive = checked
+                    else -> {
+                        val unverifiable = state.state.pid in report.processes && !report.listenerToolSeen
+                        if (!unverifiable) notes += ServerNote.StaleStateFile
+                    }
+                }
+            }
+        }
+
+        val onPort = report.listeners.filter { it.pid != null && it.pid in report.processes && it.port == port }
+        val nonLoopback = onPort.filter { ListenerAddress.loopbackHost(it.host) == null }
+        if (nonLoopback.isNotEmpty()) notes += ServerNote.NonLoopbackListener
+        val loopback = onPort.filter { ListenerAddress.loopbackHost(it.host) == it.host }
+            .distinct()
+            .sortedWith(compareBy({ it.pid }, { it.host }))
+        for (listener in loopback) {
+            if (!probed.add(listener.host to listener.port)) continue
+            if (answers(listener.host, listener.port)) {
+                return ServerLookup.Running(listener.host, listener.port, checkNotNull(listener.pid), ServerSource.ProcessScan, notes)
+            }
+            notes += ServerNote.PortDidNotAnswer
+            if (unresponsive == null) {
+                unresponsive = ServerLookup.Unresponsive(listener.host, listener.port, checkNotNull(listener.pid), ServerSource.ProcessScan)
+            }
+        }
+        unresponsive?.let { return it.copy(notes = notes) }
+        if (report.processes.isNotEmpty() && !report.listenerToolSeen) return ServerLookup.Failed(DetectFailure.ToolsUnavailable)
+        // The server on the port listens on another address only: the existing unusable case.
+        if (nonLoopback.isNotEmpty()) return ServerLookup.Unusable(nonLoopback.mapNotNull { it.pid }.toSet(), notes)
+        // Servers run, only none on the port: never reported as absent, so nothing is started.
+        if (report.processes.isNotEmpty()) return ServerLookup.NotOnPort(port, report.processes.toSet(), notes)
         return ServerLookup.NotRunning(notes)
     }
 
@@ -253,6 +310,7 @@ class ServerDetector(
         private const val ABSENT = "absent"
         private const val PRESENT = "present"
         private const val MAX_CANDIDATES = 8
+        private const val MAX_PORT = 65535
         private const val MAX_PATH_BYTES = 4096
         private const val MAX_LOCATE_BYTES = 64L * 1024
         private const val MAX_VERSION_BYTES = 64L * 1024

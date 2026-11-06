@@ -128,6 +128,40 @@ class ProfileFileTest {
     }
 
     @Test
+    fun `a profile written before the opencode port existed loads with no port`() = runTest {
+        val file = stores.newFile(TestStores.PROFILES)
+        file.writeText(
+            """
+            {"version":1,"profiles":[{"id":"b","name":"Work","host":"other.invalid","port":22,
+            "username":"user","auth":{"type":"password","secretRef":"ref-x"},"opencodeCredential":"ref-o",
+            "lastUsedAt":null}]}
+            """.trimIndent(),
+        )
+
+        val profile = DataStoreProfileRepository(stores.profiles(file).store).list().single()
+
+        assertEquals(null, profile.opencodePort)
+        assertEquals(SecretRef("ref-o"), profile.opencodeCredential)
+        assertEquals(SshAuth.Password(SecretRef("ref-x")), profile.auth)
+    }
+
+    @Test
+    fun `the opencode port survives reopening the file, and so does its absence`() = runTest {
+        val withPort = passwordProfile.copy(opencodePort = 4096)
+        val first = stores.profiles()
+        DataStoreProfileRepository(first.store).apply {
+            save(withPort)
+            save(keyProfile)
+        }
+
+        val second = stores.reopen(first) { stores.profiles(it) }
+
+        val read = DataStoreProfileRepository(second.store).list()
+        assertEquals(listOf(withPort, keyProfile), read)
+        assertEquals(listOf(4096, null), read.map { it.opencodePort })
+    }
+
+    @Test
     fun `a file that is not a profile file reads as empty and can be written again`() = runTest {
         val file = stores.newFile(TestStores.PROFILES)
         file.writeText("not json at all {")
@@ -140,7 +174,7 @@ class ProfileFileTest {
 
     private companion object {
         val PROFILE_KEYS = setOf("id", "name", "host", "port", "username", "auth")
-        val OPTIONAL_PROFILE_KEYS = setOf("opencodeCredential", "lastUsedAt")
+        val OPTIONAL_PROFILE_KEYS = setOf("opencodeCredential", "lastUsedAt", "opencodePort")
         val AUTH_KEYS = setOf("type", "secretRef", "keyRef", "passphraseRef")
     }
 }

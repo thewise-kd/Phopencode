@@ -91,6 +91,13 @@ sealed interface ServerLookup {
      */
     data class Unusable(val pids: Set<Long>, val notes: Set<ServerNote> = emptySet()) : ServerLookup
 
+    /**
+     * Asked for the server on loopback [port], live `opencode serve` processes of the login user
+     * ([pids]) run, but none holds that port on any address. Servers on other ports are left alone:
+     * nothing may be started next to them, and nothing may stop them.
+     */
+    data class NotOnPort(val port: Int, val pids: Set<Long>, val notes: Set<ServerNote> = emptySet()) : ServerLookup
+
     /** No live `opencode serve` process of the login user was seen. */
     data class NotRunning(val notes: Set<ServerNote> = emptySet()) : ServerLookup
 

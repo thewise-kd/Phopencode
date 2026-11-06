@@ -382,6 +382,140 @@ class ServerDetectionTest {
         assertEquals(ServerLookup.NotRunning(emptySet()), detection.server)
     }
 
+    // Two servers of the login user: an opencode TUI's own `serve --service` on 49374 with the lower
+    // PID, and the user's password-protected `opencode serve` on 4096.
+    private fun twoServers() = scan(
+        "H proc",
+        "P 1200",
+        "P 3400",
+        "H ss",
+        ss(1200, "127.0.0.1:49374"),
+        ss(3400, "127.0.0.1:4096"),
+    )
+
+    @Test
+    fun `with a port set, only the server on that loopback port is used`() = runTest {
+        state("absent\n")
+        twoServers()
+        assertEquals(
+            ServerLookup.Running("127.0.0.1", 4096, 3400, ServerSource.ProcessScan),
+            detector(withProbe = true).findServer(port = 4096),
+        )
+        assertEquals(listOf("127.0.0.1" to 4096), probed, "no other port is probed")
+    }
+
+    @Test
+    fun `without a port the lowest process still wins`() = runTest {
+        state("absent\n")
+        twoServers()
+        assertEquals(
+            ServerLookup.Running("127.0.0.1", 49374, 1200, ServerSource.ProcessScan),
+            detector(withProbe = true).findServer(),
+        )
+        state("absent\n")
+        twoServers()
+        assertEquals(
+            ServerLookup.Running("127.0.0.1", 49374, 1200, ServerSource.ProcessScan),
+            detector(withProbe = true).findServer(port = null),
+        )
+    }
+
+    @Test
+    fun `with a port set, a server on another port only is not on the port`() = runTest {
+        state("absent\n")
+        scan("H proc", "P 1200", "H ss", ss(1200, "127.0.0.1:49374"))
+        assertEquals(ServerLookup.NotOnPort(4096, setOf(1200L)), detector(withProbe = true).findServer(port = 4096))
+        assertEquals(emptyList(), probed, "a server on another port is never probed")
+    }
+
+    @Test
+    fun `with a port set, a live server with no socket yet is not on the port`() = runTest {
+        state("absent\n")
+        scan("H proc", "P 1200", "H ss")
+        assertEquals(ServerLookup.NotOnPort(4096, setOf(1200L)), detector().findServer(port = 4096))
+    }
+
+    @Test
+    fun `with a port set, another program on that port is not a server`() = runTest {
+        state("absent\n")
+        scan("H proc", "P 1200", "H ss", ss(55, "127.0.0.1:4096"), ss(1200, "127.0.0.1:49374"))
+        assertEquals(ServerLookup.NotOnPort(4096, setOf(1200L)), detector(withProbe = true).findServer(port = 4096))
+        assertEquals(emptyList(), probed)
+    }
+
+    @Test
+    fun `with a port set and no server at all, nothing runs`() = runTest {
+        state("absent\n")
+        scan("H proc", "H ss", ss(55, "127.0.0.1:4096"))
+        assertEquals(ServerLookup.NotRunning(emptySet()), detector().findServer(port = 4096))
+    }
+
+    @Test
+    fun `with a port set, a server holding it that does not answer is unresponsive`() = runTest {
+        answering = setOf(49374)
+        state("absent\n")
+        twoServers()
+        assertEquals(
+            ServerLookup.Unresponsive("127.0.0.1", 4096, 3400, ServerSource.ProcessScan, setOf(ServerNote.PortDidNotAnswer)),
+            detector(withProbe = true).findServer(port = 4096),
+        )
+        assertEquals(listOf("127.0.0.1" to 4096), probed, "the answering server on another port is not used")
+    }
+
+    @Test
+    fun `with a port set, a server on it bound only to a non-loopback address is unusable`() = runTest {
+        state("absent\n")
+        scan("H proc", "P 1200", "P 3400", "H ss", ss(1200, "127.0.0.1:49374"), ss(3400, "0.0.0.0:4096"))
+        assertEquals(
+            ServerLookup.Unusable(setOf(3400L), setOf(ServerNote.NonLoopbackListener)),
+            detector(withProbe = true).findServer(port = 4096),
+        )
+        assertEquals(emptyList(), probed)
+    }
+
+    @Test
+    fun `with a port set, the state file counts only when it names that port`() = runTest {
+        stateFile(pid = 1200, port = 49374)
+        twoServers()
+        assertEquals(
+            ServerLookup.Running("127.0.0.1", 4096, 3400, ServerSource.ProcessScan),
+            detector(withProbe = true).findServer(port = 4096),
+        )
+        assertEquals(listOf("127.0.0.1" to 4096), probed)
+
+        stateFile(pid = 3400, port = 4096)
+        twoServers()
+        assertEquals(
+            ServerLookup.Running("127.0.0.1", 4096, 3400, ServerSource.StateFile),
+            detector().findServer(port = 4096),
+        )
+    }
+
+    @Test
+    fun `with a port set, a state file on that port whose process is gone is stale`() = runTest {
+        stateFile(pid = 9999, port = 4096)
+        twoServers()
+        assertEquals(
+            ServerLookup.Running("127.0.0.1", 4096, 3400, ServerSource.ProcessScan, setOf(ServerNote.StaleStateFile)),
+            detector().findServer(port = 4096),
+        )
+    }
+
+    @Test
+    fun `with a port set, missing listener tools make the answer unknown`() = runTest {
+        state("absent\n")
+        scan("H proc", "P 1200")
+        assertEquals(ServerLookup.Failed(DetectFailure.ToolsUnavailable), detector().findServer(port = 4096))
+    }
+
+    @Test
+    fun `a port out of range is refused`() = runTest {
+        for (port in listOf(0, -1, 65536)) {
+            assertFailsWith<IllegalArgumentException> { detector().findServer(port = port) }
+        }
+        assertEquals(emptyList(), exec.executions, "nothing runs for a bad port")
+    }
+
     @Test
     fun `a lost connection is not a result`() = runTest {
         exec.disconnect()

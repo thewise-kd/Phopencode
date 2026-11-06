@@ -32,6 +32,7 @@ class ContractTypesTest {
             assertTrue(loading)
             assertEquals("", host)
             assertEquals("22", port)
+            assertEquals("", opencodePort)
             assertEquals(ServerFormAuthMethod.Password, authMethod)
             assertFalse(passwordEntered)
             assertFalse(storedPassword)
@@ -63,6 +64,7 @@ class ContractTypesTest {
         with(ProgressState()) {
             assertEquals(ProgressStep.Ssh, step)
             assertNull(error)
+            assertNull(errorPort)
             assertTrue(actions.isEmpty())
             assertFalse(askingServerPassword)
         }

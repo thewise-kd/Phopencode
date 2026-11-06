@@ -115,6 +115,8 @@ class DefaultServerFormPresenter(
             is ServerFormIntent.NameChanged -> edit(ServerFormField.Name) { copy(name = intent.name) }
             is ServerFormIntent.HostChanged -> edit(ServerFormField.Host) { copy(host = intent.host) }
             is ServerFormIntent.PortChanged -> edit(ServerFormField.Port) { copy(port = intent.port) }
+            is ServerFormIntent.OpencodePortChanged ->
+                edit(ServerFormField.OpencodePort) { copy(opencodePort = intent.port) }
             is ServerFormIntent.UsernameChanged ->
                 edit(ServerFormField.Username) { copy(username = intent.username) }
             is ServerFormIntent.AuthMethodChanged -> mutableState.update {
@@ -185,6 +187,7 @@ class DefaultServerFormPresenter(
                     name = profile.name,
                     host = profile.host,
                     port = profile.port.toString(),
+                    opencodePort = profile.opencodePort?.toString().orEmpty(),
                     username = profile.username,
                     authMethod = when (profile.auth) {
                         is SshAuth.Password -> ServerFormAuthMethod.Password
@@ -301,6 +304,8 @@ class DefaultServerFormPresenter(
         val host = checkHost(form.host).valueFor(ServerFormField.Host)
         val port = checkPort(form.port).valueFor(ServerFormField.Port)
         val username = checkUsername(form.username).valueFor(ServerFormField.Username)
+        val opencodePort = checkOptionalPort(form.opencodePort)
+        if (opencodePort is Checked.Invalid) errors[ServerFormField.OpencodePort] = opencodePort.error
         val old = original
         val auth: SshAuth? = when (form.authMethod) {
             ServerFormAuthMethod.Password -> {
@@ -339,6 +344,7 @@ class DefaultServerFormPresenter(
         }
         mutableState.update { it.copy(fieldErrors = errors.toMap()) }
         if (host == null || port == null || username == null || auth == null) return null
+        if (opencodePort !is Checked.Valid) return null
         return ServerProfile(
             id = old?.id ?: newProfileId(),
             name = form.name.trim().ifEmpty { host },
@@ -348,6 +354,7 @@ class DefaultServerFormPresenter(
             auth = auth,
             opencodeCredential = if (clearOpencode) null else old?.opencodeCredential,
             lastUsedAt = old?.lastUsedAt,
+            opencodePort = opencodePort.value,
         )
     }
 

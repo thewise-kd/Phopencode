@@ -175,7 +175,13 @@ class DefaultProgressPresenter(
         mutableState.update {
             restarted = allowed(it)
             if (restarted) {
-                it.copy(step = ProgressStep.Ssh, error = null, actions = emptySet(), askingServerPassword = false)
+                it.copy(
+                    step = ProgressStep.Ssh,
+                    error = null,
+                    actions = emptySet(),
+                    askingServerPassword = false,
+                    errorPort = null,
+                )
             } else {
                 it
             }
@@ -274,7 +280,7 @@ class DefaultProgressPresenter(
         }
 
     private fun show(step: ProgressStep) {
-        mutableState.update { it.copy(step = step, error = null, actions = emptySet()) }
+        mutableState.update { it.copy(step = step, error = null, actions = emptySet(), errorPort = null) }
     }
 
     /** Shows [failure] at the step that failed: the error's own, or else the last one seen. */
@@ -285,6 +291,7 @@ class DefaultProgressPresenter(
                 error = failure.error,
                 actions = failure.actions,
                 askingServerPassword = failure.asksPassword,
+                errorPort = failure.port,
             )
         }
     }

@@ -41,6 +41,7 @@
     <string name="connect_progress_error_server_version_too_old">The opencode on the server is too old. Update it, then try again.</string>
     <string name="connect_progress_error_server_unresponsive">An opencode server is running but not answering. The app will not start a second one or stop it: restart it on the server, then try again.</string>
     <string name="connect_progress_error_server_unusable">An opencode server is running but cannot be reached on loopback (127.0.0.1). The app will not start a second one or stop it: restart it on the server listening on 127.0.0.1, then try again.</string>
+    <string name="connect_progress_error_server_not_on_port">No opencode server is listening on port %1$d. Check the port in the server settings or leave it empty.</string>
     <string name="connect_progress_error_server_detection_failed">Could not tell whether opencode is running on the server. Try again.</string>
     <string name="connect_progress_error_server_start_failed">opencode could not be started on the server. Check that it runs there, then try again.</string>
     <string name="connect_progress_error_server_lost">The opencode server stopped while connecting. Try again.</string>

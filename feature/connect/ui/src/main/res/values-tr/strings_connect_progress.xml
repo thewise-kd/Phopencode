@@ -41,6 +41,7 @@
     <string name="connect_progress_error_server_version_too_old">Sunucudaki opencode çok eski. Güncelleyip tekrar deneyin.</string>
     <string name="connect_progress_error_server_unresponsive">Bir opencode sunucusu çalışıyor ama yanıt vermiyor. Uygulama ikinci bir sunucu başlatmaz ve onu durdurmaz: sunucuda yeniden başlatıp tekrar deneyin.</string>
     <string name="connect_progress_error_server_unusable">Bir opencode sunucusu çalışıyor ama loopback (127.0.0.1) üzerinden ulaşılamıyor. Uygulama ikinci bir sunucu başlatmaz ve onu durdurmaz: sunucuda 127.0.0.1 üzerinde dinleyecek şekilde yeniden başlatıp tekrar deneyin.</string>
+    <string name="connect_progress_error_server_not_on_port">%1$d portunda dinleyen bir opencode sunucusu yok. Sunucu ayarlarındaki portu denetleyin ya da boş bırakın.</string>
     <string name="connect_progress_error_server_detection_failed">Sunucuda opencode\'un çalışıp çalışmadığı anlaşılamadı. Tekrar deneyin.</string>
     <string name="connect_progress_error_server_start_failed">opencode sunucuda başlatılamadı. Orada çalıştığını denetleyip tekrar deneyin.</string>
     <string name="connect_progress_error_server_lost">opencode sunucusu bağlanırken durdu. Tekrar deneyin.</string>

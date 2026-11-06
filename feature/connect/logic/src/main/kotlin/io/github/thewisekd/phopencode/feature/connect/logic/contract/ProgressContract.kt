@@ -43,6 +43,12 @@ enum class ProgressError {
     ServerVersionTooOld,
     ServerUnresponsive,
     ServerUnusable,
+
+    /**
+     * The profile names an opencode port, and an `opencode serve` runs, but none on that port; the
+     * port is in [ProgressState.errorPort].
+     */
+    ServerNotOnPort,
     ServerDetectionFailed,
     ServerStartFailed,
     ServerLost,
@@ -75,6 +81,7 @@ enum class ProgressAction {
  * @property step The step running now, or the one that failed when [error] is set.
  * @property actions What can help with [error]; empty when there is none.
  * @property askingServerPassword The `opencode serve` password is being asked for.
+ * @property errorPort The port [error] names, for [ProgressError.ServerNotOnPort]; null otherwise.
  */
 data class ProgressState(
     val serverName: String = "",
@@ -82,6 +89,7 @@ data class ProgressState(
     val error: ProgressError? = null,
     val actions: Set<ProgressAction> = emptySet(),
     val askingServerPassword: Boolean = false,
+    val errorPort: Int? = null,
 ) {
     override fun toString(): String =
         "ProgressState(step=$step, error=$error, actions=$actions, askingServerPassword=$askingServerPassword)"

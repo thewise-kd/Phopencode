@@ -51,6 +51,15 @@ class ProgressFailureTest {
     }
 
     @Test
+    fun `no server on the profile's port sends the user to the server form and keeps the port`() {
+        check(ConnectionError.ServerNotOnPort(4096), ProgressError.ServerNotOnPort, EditServer, Retry)
+        val failure = progressFailure(ConnectionError.ServerNotOnPort(4096))
+        assertEquals(4096, failure.port)
+        assertEquals(ProgressStep.Server, failure.step)
+        assertNull(progressFailure(ConnectionError.ServerUnusable).port)
+    }
+
+    @Test
     fun `host key problems`() {
         check(ConnectionError.HostKeyRejected(SERVER_KEY), ProgressError.HostKeyRejected, Retry)
         check(

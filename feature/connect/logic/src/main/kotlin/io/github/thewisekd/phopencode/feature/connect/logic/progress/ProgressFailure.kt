@@ -14,11 +14,13 @@ import io.github.thewisekd.phopencode.feature.connect.logic.contract.ProgressSte
  * @property step The step this error can only come from, or null when it may come from several.
  *   The manager's state is a conflated flow, so a step that fails at once may never be seen; the
  *   error itself tells.
+ * @property port The port the error names, for [ProgressError.ServerNotOnPort] only.
  */
 internal data class ProgressFailure(
     val error: ProgressError,
     val actions: Set<ProgressAction>,
     val step: ProgressStep? = null,
+    val port: Int? = null,
 ) {
     /** The `opencode serve` password is unknown or refused, so the screen asks for it at once. */
     val asksPassword: Boolean get() = ProgressAction.EnterServerPassword in actions
@@ -47,6 +49,8 @@ internal fun progressFailure(error: ConnectionError): ProgressFailure = when (er
     // A running server is only ever waited for: never stopped, never started next to.
     ConnectionError.ServerUnresponsive -> ProgressFailure(ProgressError.ServerUnresponsive, RETRY, SERVER)
     ConnectionError.ServerUnusable -> ProgressFailure(ProgressError.ServerUnusable, RETRY, SERVER)
+    // The port is the profile's: the user can fix or clear it, and nothing runs on it to wait for.
+    is ConnectionError.ServerNotOnPort -> ProgressFailure(ProgressError.ServerNotOnPort, EDIT, SERVER, error.port)
     ConnectionError.OpencodeMissing -> ProgressFailure(ProgressError.OpencodeMissing, RETRY, SERVER)
     ConnectionError.ServerPasswordUnknown -> ProgressFailure(ProgressError.ServerPasswordUnknown, PASSWORD, SERVER)
     is ConnectionError.HostKeyRejected -> ProgressFailure(ProgressError.HostKeyRejected, RETRY, SSH)

@@ -17,6 +17,9 @@ import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+/** The port [ExpectedProgressStrings.errors] names for [ProgressError.ServerNotOnPort]. */
+internal const val NOT_ON_PORT = 4096
+
 /** The texts of the connection screen in one language. */
 internal data class ExpectedProgressStrings(
     val title: String,
@@ -104,7 +107,9 @@ abstract class ProgressScreenLanguageContract {
         val harness = compose.setProgressScreen(ProgressState(serverName = SERVER_NAME))
 
         for ((error, message) in strings.errors) {
-            harness.state.value = ProgressState(serverName = SERVER_NAME, step = ProgressStep.Server, error = error)
+            val port = if (error == ProgressError.ServerNotOnPort) NOT_ON_PORT else null
+            harness.state.value =
+                ProgressState(serverName = SERVER_NAME, step = ProgressStep.Server, error = error, errorPort = port)
 
             compose.onNodeWithTag(PROGRESS_ERROR_TAG).assert(hasText(message))
         }
@@ -118,6 +123,23 @@ abstract class ProgressScreenLanguageContract {
                 "$error must say the app will not start a second server or stop it",
             )
         }
+    }
+
+    @Test
+    fun `no server on the set port names that port`() {
+        compose.setProgressScreen(
+            ProgressState(
+                serverName = SERVER_NAME,
+                step = ProgressStep.Server,
+                error = ProgressError.ServerNotOnPort,
+                actions = setOf(ProgressAction.EditServer, ProgressAction.Retry),
+                errorPort = 49374,
+            ),
+        )
+
+        val expected = strings.errors.getValue(ProgressError.ServerNotOnPort).replace("$NOT_ON_PORT", "49374")
+        compose.onNodeWithTag(PROGRESS_ERROR_TAG).assert(hasText(expected))
+        compose.onNodeWithText(strings.actions.getValue(ProgressAction.EditServer)).assertIsDisplayed()
     }
 
     @Test

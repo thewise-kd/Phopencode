@@ -13,6 +13,7 @@ internal object ServerFormTags {
     const val PASSWORD_FIELD = "serverform:password"
     const val MANAGE_KEYS = "serverform:manage-keys"
     const val OPENCODE_PASSWORD_FIELD = "serverform:opencode-password"
+    const val OPENCODE_PORT = "serverform:opencode-port"
     const val CLEAR_OPENCODE_PASSWORD_BUTTON = "serverform:clear-opencode-password"
     const val SAVE = "serverform:save"
     const val CANCEL = "serverform:cancel"

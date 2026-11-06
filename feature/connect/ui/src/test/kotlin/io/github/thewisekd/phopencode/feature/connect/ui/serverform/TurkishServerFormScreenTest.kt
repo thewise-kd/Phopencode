@@ -25,6 +25,8 @@ class TurkishServerFormScreenTest : ServerFormLanguageContract() {
         passwordKeepHint = "Kayıtlı parolayı korumak için boş bırakın",
         opencodePasswordLabel = "opencode serve parolası",
         opencodePasswordClearLabel = "Kayıtlı opencode serve parolasını kaldır",
+        opencodePortLabel = "opencode portu",
+        opencodePortHelp = "İsteğe bağlı. Çalışan opencode sunucusunun otomatik bulunması için boş bırakın.",
         keysEmpty = "Henüz SSH anahtarı yok. Anahtarla giriş için bir tane ekleyin.",
         manageKeys = "Anahtarları yönet",
         loading = "Sunucu yükleniyor…",
@@ -44,6 +46,8 @@ class TurkishServerFormScreenTest : ServerFormLanguageContract() {
             (ServerFormField.Password to Invalid) to "Bu parola kullanılamaz",
             (ServerFormField.Key to Required) to "Bir anahtar seçin",
             (ServerFormField.Key to Invalid) to "Bu anahtar artık kullanılamaz",
+            (ServerFormField.OpencodePort to Required) to "1 ile 65535 arasında bir port girin ya da boş bırakın",
+            (ServerFormField.OpencodePort to Invalid) to "1 ile 65535 arasında bir port girin ya da boş bırakın",
         ),
         formErrors = mapOf(
             ServerFormError.LoadFailed to "Sunucu ya da anahtarlar okunamadı",

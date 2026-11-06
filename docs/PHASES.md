@@ -572,6 +572,12 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | P9.16 | Git core gaps | P9.6, P9.8, P9.12 | `core/git/…/command/`, `feature/git/logic/…/diff/`, `feature/git/logic/…/log/`, `feature/git/logic/…/branch/`, `docs/PHASES.md` (this block) | Merge commits diff and list files against their first parent; an untracked file's diff shows its content; a remote branch tap tracks it even with branch.autoSetupMerge=false | `PI` |
 | P9.17 | Gone upstream | P9.4, P9.5, P9.15 | `feature/git/logic/…/contract/GitModels.kt` (GitBranchStatus field only), `feature/git/logic/…/status/`, `feature/git/ui/…/status/`, `feature/git/ui/…/remote/` (upstream line only), `strings_git_status.xml`, `strings_git_remote.xml` | A deleted upstream shows as gone, not as up to date or as no upstream | `CI` |
 
+**G5 (CP9 fixes)**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P9.18 | Optional opencode port | P3.7, P3.9, P4.6, P4.7 | `core/model/…/ServerProfile.kt` (opencodePort only), `core/remote/…/detect/`, `core/remote/…/connection/`, `core/storage/src/test/`, `feature/connect/logic/…/contract/`, `feature/connect/logic/…/serverform/`, `feature/connect/logic/…/progress/`, `feature/connect/ui/…/serverform/`, `feature/connect/ui/…/progress/`, `strings_connect_serverform.xml`, `strings_connect_progress.xml`, `docs/PHASES.md` (this block) | With a port set, only the opencode server on that loopback port is used; with none there the app says so, and starts one on it only when no opencode serve runs; an empty port keeps automatic detection | `CI` |
+
 `CP9`: push, CI green, `PHONE`: commit and push in a test repository.
 
 ### P10: Catalog and settings

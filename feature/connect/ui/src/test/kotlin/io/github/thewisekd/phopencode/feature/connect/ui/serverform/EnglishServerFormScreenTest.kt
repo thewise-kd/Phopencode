@@ -25,6 +25,8 @@ class EnglishServerFormScreenTest : ServerFormLanguageContract() {
         passwordKeepHint = "Leave empty to keep the saved password",
         opencodePasswordLabel = "opencode serve password",
         opencodePasswordClearLabel = "Remove the saved opencode serve password",
+        opencodePortLabel = "opencode port",
+        opencodePortHelp = "Optional. Leave empty to detect the running opencode server automatically.",
         keysEmpty = "No SSH keys yet. Add one to log in with a key.",
         manageKeys = "Manage keys",
         loading = "Loading server…",
@@ -44,6 +46,8 @@ class EnglishServerFormScreenTest : ServerFormLanguageContract() {
             (ServerFormField.Password to Invalid) to "This password cannot be used",
             (ServerFormField.Key to Required) to "Choose a key",
             (ServerFormField.Key to Invalid) to "This key can no longer be used",
+            (ServerFormField.OpencodePort to Required) to "Enter a port from 1 to 65535, or leave it empty",
+            (ServerFormField.OpencodePort to Invalid) to "Enter a port from 1 to 65535, or leave it empty",
         ),
         formErrors = mapOf(
             ServerFormError.LoadFailed to "Could not read the server or the keys",

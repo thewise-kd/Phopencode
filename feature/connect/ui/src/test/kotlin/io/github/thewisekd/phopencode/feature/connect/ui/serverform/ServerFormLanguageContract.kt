@@ -31,6 +31,8 @@ data class ExpectedServerFormStrings(
     val passwordKeepHint: String,
     val opencodePasswordLabel: String,
     val opencodePasswordClearLabel: String,
+    val opencodePortLabel: String,
+    val opencodePortHelp: String,
     val keysEmpty: String,
     val manageKeys: String,
     val loading: String,
@@ -101,9 +103,27 @@ abstract class ServerFormLanguageContract {
             strings.passwordLabel,
             strings.passwordKeepHint,
             strings.opencodePasswordLabel,
+            strings.opencodePortLabel,
+            strings.opencodePortHelp,
             strings.save,
             strings.cancel,
         ).forEach { compose.onNodeWithText(it, useUnmergedTree = true).performScrollTo().assertIsDisplayed() }
+    }
+
+    @Test
+    fun `an invalid opencode port shows its error in place of the help`() {
+        compose.setForm({
+            loadedState().copy(
+                opencodePort = "0",
+                fieldErrors = mapOf(ServerFormField.OpencodePort to ServerFormFieldError.Invalid),
+            )
+        })
+
+        compose.onNodeWithText(
+            strings.fieldErrors.getValue(ServerFormField.OpencodePort to ServerFormFieldError.Invalid),
+            useUnmergedTree = true,
+        ).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(strings.opencodePortHelp, useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test

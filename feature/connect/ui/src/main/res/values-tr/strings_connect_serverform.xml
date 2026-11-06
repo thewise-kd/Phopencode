@@ -20,6 +20,8 @@
     <string name="connect_serverform_opencode_password_help">İsteğe bağlı. Yalnızca opencode serve zaten parolayla çalışan bir sunucu için.</string>
     <string name="connect_serverform_opencode_password_keep">Kayıtlı opencode serve parolasını korumak için boş bırakın</string>
     <string name="connect_serverform_opencode_password_entered">Bir opencode serve parolası girildi. Değiştirmek için yazın.</string>
+    <string name="connect_serverform_opencode_port">opencode portu</string>
+    <string name="connect_serverform_opencode_port_help">İsteğe bağlı. Çalışan opencode sunucusunun otomatik bulunması için boş bırakın.</string>
     <string name="connect_serverform_opencode_password_clear">Kayıtlı opencode serve parolasını kaldır</string>
     <string name="connect_serverform_save">Kaydet</string>
     <string name="connect_serverform_saving">Kaydediliyor…</string>
@@ -37,6 +39,7 @@
     <string name="connect_serverform_error_password_invalid">Bu parola kullanılamaz</string>
     <string name="connect_serverform_error_key_required">Bir anahtar seçin</string>
     <string name="connect_serverform_error_key_invalid">Bu anahtar artık kullanılamaz</string>
+    <string name="connect_serverform_error_opencode_port_invalid">1 ile 65535 arasında bir port girin ya da boş bırakın</string>
 
     <string name="connect_serverform_error_load_failed">Sunucu ya da anahtarlar okunamadı</string>
     <string name="connect_serverform_error_not_found">Bu sunucu artık yok</string>

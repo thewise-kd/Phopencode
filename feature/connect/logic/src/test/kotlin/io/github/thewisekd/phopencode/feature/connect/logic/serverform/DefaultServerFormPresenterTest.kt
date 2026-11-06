@@ -30,6 +30,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -899,6 +900,121 @@ class DefaultServerFormPresenterTest {
     }
 
     // Navigation
+
+    // Opencode port
+
+    @Test
+    fun `a new form has no opencode port, and a server saved without one keeps none`() = runTest(timeout = 10.seconds) {
+        val presenter = presenter()
+        runCurrent()
+        assertEquals("", presenter.state.value.opencodePort)
+        presenter.fillValid()
+        presenter.onIntent(ServerFormIntent.PasswordChanged("new-login-secret"))
+
+        presenter.onIntent(ServerFormIntent.Save)
+        runCurrent()
+
+        assertNull(fakeProfiles.list().single().opencodePort)
+    }
+
+    @Test
+    fun `a typed opencode port is saved as a number`() = runTest(timeout = 10.seconds) {
+        val presenter = presenter()
+        runCurrent()
+        presenter.fillValid()
+        presenter.onIntent(ServerFormIntent.PasswordChanged("new-login-secret"))
+        presenter.onIntent(ServerFormIntent.OpencodePortChanged(" 4096 "))
+
+        presenter.onIntent(ServerFormIntent.Save)
+        runCurrent()
+
+        assertEquals(emptyMap(), presenter.state.value.fieldErrors)
+        assertEquals(4096, fakeProfiles.list().single().opencodePort)
+    }
+
+    @Test
+    fun `an invalid opencode port is marked and nothing is saved`() = runTest(timeout = 10.seconds) {
+        for (typed in listOf("0", "65536", "40 96", "abc")) {
+            val presenter = presenter()
+            runCurrent()
+            presenter.fillValid()
+            presenter.onIntent(ServerFormIntent.PasswordChanged("new-login-secret"))
+            presenter.onIntent(ServerFormIntent.OpencodePortChanged(typed))
+
+            presenter.onIntent(ServerFormIntent.Save)
+            runCurrent()
+
+            assertEquals(
+                mapOf(ServerFormField.OpencodePort to ServerFormFieldError.Invalid),
+                presenter.state.value.fieldErrors,
+                typed,
+            )
+        }
+        assertEquals(0, profiles.saveCalls)
+        assertEquals(0, fakeSecrets.entryCount)
+    }
+
+    @Test
+    fun `editing the opencode port clears its error only`() = runTest(timeout = 10.seconds) {
+        val presenter = presenter()
+        runCurrent()
+        presenter.onIntent(ServerFormIntent.OpencodePortChanged("0"))
+        presenter.onIntent(ServerFormIntent.Save)
+        runCurrent()
+        assertEquals(ServerFormFieldError.Invalid, presenter.state.value.fieldErrors[ServerFormField.OpencodePort])
+
+        presenter.onIntent(ServerFormIntent.OpencodePortChanged("4096"))
+
+        val errors = presenter.state.value.fieldErrors
+        assertFalse(ServerFormField.OpencodePort in errors)
+        assertEquals(ServerFormFieldError.Required, errors[ServerFormField.Host])
+    }
+
+    @Test
+    fun `editing shows the saved opencode port and keeps it`() = runTest(timeout = 10.seconds) {
+        fakeProfiles.save(passwordProfile.copy(opencodePort = 4096))
+        fakeSecrets.put(oldPasswordRef, SecretValue.ofText("old-login-secret"))
+        fakeSecrets.put(oldOpencodeRef, SecretValue.ofText("old-opencode-secret"))
+        val presenter = presenter(serverId)
+        runCurrent()
+        assertEquals("4096", presenter.state.value.opencodePort)
+
+        presenter.onIntent(ServerFormIntent.Save)
+        runCurrent()
+
+        val saved = fakeProfiles.list().single()
+        assertEquals(passwordProfile.copy(opencodePort = 4096), saved)
+        assertEquals("old-login-secret", secretText(oldPasswordRef))
+        assertEquals("old-opencode-secret", secretText(oldOpencodeRef))
+    }
+
+    @Test
+    fun `editing a server without an opencode port shows an empty field`() = runTest(timeout = 10.seconds) {
+        seedPasswordProfile()
+        val presenter = presenter(serverId)
+        runCurrent()
+        assertEquals("", presenter.state.value.opencodePort)
+    }
+
+    @Test
+    fun `clearing the opencode port saves none, and changing it saves the new one`() = runTest(timeout = 10.seconds) {
+        fakeProfiles.save(passwordProfile.copy(opencodePort = 4096))
+        fakeSecrets.put(oldPasswordRef, SecretValue.ofText("old-login-secret"))
+        fakeSecrets.put(oldOpencodeRef, SecretValue.ofText("old-opencode-secret"))
+        val presenter = presenter(serverId)
+        runCurrent()
+
+        presenter.onIntent(ServerFormIntent.OpencodePortChanged(""))
+        presenter.onIntent(ServerFormIntent.Save)
+        runCurrent()
+        assertEquals(passwordProfile, fakeProfiles.list().single())
+
+        presenter.onIntent(ServerFormIntent.OpencodePortChanged("5000"))
+        presenter.onIntent(ServerFormIntent.Save)
+        runCurrent()
+        assertEquals(passwordProfile.copy(opencodePort = 5000), fakeProfiles.list().single())
+        assertEquals("old-opencode-secret", secretText(oldOpencodeRef))
+    }
 
     @Test
     fun `cancel closes and manage keys opens keys`() = runTest {

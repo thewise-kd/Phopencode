@@ -19,6 +19,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.unit.dp
 import io.github.thewisekd.phopencode.core.navigation.ConnectRoute
@@ -95,6 +96,25 @@ class ServerFormScreenBehaviorTest {
             ),
             intents,
         )
+    }
+
+    @Test
+    fun `the opencode port field shows the saved port and sends what is typed`() {
+        var state by mutableStateOf(loadedState(isNew = false).copy(opencodePort = "4096"))
+        compose.setForm({ state }) { intent ->
+            intents += intent
+            if (intent is ServerFormIntent.OpencodePortChanged) state = state.copy(opencodePort = intent.port)
+        }
+
+        compose.onNodeWithTag(ServerFormTags.OPENCODE_PORT).performScrollTo().assert(showsText("4096"))
+        compose.onNodeWithTag(ServerFormTags.OPENCODE_PORT).performTextClearance()
+        compose.onNodeWithTag(ServerFormTags.OPENCODE_PORT).performTextInput("5000")
+
+        assertEquals(
+            listOf<ServerFormIntent>(ServerFormIntent.OpencodePortChanged(""), ServerFormIntent.OpencodePortChanged("5000")),
+            intents,
+        )
+        compose.onNodeWithTag(ServerFormTags.OPENCODE_PORT).assert(showsText("5000"))
     }
 
     @Test

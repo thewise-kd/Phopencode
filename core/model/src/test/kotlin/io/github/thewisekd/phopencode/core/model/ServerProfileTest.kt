@@ -72,6 +72,32 @@ class ServerProfileTest {
     }
 
     @Test
+    fun `the opencode port is unset unless given, and round-trips when set`() {
+        val plain = profile(auths.first())
+        assertEquals(null, plain.opencodePort)
+
+        val withPort = plain.copy(opencodePort = 4096)
+        val encoded = Json.encodeToString(ServerProfile.serializer(), withPort)
+
+        assertEquals(4096, Json.decodeFromString(ServerProfile.serializer(), encoded).opencodePort)
+    }
+
+    @Test
+    fun `a profile stored before the opencode port existed reads with no port`() {
+        val old = """{"id":"p","name":"n","host":"h.invalid","port":22,"username":"u",""" +
+            """"auth":{"type":"password","secretRef":"r"}}"""
+
+        assertEquals(null, Json.decodeFromString(ServerProfile.serializer(), old).opencodePort)
+    }
+
+    @Test
+    fun `toString leaves out the opencode port`() {
+        val text = profile(auths.first()).copy(opencodePort = 49374).toString()
+
+        assertFalse(text.contains("49374"), text)
+    }
+
+    @Test
     fun `a data class copy keeps toString masked`() {
         val copy = profile(auths.first()).copy(host = "sentinel-other.invalid")
 

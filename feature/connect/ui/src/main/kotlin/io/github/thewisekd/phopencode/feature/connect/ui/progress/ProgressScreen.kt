@@ -137,7 +137,7 @@ fun ProgressScreen(
             state.error?.let { error ->
                 ErrorBanner(
                     modifier = Modifier.testTag(PROGRESS_ERROR_TAG),
-                    message = stringResource(errorMessage(error)),
+                    message = errorText(error, state.errorPort),
                 )
             }
         }
@@ -370,6 +370,17 @@ private fun actionIntent(action: ProgressAction): ProgressIntent = when (action)
     ProgressAction.EnterServerPassword -> ProgressIntent.EnterServerPassword
 }
 
+/**
+ * The message of [error]. [ProgressError.ServerNotOnPort] names [port]; without one, which the
+ * presenter never sends, it falls back to the incomplete-settings message rather than a raw template.
+ */
+@Composable
+private fun errorText(error: ProgressError, port: Int?): String = when {
+    error != ProgressError.ServerNotOnPort -> stringResource(errorMessage(error))
+    port != null -> stringResource(errorMessage(error), port)
+    else -> stringResource(R.string.connect_progress_error_invalid_profile)
+}
+
 /** A short message per error, saying what to do next. `when` without `else`: a new error fails to compile. */
 @StringRes
 internal fun errorMessage(error: ProgressError): Int = when (error) {
@@ -389,6 +400,7 @@ internal fun errorMessage(error: ProgressError): Int = when (error) {
     ProgressError.ServerVersionTooOld -> R.string.connect_progress_error_server_version_too_old
     ProgressError.ServerUnresponsive -> R.string.connect_progress_error_server_unresponsive
     ProgressError.ServerUnusable -> R.string.connect_progress_error_server_unusable
+    ProgressError.ServerNotOnPort -> R.string.connect_progress_error_server_not_on_port
     ProgressError.ServerDetectionFailed -> R.string.connect_progress_error_server_detection_failed
     ProgressError.ServerStartFailed -> R.string.connect_progress_error_server_start_failed
     ProgressError.ServerLost -> R.string.connect_progress_error_server_lost
