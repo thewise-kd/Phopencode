@@ -580,6 +580,8 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | P9.19 | Folder listing error detail | P4.12, P4.13 | `feature/connect/logic/…/contract/FolderContract.kt` (errorDetail only), `feature/connect/logic/…/folder/`, `feature/connect/ui/…/folder/`, `strings_connect_folder.xml`, `docs/PHASES.md` (this block) | A generic folder listing failure shows the failing exception class chain, never messages, paths or hosts | `CI` |
 | P9.20 | No SSH writes on the caller's thread | P3.1, P3.2, P3.3, P3.4, P3.9, P4.18 | `core/ssh/…/connect/`, `core/ssh/…/sftp/`, `core/ssh/…/exec/` (and their tests), `core/remote/…/connection/`, `docs/PHASES.md` (this block) | Closing SFTP, exec or a connection from the main thread sends no SSH packet from it; a failed socket write ends the session cleanly instead of corrupting it | `CI` |
 | P9.21 | Folder picker survives a dropped connection | P4.12, P9.19 | `feature/connect/logic/…/folder/` | A listing whose client the connection closed shows NotConnected, not Failed, and lists again after the reconnect | `CI` |
+| P9.22 | Folder picker names the connection error | P9.19, P9.21 | `feature/connect/logic/…/folder/`, `feature/connect/ui/…/folder/`, `core/remote/…/connection/` (ConnectionError.Unexpected cause only), `strings_connect_folder.xml`, `docs/PHASES.md` (this block) | When the picker shows NotConnected and the connection ended in an error, the error type and its cause class chain show, never messages or addresses | `CI` |
+| P9.23 | Tunnel streams run on API 26 | P3.6 | `core/ssh/…/tunnel/` (and its tests) | Tunnel socket reads and writes use no API above minSdk 26 and reject bad offsets with IndexOutOfBoundsException | `CI` |
 
 `CP9`: push, CI green, `PHONE`: commit and push in a test repository.
 

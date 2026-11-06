@@ -63,7 +63,11 @@ import kotlinx.coroutines.yield
  * Errors: [FolderError.PermissionDenied] and [FolderError.NotFound] as SFTP reports them;
  * [FolderError.NotConnected] without an active server, without a connection that serves it (see
  * below), or when the SSH session ends under a request; [FolderError.Failed] for anything else, with
- * the failure's class chain in [FolderState.errorDetail] (see [FailureDetail]; nothing is logged). A
+ * the failure's class chain in [FolderState.errorDetail] (see [FailureDetail]; nothing is logged).
+ * While the connection state is [ConnectionState.Error], [FolderError.NotConnected] carries that
+ * error in [FolderState.errorDetail] (see [ConnectionDetail]); in any other state it carries none.
+ * The detail follows the state while the error shows: it appears, changes or goes as the state
+ * turns to an error, to another error, or away from one (P9.22). A
  * new error, [FolderIntent.Retry], [FolderIntent.DismissError] or a listing clears the detail. The
  * folder shown stays after an error, and so does the client, unless the error came from the
  * connection: then the client is closed, and the next request ([FolderIntent.Retry]) opens a new
@@ -167,6 +171,8 @@ class DefaultFolderPresenter(
             yield()
             connection.state.collect { state ->
                 if (state is ConnectionState.Connected) relistIfReconnected(self = null)
+                // The state read now, not the one collected: a newer one may have come meanwhile.
+                followConnectionError()
             }
         }
         browse(null)
@@ -263,9 +269,10 @@ class DefaultFolderPresenter(
                     lostGeneration = maxOf(lostGeneration, attempt.startGeneration, attempt.generation ?: 0L)
                 }
             }
-            // Only the class chain, never a message: see FailureDetail.
+            // Only class names, never a message: see FailureDetail and ConnectionDetail.
             val detail = if (error == FolderError.Failed) FailureDetail.of(e) else null
-            mutableState.update { it.copy(loading = false).withError(error, detail) }
+            mutableState.update { it.copy(loading = false).withError(error, detail).withConnectionDetail() }
+            if (error == FolderError.NotConnected) followConnectionError()
         }
     }
 
@@ -389,6 +396,32 @@ class DefaultFolderPresenter(
     }
 
     /**
+     * This state with the detail of [FolderError.NotConnected], when that shows, set to the
+     * connection state read now: the error of [ConnectionState.Error] (see [ConnectionDetail]), null
+     * in any other state. Any other error keeps its own detail.
+     *
+     * Called only inside [mutableState]'s `update`, so the state is read inside the compare-and-set:
+     * a write that loses the race runs again and reads the state again, and the last write that
+     * lands has read the state after every write before it. It reads and changes nothing else.
+     */
+    private fun FolderState.withConnectionDetail(): FolderState {
+        if (error != FolderError.NotConnected) return this
+        val detail = (connection.state.value as? ConnectionState.Error)?.let { ConnectionDetail.of(it.error) }
+        return if (errorDetail == detail) this else copy(errorDetail = detail)
+    }
+
+    /**
+     * Brings the detail of [FolderError.NotConnected], while it shows, to the connection state now
+     * (see [withConnectionDetail]). Called by the state watcher on every state, loading or not, and
+     * by whoever publishes [FolderError.NotConnected], right after publishing it. So no state change
+     * is missed: one made before this read is in it, and one made after it reaches the watcher,
+     * which then finds the error published.
+     */
+    private fun followConnectionError() {
+        mutableState.update { it.withConnectionDetail() }
+    }
+
+    /**
      * The connection standing now if it serves [profile], by default [ActiveServer]'s profile read
      * now: the state is `Connected` and its `server.profileId` is that profile. Null otherwise,
      * including without an active profile. A caller that has already read the active profile passes
@@ -456,7 +489,8 @@ class DefaultFolderPresenter(
         val active = activeServer.id.value
         val listedFor = synchronized(lock) { shownProfile }
         if (active == null) {
-            mutableState.update { it.withError(FolderError.NotConnected) }
+            mutableState.update { it.withError(FolderError.NotConnected).withConnectionDetail() }
+            followConnectionError()
             return
         }
         if (listedFor != null && listedFor != active) {
@@ -466,7 +500,8 @@ class DefaultFolderPresenter(
         // The profile read above, not read again: a switch in between must not change whose it is.
         val id = listedFor ?: serving(active)?.server?.profileId
         if (id == null) {
-            mutableState.update { it.withError(FolderError.NotConnected) }
+            mutableState.update { it.withError(FolderError.NotConnected).withConnectionDetail() }
+            followConnectionError()
             return
         }
         val path = canonical(requested) ?: return

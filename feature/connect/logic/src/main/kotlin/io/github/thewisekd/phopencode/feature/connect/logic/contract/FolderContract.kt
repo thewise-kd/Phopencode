@@ -27,7 +27,10 @@ enum class FolderError {
  * @property recent The active server's recent folders, newest first.
  * @property errorDetail With [FolderError.Failed] from a failed listing, the failure's class chain,
  *   for example `SshException.Sftp(Failed) <- java.io.EOFException`: class names only, never a
- *   message, path or host. Null otherwise, and cleared with the error.
+ *   message, path or host. With [FolderError.NotConnected] while the connection state is an
+ *   error, that error's type and its cause's class chain, for example `Api(Unauthorized)` or
+ *   `Unexpected <- java.lang.IllegalStateException`; it follows the state (P9.22). Null otherwise,
+ *   and cleared with the error.
  */
 data class FolderState(
     val loading: Boolean = true,

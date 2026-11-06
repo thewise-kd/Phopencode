@@ -1,5 +1,9 @@
 package io.github.thewisekd.phopencode.feature.connect.logic.folder
 
+import io.github.thewisekd.phopencode.core.api.ApiError
+import io.github.thewisekd.phopencode.core.api.EventApi
+import io.github.thewisekd.phopencode.core.api.OpencodeClient
+import io.github.thewisekd.phopencode.core.api.ServerEvent
 import io.github.thewisekd.phopencode.core.model.FileEntry
 import io.github.thewisekd.phopencode.core.model.SecretRef
 import io.github.thewisekd.phopencode.core.model.ServerProfile
@@ -39,6 +43,8 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 
 internal const val HOST = "server.example"
 internal const val PORT = 22
@@ -171,12 +177,38 @@ internal class FolderConnection(scope: CoroutineScope) {
     private val knownHosts = FakeKnownHostsStore()
     val connector = FakeSshConnector(SERVER_KEY, newSession = { FakeSshSession(files = files) })
 
+    /** Every API client the manager made, oldest first. */
+    val apiClients = mutableListOf<FakeOpencodeClient>()
+
+    /** When set, the first call of every API client made from now on fails with this. */
+    @Volatile
+    var nextClientFailure: ApiError? = null
+
+    /** When set, the event stream of every API client made from now on fails with what this makes. */
+    @Volatile
+    var breakEvents: (() -> Exception)? = null
+
     val manager = ConnectionManager(
         connector = LoggingConnector(connector, log),
         secrets = secrets,
         knownHosts = knownHosts,
         servers = ServerResolver(secrets, RunningServer),
-        clients = OpencodeClientFactory { _, _, _ -> FakeOpencodeClient() },
+        clients = OpencodeClientFactory { _, _, _ ->
+            val client = FakeOpencodeClient().also { client ->
+                nextClientFailure?.let(client.control::failNext)
+                synchronized(apiClients) { apiClients += client }
+            }
+            val failure = breakEvents
+            if (failure == null) {
+                client
+            } else {
+                object : OpencodeClient by client {
+                    override val events: EventApi = object : EventApi by client.events {
+                        override fun events(types: Set<String>): Flow<ServerEvent> = flow { throw failure() }
+                    }
+                }
+            }
+        },
         scope = scope,
         options = ConnectionOptions(reconnect = ReconnectPolicy(delays = listOf(1.seconds), maxAttempts = 3)),
     )
@@ -197,4 +229,7 @@ internal class FolderConnection(scope: CoroutineScope) {
     fun lastClient(): FakeSftpClient = synchronized(log) { log.opened.last().inner }
 
     fun failNextSftp(failure: SshException) = lastClient().failNext(failure)
+
+    /** The API client of the connection standing now, or of the latest connect. */
+    fun lastApiClient(): FakeOpencodeClient = synchronized(apiClients) { apiClients.last() }
 }

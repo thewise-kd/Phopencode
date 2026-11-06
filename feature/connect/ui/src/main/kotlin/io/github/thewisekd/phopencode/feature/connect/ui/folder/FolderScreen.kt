@@ -86,7 +86,7 @@ fun FolderScreen(
                     onRetry = if (error.canRetry) ({ onIntent(FolderIntent.Retry) }) else null,
                     onDismiss = { onIntent(FolderIntent.DismissError) },
                 )
-                if (error == FolderError.Failed) state.errorDetail?.let { ErrorDetail(it) }
+                if (error.hasDetail) state.errorDetail?.let { ErrorDetail(it) }
             }
             LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
                 recentFolders(state.recent, onIntent)
@@ -108,8 +108,9 @@ fun FolderScreen(
 }
 
 /**
- * The failure's class chain under its message: small, and selectable so that it can be copied into a
- * bug report. It holds class names only, never a path or a host (see the presenter).
+ * The failure's class chain, or the connection error's type, under its message: small, and
+ * selectable so that it can be copied into a bug report. It holds class names only, never a path or
+ * a host (see the presenter).
  */
 @Composable
 private fun ErrorDetail(detail: String) {
@@ -129,6 +130,10 @@ private fun ErrorDetail(detail: String) {
         )
     }
 }
+
+/** These carry a technical detail: a failure's class chain, or why the connection ended (P9.22). */
+private val FolderError.hasDetail: Boolean
+    get() = this == FolderError.Failed || this == FolderError.NotConnected
 
 /** Listing the folder again can help after these; the others need something else to change first. */
 private val FolderError.canRetry: Boolean

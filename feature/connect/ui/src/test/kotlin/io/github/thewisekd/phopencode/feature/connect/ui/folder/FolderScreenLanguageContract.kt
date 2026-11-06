@@ -118,11 +118,27 @@ abstract class FolderScreenLanguageContract {
     }
 
     @Test
+    fun `not connected with a connection error's detail shows it under the message`() {
+        compose.setFolderScreen(browsing.copy(error = FolderError.NotConnected, errorDetail = CONNECTION_DETAIL))
+
+        compose.onNodeWithText(strings.errors.getValue(FolderError.NotConnected)).assertIsDisplayed()
+        compose.onNodeWithText(strings.details(CONNECTION_DETAIL)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `not connected without a detail shows no detail line`() {
+        compose.setFolderScreen(browsing.copy(error = FolderError.NotConnected))
+
+        compose.onNodeWithText(strings.errors.getValue(FolderError.NotConnected)).assertIsDisplayed()
+        compose.onNodeWithText(strings.details(""), substring = true).assertDoesNotExist()
+    }
+
+    @Test
     fun `other errors show no detail line`() {
         var state by mutableStateOf(browsing)
         compose.setContent { FolderScreenUnderTest(state) }
 
-        for (error in FolderError.entries - FolderError.Failed) {
+        for (error in FolderError.entries - FolderError.Failed - FolderError.NotConnected) {
             state = browsing.copy(error = error, errorDetail = DETAIL)
             compose.waitForIdle()
 

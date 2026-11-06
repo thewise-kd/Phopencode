@@ -387,6 +387,22 @@ class ConnectionManagerTest {
     }
 
     @Test
+    fun `a watch that fails with another exception ends in Unexpected with that exception as its cause`() = runTest {
+        val fx = Fixture(this)
+        val failure = IllegalStateException("watch broke at " + HOST)
+        fx.clients.breakEvents = { failure }
+        fx.seedSecrets()
+        fx.trustServerKey()
+        fx.manager.connect(profile())
+        runCurrent()
+
+        val error = assertIs<ConnectionState.Error>(fx.manager.state.value).error
+        assertEquals(ConnectionError.Unexpected(), error)
+        assertSame(failure, assertIs<ConnectionError.Unexpected>(error).cause)
+        fx.assertNothingOpen()
+    }
+
+    @Test
     fun `a second server drop after a reconnect starts the attempts over`() = runTest {
         val fx = Fixture(this)
         val first = connected(fx)

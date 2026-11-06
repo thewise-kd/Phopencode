@@ -1,7 +1,9 @@
 package io.github.thewisekd.phopencode.feature.connect.logic.folder
 
+import io.github.thewisekd.phopencode.core.api.ApiError
 import io.github.thewisekd.phopencode.core.model.FileEntryType
 import io.github.thewisekd.phopencode.core.model.ServerProfileId
+import io.github.thewisekd.phopencode.core.remote.connection.ConnectionError
 import io.github.thewisekd.phopencode.core.remote.connection.ConnectionState
 import io.github.thewisekd.phopencode.core.ssh.api.SftpFailure
 import io.github.thewisekd.phopencode.core.ssh.api.SshException
@@ -19,6 +21,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -31,6 +34,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -1420,5 +1424,269 @@ class DefaultFolderPresenterTest {
         assertNull(presenter.state.value.error)
         assertEquals("/srv", presenter.state.value.path)
         assertEquals(3, env.connection.log.opened.size)
+    }
+
+    @Test
+    fun `NotConnected after the connection ended in an API error names the error`() = runTest {
+        val env = env()
+        val presenter = env.presenter()
+        runCurrent()
+        open(presenter, "/srv")
+
+        env.connection.lastApiClient().events.fail(ApiError.Unauthorized)
+        runCurrent()
+        assertEquals(
+            ConnectionState.Error(ConnectionError.Api(ApiError.Unauthorized)),
+            env.connection.manager.state.value,
+        )
+        open(presenter, "/srv/app")
+
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        assertEquals("Api(Unauthorized)", presenter.state.value.errorDetail)
+    }
+
+    @Test
+    fun `NotConnected names the connection error but never the server's text`() = runTest {
+        val env = env(connect = false)
+        env.connection.nextClientFailure = ApiError.BadRequest(detail = SECRET_TEXT)
+        env.connection.connect()
+        runCurrent()
+        assertIs<ConnectionState.Error>(env.connection.manager.state.value)
+
+        val presenter = env.presenter()
+        runCurrent()
+
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        val detail = assertNotNull(presenter.state.value.errorDetail)
+        assertEquals("Api(BadRequest)", detail)
+        assertFalse(SECRET_TEXT in detail)
+    }
+
+    @Test
+    fun `NotConnected after an unexpected connection error shows its cause chain but no message`() = runTest {
+        val env = env(connect = false)
+        env.connection.breakEvents = { IllegalStateException(SECRET_TEXT, IOException(SECRET_TEXT)) }
+        env.connection.connect()
+        runCurrent()
+        val failed = assertIs<ConnectionState.Error>(env.connection.manager.state.value)
+        assertIs<ConnectionError.Unexpected>(failed.error)
+
+        val presenter = env.presenter()
+        runCurrent()
+
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        val detail = assertNotNull(presenter.state.value.errorDetail)
+        assertEquals("Unexpected <- java.lang.IllegalStateException <- java.io.IOException", detail)
+        assertFalse(SECRET_TEXT in detail)
+    }
+
+    @Test
+    fun `NotConnected without a connection error shows no detail`() = runTest {
+        val env = env(connect = false)
+        val presenter = env.presenter()
+        runCurrent()
+
+        assertEquals(ConnectionState.Idle, env.connection.manager.state.value)
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        assertNull(presenter.state.value.errorDetail)
+    }
+
+    @Test
+    fun `NotConnected names a connection error that comes after it`() = runTest {
+        val env = env(connect = false)
+        val presenter = env.presenter()
+        runCurrent()
+        assertNull(presenter.state.value.errorDetail)
+
+        env.connection.nextClientFailure = ApiError.Forbidden
+        env.connection.connect()
+        runCurrent()
+
+        assertIs<ConnectionState.Error>(env.connection.manager.state.value)
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        assertEquals("Api(Forbidden)", presenter.state.value.errorDetail)
+    }
+
+    /** A presenter showing NotConnected with `Api(Forbidden)`, the connect having failed with it. */
+    private suspend fun TestScope.forbidden(env: Env): DefaultFolderPresenter {
+        env.connection.nextClientFailure = ApiError.Forbidden
+        env.connection.connect()
+        runCurrent()
+        env.connection.nextClientFailure = null
+        val presenter = env.presenter()
+        runCurrent()
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        assertEquals("Api(Forbidden)", presenter.state.value.errorDetail)
+        return presenter
+    }
+
+    @Test
+    fun `leaving the error state for Idle drops the connection error's detail`() = runTest {
+        val env = env(connect = false)
+        val presenter = forbidden(env)
+
+        env.connection.manager.disconnect()
+        runCurrent()
+
+        assertEquals(ConnectionState.Idle, env.connection.manager.state.value)
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        assertNull(presenter.state.value.errorDetail)
+    }
+
+    @Test
+    fun `leaving the error state for a new connect drops the connection error's detail`() = runTest {
+        val env = env(connect = false)
+        val presenter = forbidden(env)
+
+        // A server that never answers keeps the connect at its SSH step.
+        env.connection.connector.silent = true
+        env.connection.connect()
+        runCurrent()
+
+        assertIs<ConnectionState.Ssh>(env.connection.manager.state.value)
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        assertNull(presenter.state.value.errorDetail)
+    }
+
+    @Test
+    fun `a new connection error replaces the detail of the one before`() = runTest {
+        val env = env(connect = false)
+        val presenter = forbidden(env)
+
+        env.connection.connector.failNext(SshException.Sftp(SftpFailure.Failed, IOException(SECRET_TEXT)))
+        env.connection.connect()
+        runCurrent()
+
+        val failed = assertIs<ConnectionState.Error>(env.connection.manager.state.value)
+        assertIs<ConnectionError.Unexpected>(failed.error)
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        val detail = assertNotNull(presenter.state.value.errorDetail)
+        assertEquals("Unexpected <- SshException.Sftp(Failed) <- java.io.IOException", detail)
+        assertFalse(SECRET_TEXT in detail)
+    }
+
+    /**
+     * Runs before the next listing: the connection ends in `Error(Api(Unauthorized))`, and [then]
+     * moves it on while that listing is still under way. The listing then fails on its closed client.
+     */
+    private fun Env.endWhileListing(then: suspend () -> Unit) {
+        connection.log.beforeList.set { sftp ->
+            connection.lastApiClient().events.fail(ApiError.Unauthorized)
+            val failed = connection.manager.state.first { it is ConnectionState.Error }
+            assertEquals(ConnectionState.Error(ConnectionError.Api(ApiError.Unauthorized)), failed)
+            then()
+            while (sftp.closes.get() == 0) yield()
+        }
+    }
+
+    @Test
+    fun `an error state that ends while a listing is under way leaves no detail`() = runTest(timeout = 10.seconds) {
+        val env = env()
+        val presenter = env.presenter()
+        runCurrent()
+        env.endWhileListing { env.connection.manager.disconnect() }
+
+        open(presenter, "/srv")
+
+        assertEquals(ConnectionState.Idle, env.connection.manager.state.value)
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        assertFalse(presenter.state.value.loading)
+        assertNull(presenter.state.value.errorDetail)
+    }
+
+    @Test
+    fun `an error state replaced while a listing is under way shows the newer error`() = runTest(timeout = 10.seconds) {
+        val env = env()
+        val presenter = env.presenter()
+        runCurrent()
+        env.endWhileListing {
+            env.connection.connector.failNext(SshException.Sftp(SftpFailure.Failed, IOException(SECRET_TEXT)))
+            env.connection.connect()
+            env.connection.manager.state.first { (it as? ConnectionState.Error)?.error is ConnectionError.Unexpected }
+        }
+
+        open(presenter, "/srv")
+
+        assertEquals(FolderError.NotConnected, presenter.state.value.error)
+        assertFalse(presenter.state.value.loading)
+        assertEquals(
+            "Unexpected <- SshException.Sftp(Failed) <- java.io.IOException",
+            presenter.state.value.errorDetail,
+        )
+    }
+
+    @Test
+    fun `while a listing is under way NotConnected's detail follows the connection state`() =
+        runTest(timeout = 10.seconds) {
+            val env = env()
+            val during = mutableListOf<FolderState>()
+            lateinit var presenter: DefaultFolderPresenter
+            env.connection.log.beforeList.set { sftp ->
+                env.connection.lastApiClient().events.fail(ApiError.Unauthorized)
+                env.connection.manager.state.first { it is ConnectionState.Error }
+                // Before any listing, a pick without a connection shows NotConnected at once.
+                presenter.onIntent(FolderIntent.Select("/srv"))
+                during += presenter.state.value
+                env.connection.manager.disconnect()
+                repeat(10) { yield() }
+                during += presenter.state.value
+                while (sftp.closes.get() == 0) yield()
+            }
+
+            presenter = env.presenter()
+            runCurrent()
+
+            assertEquals(listOf(true, true), during.map { it.loading })
+            assertEquals(listOf(FolderError.NotConnected, FolderError.NotConnected), during.map { it.error })
+            assertEquals(listOf("Api(Unauthorized)", null), during.map { it.errorDetail })
+            assertEquals(FolderError.NotConnected, presenter.state.value.error)
+            assertNull(presenter.state.value.errorDetail)
+        }
+
+    @Test
+    fun `a listing failure's detail stays whatever the connection does`() = runTest {
+        val env = env()
+        val presenter = env.presenter()
+        runCurrent()
+        env.connection.failNextSftp(SshException.Sftp(SftpFailure.Failed, EOFException(SECRET_TEXT)))
+        open(presenter, "/srv")
+        val failed = presenter.state.value
+        assertEquals(FolderError.Failed, failed.error)
+        assertEquals("SshException.Sftp(Failed) <- java.io.EOFException", failed.errorDetail)
+
+        env.connection.lastApiClient().events.fail(ApiError.Unauthorized)
+        runCurrent()
+        assertIs<ConnectionState.Error>(env.connection.manager.state.value)
+        assertEquals(failed, presenter.state.value)
+
+        env.connection.manager.disconnect()
+        runCurrent()
+        assertEquals(ConnectionState.Idle, env.connection.manager.state.value)
+        assertEquals(failed, presenter.state.value)
+    }
+
+    @Test
+    fun `a reconnect that lists again clears the connection error's detail`() = runTest {
+        val env = env()
+        val presenter = env.presenter()
+        runCurrent()
+        open(presenter, "/srv")
+        env.connection.lastApiClient().events.fail(ApiError.Unauthorized)
+        runCurrent()
+        open(presenter, "/srv/app")
+        assertEquals("Api(Unauthorized)", presenter.state.value.errorDetail)
+
+        env.connection.connect()
+        runCurrent()
+
+        assertIs<ConnectionState.Connected>(env.connection.manager.state.value)
+        assertNull(presenter.state.value.error)
+        assertNull(presenter.state.value.errorDetail)
+        assertEquals("/srv", presenter.state.value.path)
+    }
+
+    private companion object {
+        /** Server text a detail must never carry. */
+        const val SECRET_TEXT = "secret-server-text"
     }
 }

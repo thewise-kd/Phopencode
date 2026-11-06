@@ -8,7 +8,8 @@ import io.github.thewisekd.phopencode.core.storage_api.HostKeyFingerprint
 import java.io.IOException
 
 /**
- * Why a connection failed or ended. None of these holds an address, a secret or server output.
+ * Why a connection failed or ended. None of these holds an address, a secret or server output,
+ * except in the message of [Unexpected.cause], which nothing here reads or prints.
  * [retryable] failures may pass with time, so a reconnect tries again after them; the others need
  * the user.
  */
@@ -117,8 +118,21 @@ sealed interface ConnectionError {
             get() = error == ApiError.Network || error == ApiError.Timeout || error is ApiError.Server
     }
 
-    /** A failure no other case describes. */
-    data object Unexpected : ConnectionError
+    /**
+     * A failure no other case describes.
+     *
+     * @property cause The failure itself, when there was one, so that a screen can name its class
+     *   chain (P9.22). Read its classes only: its message may quote an address or a server's reply.
+     *   It takes no part in [equals], [hashCode] or [toString]: every `Unexpected` equals every
+     *   other, as when this was an object, and printing one never prints the cause.
+     */
+    class Unexpected(val cause: Throwable? = null) : ConnectionError {
+        override fun equals(other: Any?): Boolean = other is Unexpected
+
+        override fun hashCode(): Int = Unexpected::class.java.name.hashCode()
+
+        override fun toString(): String = "Unexpected"
+    }
 }
 
 /** [ServerStartException] as a value. */

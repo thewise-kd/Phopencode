@@ -67,5 +67,5 @@ internal fun progressFailure(error: ConnectionError): ProgressFailure = when (er
         // Also a dropped event stream after the connection stood; the screen is gone by then.
         else -> ProgressFailure(ProgressError.ApiFailed, RETRY, API)
     }
-    ConnectionError.Unexpected -> ProgressFailure(ProgressError.Unexpected, RETRY)
+    is ConnectionError.Unexpected -> ProgressFailure(ProgressError.Unexpected, RETRY)
 }

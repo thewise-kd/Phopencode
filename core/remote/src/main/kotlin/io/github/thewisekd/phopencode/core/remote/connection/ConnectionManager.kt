@@ -559,7 +559,7 @@ class ConnectionManager(
             if (cause is CancellationException) {
                 closeNow()
             } else {
-                publish(ConnectionState.Error(ConnectionError.Unexpected))
+                publish(ConnectionState.Error(ConnectionError.Unexpected(cause)))
             }
         }
 
@@ -633,7 +633,11 @@ class ConnectionManager(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                val error = if (failure is IOException) ConnectionError.StorageUnavailable else ConnectionError.Unexpected
+                val error = if (failure is IOException) {
+                    ConnectionError.StorageUnavailable
+                } else {
+                    ConnectionError.Unexpected(failure)
+                }
                 // The state first, so that a caller who resumes at once finds it told.
                 publish(ConnectionState.Error(error))
                 replacement.outcome.complete(HostKeyReplacement.Failed(error))
@@ -841,8 +845,8 @@ class ConnectionManager(
             throw cancelled
         } catch (failure: ApiException) {
             ConnectionError.Api(failure.error)
-        } catch (_: Exception) {
-            ConnectionError.Unexpected
+        } catch (failure: Exception) {
+            ConnectionError.Unexpected(failure)
         }
 
         private suspend fun establish(profile: ServerProfile, attempt: Int): Live {
@@ -902,8 +906,8 @@ class ConnectionManager(
                     throw ConnectionException(sshError(failure))
                 } catch (cancelled: CancellationException) {
                     throw cancelled
-                } catch (_: Exception) {
-                    throw ConnectionException(ConnectionError.Unexpected)
+                } catch (failure: Exception) {
+                    throw ConnectionException(ConnectionError.Unexpected(failure))
                 } finally {
                     credential.wipe()
                 }
@@ -1035,7 +1039,7 @@ class ConnectionManager(
             is SshException.Disconnected -> ConnectionError.Disconnected
             is SshException.AuthenticationFailed -> ConnectionError.AuthenticationFailed
             is SshException.HostKeyRejected -> ConnectionError.HostKeyRejected(failure.hostKey)
-            is SshException.OutputLimitExceeded, is SshException.Sftp -> ConnectionError.Unexpected
+            is SshException.OutputLimitExceeded, is SshException.Sftp -> ConnectionError.Unexpected(failure)
         }
 
         /** Turns every failure of a server or API step into [ConnectionException]; cancellation passes. */
@@ -1049,8 +1053,8 @@ class ConnectionManager(
             throw ConnectionException(sshError(failure))
         } catch (failure: ApiException) {
             throw ConnectionException(ConnectionError.Api(failure.error))
-        } catch (_: Exception) {
-            throw ConnectionException(ConnectionError.Unexpected)
+        } catch (failure: Exception) {
+            throw ConnectionException(ConnectionError.Unexpected(failure))
         }
     }
 }

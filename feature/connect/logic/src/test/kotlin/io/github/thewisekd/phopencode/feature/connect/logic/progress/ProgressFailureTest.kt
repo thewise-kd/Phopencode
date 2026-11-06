@@ -41,7 +41,7 @@ class ProgressFailureTest {
         check(ConnectionError.ServerUnresponsive, ProgressError.ServerUnresponsive, Retry)
         check(ConnectionError.ServerUnusable, ProgressError.ServerUnusable, Retry)
         check(ConnectionError.OpencodeMissing, ProgressError.OpencodeMissing, Retry)
-        check(ConnectionError.Unexpected, ProgressError.Unexpected, Retry)
+        check(ConnectionError.Unexpected(), ProgressError.Unexpected, Retry)
         DetectFailure.entries.forEach {
             check(ConnectionError.ServerDetectionFailed(it), ProgressError.ServerDetectionFailed, Retry)
         }
@@ -87,7 +87,7 @@ class ProgressFailureTest {
         assertEquals(ProgressStep.Api, progressFailure(ConnectionError.Api(ApiError.Unauthorized)).step)
         assertNull(progressFailure(ConnectionError.StorageUnavailable).step)
         assertNull(progressFailure(ConnectionError.SecretUnreadable).step)
-        assertNull(progressFailure(ConnectionError.Unexpected).step)
+        assertNull(progressFailure(ConnectionError.Unexpected()).step)
     }
 
     @Test

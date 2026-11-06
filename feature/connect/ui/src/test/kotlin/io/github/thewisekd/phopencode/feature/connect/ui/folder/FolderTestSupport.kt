@@ -25,6 +25,9 @@ internal const val RECENT_TWO = "/data/sample"
 /** A failure's detail as the presenter builds it. */
 internal const val DETAIL = "SshException.Sftp(Failed) <- java.io.EOFException"
 
+/** A connection error's detail as the presenter builds it for NotConnected. */
+internal const val CONNECTION_DETAIL = "Api(Unauthorized)"
+
 internal val browsing = FolderState(
     loading = false,
     path = CURRENT,

@@ -1,7 +1,9 @@
 package io.github.thewisekd.phopencode.core.remote.connection
 
 import io.github.thewisekd.phopencode.core.api.ApiError
+import io.github.thewisekd.phopencode.core.api.EventApi
 import io.github.thewisekd.phopencode.core.api.OpencodeClient
+import io.github.thewisekd.phopencode.core.api.ServerEvent
 import io.github.thewisekd.phopencode.core.model.SecretRef
 import io.github.thewisekd.phopencode.core.model.ServerProfile
 import io.github.thewisekd.phopencode.core.model.ServerProfileId
@@ -30,6 +32,8 @@ import javax.net.SocketFactory
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -131,6 +135,13 @@ internal class RecordingClientFactory : OpencodeClientFactory {
     @Volatile
     var refuseEvents: ApiError? = null
 
+    /**
+     * When set, every new client's event stream fails with what this makes, as an exception that is
+     * no [io.github.thewisekd.phopencode.core.api.ApiException] would; other calls still work.
+     */
+    @Volatile
+    var breakEvents: (() -> Exception)? = null
+
     /** The server's password; a client with another one is refused. Null accepts any. */
     @Volatile
     var serverPassword: (() -> String?)? = null
@@ -142,7 +153,12 @@ internal class RecordingClientFactory : OpencodeClientFactory {
         val expected = serverPassword?.invoke()
         if (expected != null && expected != password.revealText()) client.control.failNext(ApiError.Unauthorized)
         made += Made(baseUrl, password.revealText(), sockets, client)
-        return client
+        val failure = breakEvents ?: return client
+        return object : OpencodeClient by client {
+            override val events: EventApi = object : EventApi by client.events {
+                override fun events(types: Set<String>): Flow<ServerEvent> = flow { throw failure() }
+            }
+        }
     }
 }
 
