@@ -1,3 +1,80 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="git_remote_title">Uzak depo</string>
+    <string name="git_remote_refresh">Yenile</string>
+    <string name="git_remote_loading">Uzak depolar okunuyor…</string>
+
+    <string name="git_remote_branch">Dal</string>
+    <string name="git_remote_detached">Ayrık HEAD: %1$s</string>
+    <string name="git_remote_detached_unknown">Ayrık HEAD</string>
+    <string name="git_remote_no_commits">Henüz commit yok</string>
+    <string name="git_remote_tracking">İzlenen: %1$s</string>
+    <plurals name="git_remote_ahead">
+        <item quantity="one">%1$d ileride</item>
+        <item quantity="other">%1$d ileride</item>
+    </plurals>
+    <plurals name="git_remote_behind">
+        <item quantity="one">%1$d geride</item>
+        <item quantity="other">%1$d geride</item>
+    </plurals>
+    <string name="git_remote_up_to_date">Güncel</string>
+    <string name="git_remote_no_upstream">İzlenen uzak dal yok; push bir tane ayarlar</string>
+
+    <string name="git_remote_remote">Uzak depo: %1$s</string>
+    <string name="git_remote_choose">Uzak depo seçin</string>
+    <string name="git_remote_no_remotes_title">Uzak depo yok</string>
+    <string name="git_remote_no_remotes_message">Bu deponun fetch ya da push yapılacak bir uzak deposu yok. Sunucuda bir tane ekleyin.</string>
+
+    <string name="git_remote_fetch">Fetch</string>
+    <string name="git_remote_fetch_hint">Yeni commit\'leri indirir; hiçbir dalı değiştirmez.</string>
+    <string name="git_remote_pull">Pull</string>
+    <string name="git_remote_pull_hint">Yalnızca ileri sarma: asla merge ya da rebase yapmaz.</string>
+    <string name="git_remote_push">Push</string>
+    <string name="git_remote_push_hint">Önce sorar; asla zorlamaz.</string>
+
+    <string name="git_remote_running_fetch">Fetch yapılıyor…</string>
+    <string name="git_remote_running_pull">Pull yapılıyor…</string>
+    <string name="git_remote_running_push">Push yapılıyor…</string>
+    <string name="git_remote_cancel">İptal</string>
+
+    <string name="git_remote_push_confirm_title">%1$s uzak deposuna push yapılsın mı?</string>
+    <plurals name="git_remote_push_confirm_message">
+        <item quantity="one">%2$s dalındaki %1$d commit %3$s deposuna gönderilsin mi?</item>
+        <item quantity="other">%2$s dalındaki %1$d commit %3$s deposuna gönderilsin mi?</item>
+    </plurals>
+    <string name="git_remote_push_confirm_message_unknown">%1$s dalı %2$s deposuna gönderilsin mi?</string>
+    <string name="git_remote_push_confirm_set_upstream">%1$s dalının henüz izlediği uzak dal yok; push, %2$s/%1$s dalını izlenen dal yapar.</string>
+    <string name="git_remote_push_confirm_no_force">Push asla zorlanmaz: uzak depoda daha yeni commit\'ler varsa reddedilir.</string>
+
+    <string name="git_remote_result_fetch_done">Fetch tamamlandı.</string>
+    <string name="git_remote_result_fetch_up_to_date">Fetch tamamlandı; uzak depoda yeni bir şey yok.</string>
+    <string name="git_remote_result_fetch_cancelled">Fetch iptal edildi.</string>
+    <string name="git_remote_result_fetch_failed">Fetch başarısız oldu.</string>
+    <string name="git_remote_result_pull_done">Pull tamamlandı; dal ileri sarıldı.</string>
+    <string name="git_remote_result_pull_up_to_date">Zaten güncel; çekilecek bir şey yok.</string>
+    <string name="git_remote_result_pull_cancelled">Pull iptal edildi. Dalı kontrol etmek için yenileyin.</string>
+    <string name="git_remote_result_pull_failed">Pull başarısız oldu.</string>
+    <string name="git_remote_result_push_done">Push tamamlandı.</string>
+    <string name="git_remote_result_push_up_to_date">Gönderilecek bir şey yok; uzak depoda bu commit\'ler zaten var.</string>
+    <string name="git_remote_result_push_cancelled">Push iptal edildi. Uzak depoya ulaşmış olabilir; kontrol etmek için yenileyin.</string>
+    <string name="git_remote_result_push_failed">Push başarısız oldu.</string>
+    <string name="git_remote_result_dismiss">Kapat</string>
+
+    <string name="git_remote_explain_credential">Uzak depo kullanıcı adı, parola ya da parola cümlesi istedi; uygulama bu sorulara yanıt veremez. Kimlik bilgilerini sunucuda bir credential helper ile saklayın ya da orada bir SSH anahtarı kurun.</string>
+    <string name="git_remote_explain_non_fast_forward">Uzak depoda bu dalda olmayan commit\'ler var: başka biri push yapmış. Önce pull yapın, sonra yeniden push yapın.</string>
+    <string name="git_remote_explain_diverged">Hem bu dalda hem uzak depoda yeni commit\'ler var, bu yüzden ileri sarmalı pull yapılamaz. Sunucuda ya da bir bilgisayarda merge veya rebase yapın, sonra yeniden deneyin.</string>
+    <string name="git_remote_explain_would_overwrite">Pull yerel değişikliklerin üzerine yazacaktı; hiçbir şey değişmedi. Önce onları commit edin ya da atın, sonra yeniden pull yapın.</string>
+    <string name="git_remote_explain_conflict">Depoda çözülmemiş merge çakışmaları var. Önce onları çözüp commit edin, sonra yeniden deneyin.</string>
+
+    <string name="git_remote_error_not_connected">Sunucuya bağlı değilsiniz. Geri dönüp yeniden bağlanın.</string>
+    <string name="git_remote_error_unreachable">Sunucuya ulaşılamadı. Yeniden deneyin.</string>
+    <string name="git_remote_error_timed_out">Git çok uzun sürede yanıt verdi. Yeniden deneyin.</string>
+    <string name="git_remote_error_unauthorized">Sunucu girişi reddetti. Geri dönüp yeniden bağlanın.</string>
+    <string name="git_remote_error_output_too_large">Git telefonda gösterilebilecekten fazla çıktı verdi.</string>
+    <string name="git_remote_error_not_repository">Bu klasör bir git deposunda değil.</string>
+    <string name="git_remote_error_git_missing">Sunucuda git kurulu değil.</string>
+    <string name="git_remote_error_rejected">Uzak depo ya da dal adı reddedildi.</string>
+    <string name="git_remote_error_not_found">Uzak depo ya da dal artık yok. Yenileyip yeniden deneyin.</string>
+    <string name="git_remote_error_read">Uzak depolar okunamadı.</string>
+    <string name="git_remote_error_other">Git bir hata bildirdi. Depoyu sunucuda kontrol edin.</string>
 </resources>

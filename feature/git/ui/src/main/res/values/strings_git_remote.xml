@@ -1,3 +1,88 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="git_remote_title">Remote</string>
+    <string name="git_remote_refresh">Refresh</string>
+    <string name="git_remote_loading">Reading the remotes…</string>
+
+    <string name="git_remote_branch">Branch</string>
+    <!-- %1$s: the first seven characters of the commit hash. -->
+    <string name="git_remote_detached">Detached HEAD at %1$s</string>
+    <string name="git_remote_detached_unknown">Detached HEAD</string>
+    <string name="git_remote_no_commits">No commits yet</string>
+    <!-- %1$s: the upstream branch, such as origin/main. -->
+    <string name="git_remote_tracking">Tracking %1$s</string>
+    <plurals name="git_remote_ahead">
+        <item quantity="one">%1$d ahead</item>
+        <item quantity="other">%1$d ahead</item>
+    </plurals>
+    <plurals name="git_remote_behind">
+        <item quantity="one">%1$d behind</item>
+        <item quantity="other">%1$d behind</item>
+    </plurals>
+    <string name="git_remote_up_to_date">Up to date</string>
+    <string name="git_remote_no_upstream">No upstream branch; a push sets one</string>
+
+    <!-- %1$s: the name of the remote, such as origin. -->
+    <string name="git_remote_remote">Remote: %1$s</string>
+    <string name="git_remote_choose">Choose a remote</string>
+    <string name="git_remote_no_remotes_title">No remotes</string>
+    <string name="git_remote_no_remotes_message">This repository has no remote to fetch from or push to. Add one on the server.</string>
+
+    <!-- Fetch, pull and push are git's own words. -->
+    <string name="git_remote_fetch">Fetch</string>
+    <string name="git_remote_fetch_hint">Downloads new commits; changes no branch.</string>
+    <string name="git_remote_pull">Pull</string>
+    <string name="git_remote_pull_hint">Fast-forward only: never merges or rebases.</string>
+    <string name="git_remote_push">Push</string>
+    <string name="git_remote_push_hint">Asks first; never forces.</string>
+
+    <string name="git_remote_running_fetch">Fetching…</string>
+    <string name="git_remote_running_pull">Pulling…</string>
+    <string name="git_remote_running_push">Pushing…</string>
+    <string name="git_remote_cancel">Cancel</string>
+
+    <!-- %1$s: the remote the push goes to. -->
+    <string name="git_remote_push_confirm_title">Push to %1$s?</string>
+    <!-- %1$d: the commits; %2$s: the branch; %3$s: the remote. -->
+    <plurals name="git_remote_push_confirm_message">
+        <item quantity="one">Push %1$d commit from %2$s to %3$s?</item>
+        <item quantity="other">Push %1$d commits from %2$s to %3$s?</item>
+    </plurals>
+    <!-- When the commit count is not known. %1$s: the branch; %2$s: the remote. -->
+    <string name="git_remote_push_confirm_message_unknown">Push %1$s to %2$s?</string>
+    <!-- %1$s: the branch; %2$s: the remote. -->
+    <string name="git_remote_push_confirm_set_upstream">%1$s has no upstream yet; the push makes %2$s/%1$s its upstream.</string>
+    <string name="git_remote_push_confirm_no_force">The push is never forced: if the remote has newer commits, it is refused.</string>
+
+    <string name="git_remote_result_fetch_done">Fetched from the remote.</string>
+    <string name="git_remote_result_fetch_up_to_date">Fetched; nothing new on the remote.</string>
+    <string name="git_remote_result_fetch_cancelled">Fetch cancelled.</string>
+    <string name="git_remote_result_fetch_failed">Fetch failed.</string>
+    <string name="git_remote_result_pull_done">Pulled; the branch moved forward.</string>
+    <string name="git_remote_result_pull_up_to_date">Already up to date; nothing to pull.</string>
+    <string name="git_remote_result_pull_cancelled">Pull cancelled. Refresh to check the branch.</string>
+    <string name="git_remote_result_pull_failed">Pull failed.</string>
+    <string name="git_remote_result_push_done">Pushed to the remote.</string>
+    <string name="git_remote_result_push_up_to_date">Nothing to push; the remote already has these commits.</string>
+    <string name="git_remote_result_push_cancelled">Push cancelled. It may have reached the remote; refresh to check.</string>
+    <string name="git_remote_result_push_failed">Push failed.</string>
+    <string name="git_remote_result_dismiss">Dismiss</string>
+
+    <string name="git_remote_explain_credential">The remote asked for a user name, password or passphrase, and the app cannot answer prompts. Store the credentials on the server with a credential helper, or set up an SSH key there.</string>
+    <string name="git_remote_explain_non_fast_forward">The remote has commits this branch lacks: someone else pushed. Pull first, then push again.</string>
+    <string name="git_remote_explain_diverged">This branch and the remote both have new commits, so a fast-forward pull is not possible. Merge or rebase on the server or a computer, then try again.</string>
+    <string name="git_remote_explain_would_overwrite">The pull would overwrite local changes; nothing was changed. Commit or discard them first, then pull again.</string>
+    <string name="git_remote_explain_conflict">The repository has unresolved merge conflicts. Resolve and commit them first, then try again.</string>
+
+    <string name="git_remote_error_not_connected">Not connected to the server. Go back and connect again.</string>
+    <string name="git_remote_error_unreachable">The server could not be reached. Try again.</string>
+    <string name="git_remote_error_timed_out">Git took too long to answer. Try again.</string>
+    <string name="git_remote_error_unauthorized">The server refused the login. Go back and connect again.</string>
+    <string name="git_remote_error_output_too_large">Git printed more than the phone can show.</string>
+    <string name="git_remote_error_not_repository">This folder is not in a git repository.</string>
+    <string name="git_remote_error_git_missing">Git is not installed on the server.</string>
+    <string name="git_remote_error_rejected">The remote or branch name was refused.</string>
+    <string name="git_remote_error_not_found">The remote or branch is no longer there. Refresh and try again.</string>
+    <string name="git_remote_error_read">The remotes could not be read.</string>
+    <string name="git_remote_error_other">Git reported an error. Check the repository on the server.</string>
 </resources>
