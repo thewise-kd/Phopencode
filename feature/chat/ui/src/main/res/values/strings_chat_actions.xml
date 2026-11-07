@@ -4,6 +4,9 @@
     <string name="chat_actions_menu_open">Session actions</string>
     <string name="chat_actions_menu_title">Session actions</string>
     <string name="chat_actions_close">Close</string>
+    <!-- The labels of the top bar's buttons to the session's folder, read by a screen reader. -->
+    <string name="chat_actions_open_files">Open files</string>
+    <string name="chat_actions_open_git">Open git</string>
     <!-- The menu's actions, each with a line on what it does. -->
     <string name="chat_actions_compact">Compact session</string>
     <string name="chat_actions_compact_detail">Summarize the conversation so far to free up the model\'s context.</string>

@@ -10,6 +10,9 @@
     <string name="sessions_list_no_match_message">No session title matches your search.</string>
     <string name="sessions_list_create">New session</string>
     <string name="sessions_list_refresh">Refresh sessions</string>
+    <!-- The labels of the top bar's buttons to the list's folder, read by a screen reader. -->
+    <string name="sessions_list_open_files">Open files</string>
+    <string name="sessions_list_open_git">Open git</string>
     <string name="sessions_list_search">Search sessions</string>
     <string name="sessions_list_show_archived">Show archived</string>
     <string name="sessions_list_archived">Archived</string>

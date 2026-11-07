@@ -19,6 +19,8 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import io.github.thewisekd.phopencode.core.navigation.ChatRoute
+import io.github.thewisekd.phopencode.core.navigation.FilesRoute
+import io.github.thewisekd.phopencode.core.navigation.GitRoute
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatSession
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerEvent
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerIntent
@@ -64,7 +66,8 @@ import org.koin.mp.KoinPlatform
  *
  * - [ChatRoute.Chat]: every part of the chat. The composer's draft goes to the palette as its
  *   query; a palette pick comes back to the composer as its new draft and an attachment. Session
- *   actions open a turn's diff or switch to a fork; subagents open their list.
+ *   actions open a turn's diff or switch to a fork; subagents open their list. The session's
+ *   folder opens the files ([FilesRoute.Tree]) and git ([GitRoute.Status]) screens on top.
  * - [ChatRoute.Subagents]: the subagent list; a subagent opens its [ChatRoute.ChildSession].
  * - [ChatRoute.ChildSession]: a subagent's timeline, read only, with its way back to the parent.
  * - [ChatRoute.TurnDiff]: one turn's changes and their revert.
@@ -126,6 +129,8 @@ fun NavGraphBuilder.chatGraph(navController: NavController) {
                     popUpTo(route) { inclusive = true }
                 }
                 ActionsEvent.CompactionStarted -> timeline.onIntent(TimelineIntent.JumpToLatest)
+                is ActionsEvent.OpenFiles -> navController.navigate(FilesRoute.Tree(event.directory))
+                is ActionsEvent.OpenGit -> navController.navigate(GitRoute.Status(event.directory))
             }
         }
         ForwardDraft(composer, palette)

@@ -79,6 +79,9 @@ private const val LOAD_AHEAD = 3
  * The root sessions of the connected server, newest first. Draws [state] and sends [onIntent]; it
  * decides nothing itself.
  *
+ * When the list is limited to a folder ([SessionListState.hasFolder]), the top bar has buttons that
+ * open that folder's files and git, before the refresh button; the list of every folder has none.
+ *
  * Above the rows sit the folder the list is limited to, the search field and the archived switch;
  * each row shows the session's title, status badge, and tokens and cost. Pulling the list down, or
  * the refresh button for those who cannot pull, reloads the first page; the end of the list coming
@@ -103,6 +106,20 @@ fun SessionListScreen(
         title = stringResource(R.string.sessions_list_title),
         modifier = modifier.fillMaxSize().testTag("placeholder:$route"),
         actions = {
+            if (state.hasFolder) {
+                IconButton(onClick = { onIntent(SessionListIntent.OpenFiles) }) {
+                    Icon(
+                        imageVector = SessionListIcons.Folder,
+                        contentDescription = stringResource(R.string.sessions_list_open_files),
+                    )
+                }
+                IconButton(onClick = { onIntent(SessionListIntent.OpenGit) }) {
+                    Icon(
+                        imageVector = SessionListIcons.Branches,
+                        contentDescription = stringResource(R.string.sessions_list_open_git),
+                    )
+                }
+            }
             IconButton(onClick = { onIntent(SessionListIntent.Refresh) }, enabled = canRefresh) {
                 Icon(
                     imageVector = SessionListIcons.Refresh,

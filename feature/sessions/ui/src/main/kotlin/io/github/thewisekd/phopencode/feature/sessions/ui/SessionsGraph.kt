@@ -19,6 +19,8 @@ import androidx.navigation.compose.ComposeNavigator
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import io.github.thewisekd.phopencode.core.navigation.ChatRoute
+import io.github.thewisekd.phopencode.core.navigation.FilesRoute
+import io.github.thewisekd.phopencode.core.navigation.GitRoute
 import io.github.thewisekd.phopencode.core.navigation.SessionsRoute
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.Presenter
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionCreateEvent
@@ -42,7 +44,8 @@ import org.koin.mp.KoinPlatform
  * and intents, and turns the presenter's one-time events into navigation. The screens never see
  * [navController].
  *
- * The flow: the list opens a session's chat, the creation screen or a session's management. A
+ * The flow: the list opens a session's chat, the creation screen or a session's management, and a
+ * folder's list also that folder's files ([FilesRoute.Tree]) and git ([GitRoute.Status]). A
  * created session's chat replaces the creation screen; a deleted session's screens are left behind.
  */
 fun NavGraphBuilder.sessionsGraph(navController: NavController) {
@@ -54,6 +57,8 @@ fun NavGraphBuilder.sessionsGraph(navController: NavController) {
                 is SessionListEvent.OpenChat -> navController.navigate(ChatRoute.Chat(event.id.value))
                 is SessionListEvent.OpenManage -> navController.navigate(SessionsRoute.Manage(event.id.value))
                 is SessionListEvent.OpenCreate -> navController.navigate(SessionsRoute.Create(directory = event.directory))
+                is SessionListEvent.OpenFiles -> navController.navigate(FilesRoute.Tree(event.directory))
+                is SessionListEvent.OpenGit -> navController.navigate(GitRoute.Status(event.directory))
             }
         }
         val state by presenter.state.collectAsStateWithLifecycle()

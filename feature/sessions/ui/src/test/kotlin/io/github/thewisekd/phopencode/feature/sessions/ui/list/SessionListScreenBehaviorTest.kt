@@ -290,6 +290,27 @@ class SessionListScreenBehaviorTest {
     }
 
     @Test
+    fun `a folder's list opens its files and git`() {
+        show(listed.copy(directory = FOLDER))
+
+        compose.onNodeWithContentDescription(strings.openFiles).assertIsEnabled().assertTouchSizeIsAtLeast().performClick()
+        compose.onNodeWithContentDescription(strings.openGit).assertIsEnabled().assertTouchSizeIsAtLeast().performClick()
+
+        compose.runOnIdle {
+            assertEquals(listOf(SessionListIntent.OpenFiles, SessionListIntent.OpenGit), sentByUser())
+        }
+    }
+
+    @Test
+    fun `the list of every folder has no files or git button`() {
+        show(listed.copy(directory = null))
+
+        compose.onNodeWithContentDescription(strings.refresh).assertIsDisplayed()
+        compose.onNodeWithContentDescription(strings.openFiles).assertDoesNotExist()
+        compose.onNodeWithContentDescription(strings.openGit).assertDoesNotExist()
+    }
+
+    @Test
     fun `the refresh button reloads the first page`() {
         show(listed)
 

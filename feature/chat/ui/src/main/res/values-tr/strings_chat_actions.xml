@@ -4,6 +4,9 @@
     <string name="chat_actions_menu_open">Oturum işlemleri</string>
     <string name="chat_actions_menu_title">Oturum işlemleri</string>
     <string name="chat_actions_close">Kapat</string>
+    <!-- The labels of the top bar's buttons to the session's folder, read by a screen reader. -->
+    <string name="chat_actions_open_files">Dosyaları aç</string>
+    <string name="chat_actions_open_git">Git\'i aç</string>
     <!-- The menu's actions, each with a line on what it does. -->
     <string name="chat_actions_compact">Oturumu sıkıştır</string>
     <string name="chat_actions_compact_detail">Modelin bağlamında yer açmak için şimdiye kadarki konuşmayı özetler.</string>

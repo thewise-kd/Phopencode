@@ -16,6 +16,9 @@ import io.github.thewisekd.phopencode.feature.chat.logic.contract.Presenter
  *   holds the history before that message, or all of it for `null`. Once the server made it,
  *   [ActionsEvent.OpenSession] switches the chat to the new session.
  * - **This turn's changes**, from a prompt's actions: [ActionsEvent.OpenTurnDiff].
+ * - **Files and git** of the session's folder (`Session.directory`): [ActionsEvent.OpenFiles] and
+ *   [ActionsEvent.OpenGit], only while [ActionsState.directory] is known. They ask the server
+ *   nothing here, so they do not wait for [ActionsState.enabled].
  *
  * Compact and fork ask first: [ActionsIntent.Request] sets [ActionsState.confirming], and only
  * [ActionsIntent.Confirm] sends. One action at a time; a failed one sets [ActionsState.error].
@@ -26,6 +29,8 @@ import io.github.thewisekd.phopencode.feature.chat.logic.contract.Presenter
  * @property running The action on its way.
  * @property compacting The server is compacting the session.
  * @property error The last action failed.
+ * @property directory The loaded session's folder, which files and git open; null until the
+ *   session is loaded, when it has none, and on any route but `ChatRoute.Chat`. Prints masked.
  */
 data class ActionsState(
     val enabled: Boolean = false,
@@ -34,10 +39,15 @@ data class ActionsState(
     val running: SessionAction? = null,
     val compacting: Boolean = false,
     val error: ActionError? = null,
+    val directory: String? = null,
 ) {
     /** Whether an action could start: none runs. */
     val canAct: Boolean
         get() = enabled && running == null
+
+    override fun toString(): String =
+        "ActionsState(enabled=$enabled, menuOpen=$menuOpen, confirming=$confirming, running=$running, " +
+            "compacting=$compacting, error=$error, directory=${if (directory == null) "null" else "***"})"
 }
 
 sealed interface SessionAction {
@@ -67,6 +77,12 @@ sealed interface ActionsIntent {
     data class ShowTurnChanges(val messageId: MessageId) : ActionsIntent
 
     data object DismissError : ActionsIntent
+
+    /** Opens the files of [ActionsState.directory]; nothing while it is not known. */
+    data object OpenFiles : ActionsIntent
+
+    /** Opens git for [ActionsState.directory]; nothing while it is not known. */
+    data object OpenGit : ActionsIntent
 }
 
 sealed interface ActionsEvent {
@@ -78,6 +94,16 @@ sealed interface ActionsEvent {
 
     /** The server accepted a compaction; the chat brings the timeline back to the newest item. */
     data object CompactionStarted : ActionsEvent
+
+    /** Opens `FilesRoute.Tree` for [directory], the session's folder. Prints masked. */
+    data class OpenFiles(val directory: String) : ActionsEvent {
+        override fun toString(): String = "OpenFiles(***)"
+    }
+
+    /** Opens `GitRoute.Status` for [directory], the session's folder. Prints masked. */
+    data class OpenGit(val directory: String) : ActionsEvent {
+        override fun toString(): String = "OpenGit(***)"
+    }
 }
 
 interface ActionsPresenter : Presenter<ActionsState, ActionsIntent, ActionsEvent>

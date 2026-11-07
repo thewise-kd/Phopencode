@@ -14,6 +14,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import io.github.thewisekd.phopencode.core.navigation.ChatRoute
 import io.github.thewisekd.phopencode.core.navigation.ConnectRoute
+import io.github.thewisekd.phopencode.core.navigation.FilesRoute
+import io.github.thewisekd.phopencode.core.navigation.GitRoute
 import io.github.thewisekd.phopencode.core.navigation.NotifyRoute
 import io.github.thewisekd.phopencode.core.navigation.Route
 import io.github.thewisekd.phopencode.core.navigation.SessionsRoute
@@ -30,7 +32,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import org.junit.After
 import org.junit.Before
@@ -61,11 +62,12 @@ class SessionsGraphTest {
     val compose = createComposeRule()
 
     private val manageEvents = Channel<SessionManageEvent>(Channel.BUFFERED)
+    private val listEvents = Channel<SessionListEvent>(Channel.BUFFERED)
     private lateinit var navController: NavHostController
 
     private val listPresenter = object : SessionListPresenter {
         override val state: StateFlow<SessionListState> = MutableStateFlow(SessionListState())
-        override val events: Flow<SessionListEvent> = emptyFlow()
+        override val events: Flow<SessionListEvent> = listEvents.receiveAsFlow()
         override fun onIntent(intent: SessionListIntent) = Unit
     }
 
@@ -104,6 +106,8 @@ class SessionsGraphTest {
                     composable<ChatRoute.ChildSession> { Stand("child") }
                     composable<ChatRoute.TurnDiff> { Stand("diff") }
                     composable<ChatRoute.TokenUsage> { Stand("usage") }
+                    composable<FilesRoute.Tree> { Stand("files") }
+                    composable<GitRoute.Status> { Stand("git") }
                     sessionsGraph(navController)
                 }
             }
@@ -138,12 +142,42 @@ class SessionsGraphTest {
             destination.hasRoute<SessionsRoute.SessionList>() -> entry.toRoute<SessionsRoute.SessionList>()
             destination.hasRoute<SessionsRoute.Create>() -> entry.toRoute<SessionsRoute.Create>()
             destination.hasRoute<SessionsRoute.Manage>() -> entry.toRoute<SessionsRoute.Manage>()
+            destination.hasRoute<FilesRoute.Tree>() -> entry.toRoute<FilesRoute.Tree>()
+            destination.hasRoute<GitRoute.Status>() -> entry.toRoute<GitRoute.Status>()
             else -> null // The graph itself.
         }
     }
 
     private fun backStack(): List<Route> = compose.runOnIdle {
         navController.currentBackStack.value.mapNotNull(::routeOf)
+    }
+
+    @Test
+    fun `a folder's list opens the files of that folder on top of it`() {
+        setNavHost()
+        open(SessionsRoute.SessionList(directory = FOLDER))
+
+        listEvents.trySend(SessionListEvent.OpenFiles(FOLDER))
+        compose.waitForIdle()
+
+        assertEquals(
+            listOf(ConnectRoute.ServerList, SessionsRoute.SessionList(directory = FOLDER), FilesRoute.Tree(FOLDER)),
+            backStack(),
+        )
+    }
+
+    @Test
+    fun `a folder's list opens git for that folder on top of it`() {
+        setNavHost()
+        open(SessionsRoute.SessionList(directory = FOLDER))
+
+        listEvents.trySend(SessionListEvent.OpenGit(FOLDER))
+        compose.waitForIdle()
+
+        assertEquals(
+            listOf(ConnectRoute.ServerList, SessionsRoute.SessionList(directory = FOLDER), GitRoute.Status(FOLDER)),
+            backStack(),
+        )
     }
 
     @Test

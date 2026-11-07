@@ -46,6 +46,13 @@ data class SessionListState(
     val isSearching: Boolean
         get() = query.isNotBlank()
 
+    /**
+     * The list is limited to one folder, which the files and git screens can open: [directory] is
+     * set and not blank.
+     */
+    val hasFolder: Boolean
+        get() = !directory.isNullOrBlank()
+
     override fun toString(): String =
         "SessionListState(directory=$directory, loading=$loading, refreshing=$refreshing, rows=$rows, " +
             "query=***, showArchived=$showArchived, loadingMore=$loadingMore, endReached=$endReached, " +
@@ -118,6 +125,12 @@ sealed interface SessionListIntent {
 
     data object Create : SessionListIntent
 
+    /** Opens the files of [SessionListState.directory]; nothing when the list has no folder. */
+    data object OpenFiles : SessionListIntent
+
+    /** Opens git for [SessionListState.directory]; nothing when the list has no folder. */
+    data object OpenGit : SessionListIntent
+
     data object DismissError : SessionListIntent
 }
 
@@ -128,6 +141,12 @@ sealed interface SessionListEvent {
 
     /** @property directory The folder to preselect: the list's own, if it has one. */
     data class OpenCreate(val directory: String?) : SessionListEvent
+
+    /** Opens `FilesRoute.Tree` for [directory], the list's folder. */
+    data class OpenFiles(val directory: String) : SessionListEvent
+
+    /** Opens `GitRoute.Status` for [directory], the list's folder. */
+    data class OpenGit(val directory: String) : SessionListEvent
 }
 
 interface SessionListPresenter : Presenter<SessionListState, SessionListIntent, SessionListEvent>

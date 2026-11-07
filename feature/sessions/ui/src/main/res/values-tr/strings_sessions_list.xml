@@ -10,6 +10,9 @@
     <string name="sessions_list_no_match_message">Aramanızla eşleşen bir oturum başlığı yok.</string>
     <string name="sessions_list_create">Yeni oturum</string>
     <string name="sessions_list_refresh">Oturumları yenile</string>
+    <!-- The labels of the top bar's buttons to the list's folder, read by a screen reader. -->
+    <string name="sessions_list_open_files">Dosyaları aç</string>
+    <string name="sessions_list_open_git">Git\'i aç</string>
     <string name="sessions_list_search">Oturum ara</string>
     <string name="sessions_list_show_archived">Arşivdekileri göster</string>
     <string name="sessions_list_archived">Arşivde</string>

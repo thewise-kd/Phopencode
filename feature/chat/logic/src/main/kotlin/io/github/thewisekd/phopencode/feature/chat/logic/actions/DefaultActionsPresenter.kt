@@ -42,6 +42,9 @@ import kotlinx.coroutines.yield
  *   status is idle (see [tracked]), so it never outlives the session's work. No second
  *   compaction is asked for meanwhile.
  * - A fork emits [ActionsEvent.OpenSession] only with the session the server returned.
+ * - [ActionsState.directory] is the loaded session's folder, kept as long as the session is kept
+ *   (through a reconnect too); a blank one counts as none. [ActionsIntent.OpenFiles] and
+ *   [ActionsIntent.OpenGit] emit their event for it, and nothing while it is null.
  *
  * Nothing runs in the constructor: work starts in [scope] after a `yield()`. Nothing here logs,
  * and the state prints no message IDs.
@@ -111,6 +114,8 @@ class DefaultActionsPresenter(
             ActionsIntent.Cancel -> change { it.withState { copy(confirming = null) } }
             is ActionsIntent.ShowTurnChanges -> if (acts) eventChannel.trySend(ActionsEvent.OpenTurnDiff(intent.messageId))
             ActionsIntent.DismissError -> change { it.withState { copy(error = null) } }
+            ActionsIntent.OpenFiles -> state.value.directory?.let { eventChannel.trySend(ActionsEvent.OpenFiles(it)) }
+            ActionsIntent.OpenGit -> state.value.directory?.let { eventChannel.trySend(ActionsEvent.OpenGit(it)) }
         }
     }
 
@@ -124,8 +129,10 @@ class DefaultActionsPresenter(
 
     private fun follow(chat: ChatSessionState) {
         val enabled = chat.session != null && chat.availability == ChatAvailability.Live
+        val directory = chat.session?.session?.directory?.takeIf { it.isNotBlank() }
         change { current ->
-            current.withState { copy(enabled = enabled, menuOpen = menuOpen && enabled) }.tracked(chat)
+            current.withState { copy(enabled = enabled, menuOpen = menuOpen && enabled, directory = directory) }
+                .tracked(chat)
         }
     }
 

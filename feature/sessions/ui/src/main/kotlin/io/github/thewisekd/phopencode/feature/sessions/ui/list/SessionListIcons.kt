@@ -20,6 +20,18 @@ internal object SessionListIcons {
             "4.22,1.78L13,11h7V4l-2.35,2.35z",
     )
 
+    /** Material's "folder", for the files of the list's folder. */
+    val Folder: ImageVector = icon(
+        "Folder",
+        "M10,4H4c-1.1,0 -1.99,0.9 -1.99,2L2,18c0,1.1 0.9,2 2,2h16c1.1,0 2,-0.9 2,-2V8c0,-1.1 -0.9,-2 -2,-2h-8l-2,-2z",
+    )
+
+    /** Material's "account tree", a branching tree, for git. */
+    val Branches: ImageVector = icon(
+        "Branches",
+        "M22,11V3h-7v3H9V3H2v8h7V8h2v10h4v3h7v-8h-7v3h-2V8h2v3z",
+    )
+
     val More: ImageVector = icon(
         "More",
         "M12,8c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2 -2,0.9 -2,2 0.9,2 2,2zM12,10c-1.1,0 -2,0.9 -2,2s0.9,2 2,2 " +

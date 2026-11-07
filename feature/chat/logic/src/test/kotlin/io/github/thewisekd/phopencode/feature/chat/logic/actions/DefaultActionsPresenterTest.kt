@@ -42,6 +42,7 @@ import kotlinx.coroutines.test.runTest
 private val MAIN = SessionId("ses_main")
 private val FIRST = MessageId("msg_first")
 private val SECOND = MessageId("msg_second")
+private const val FOLDER = "/srv/work/project"
 
 /**
  * A [ChatSession] the test drives: its state is set by hand, and [call] runs on [client] only while
@@ -76,10 +77,16 @@ private class FakeChatSession(override val sessionId: SessionId) : ChatSession {
         messages: List<Message> = emptyList(),
         inbox: List<InboxItem> = emptyList(),
         status: SessionStatus = SessionStatus.Idle,
+        directory: String? = null,
     ) {
         mutableState.value = ChatSessionState(
             availability = ChatAvailability.Live,
-            session = SessionState(Session(id = sessionId), status = status, messages = messages, inbox = inbox),
+            session = SessionState(
+                Session(id = sessionId, directory = directory),
+                status = status,
+                messages = messages,
+                inbox = inbox,
+            ),
             phase = SyncPhase.Live,
         )
     }
@@ -493,6 +500,91 @@ class DefaultActionsPresenterTest {
 
         assertEquals(listOf<ActionsEvent>(ActionsEvent.OpenTurnDiff(FIRST)), events)
         assertEquals(emptyList(), chat.calls)
+    }
+
+    // Files and git
+
+    @Test
+    fun `directory follows the loaded session's folder`() = runTest {
+        val (chat, presenter) = setup(live = false)
+        assertNull(presenter.state.value.directory)
+
+        chat.live(history, directory = FOLDER)
+        runCurrent()
+        assertEquals(FOLDER, presenter.state.value.directory)
+
+        // Kept while the session is kept, as through a reconnect.
+        chat.mutableState.value = chat.mutableState.value.copy(availability = ChatAvailability.Reconnecting)
+        runCurrent()
+        assertEquals(FOLDER, presenter.state.value.directory)
+
+        chat.mutableState.value = ChatSessionState(availability = ChatAvailability.OtherServer)
+        runCurrent()
+        assertNull(presenter.state.value.directory)
+    }
+
+    @Test
+    fun `a session without a folder has no directory`() = runTest {
+        val (chat, presenter) = setup(live = false)
+
+        chat.live(history, directory = null)
+        runCurrent()
+        assertNull(presenter.state.value.directory)
+
+        chat.live(history, directory = "  ")
+        runCurrent()
+        assertNull(presenter.state.value.directory)
+    }
+
+    @Test
+    fun `OpenFiles and OpenGit open the session's folder`() = runTest {
+        val (chat, presenter, events) = setup(live = false)
+        chat.live(history, directory = FOLDER)
+        runCurrent()
+
+        presenter.onIntent(ActionsIntent.OpenFiles)
+        presenter.onIntent(ActionsIntent.OpenGit)
+        runCurrent()
+
+        assertEquals(listOf(ActionsEvent.OpenFiles(FOLDER), ActionsEvent.OpenGit(FOLDER)), events)
+        assertEquals(emptyList(), chat.calls)
+    }
+
+    @Test
+    fun `OpenFiles and OpenGit do nothing while the folder is not known`() = runTest {
+        val (_, presenter, events) = setup(live = false)
+
+        presenter.onIntent(ActionsIntent.OpenFiles)
+        presenter.onIntent(ActionsIntent.OpenGit)
+        runCurrent()
+
+        assertEquals(emptyList(), events)
+    }
+
+    @Test
+    fun `a route other than the chat opens neither files nor git`() = runTest {
+        val (chat, presenter, events) = setup(live = false, route = ChatRoute.Subagents(MAIN.value))
+        chat.live(history, directory = FOLDER)
+        runCurrent()
+        assertNull(presenter.state.value.directory)
+
+        presenter.onIntent(ActionsIntent.OpenFiles)
+        presenter.onIntent(ActionsIntent.OpenGit)
+        runCurrent()
+
+        assertEquals(emptyList(), events)
+    }
+
+    @Test
+    fun `it prints no folder`() = runTest {
+        val (chat, presenter) = setup(live = false)
+        chat.live(history, directory = FOLDER)
+        runCurrent()
+
+        assertFalse(presenter.toString().contains(FOLDER))
+        assertFalse(presenter.state.value.toString().contains(FOLDER))
+        assertFalse(ActionsEvent.OpenFiles(FOLDER).toString().contains(FOLDER))
+        assertFalse(ActionsEvent.OpenGit(FOLDER).toString().contains(FOLDER))
     }
 
     @Test

@@ -211,11 +211,16 @@ class DefaultSessionListPresenter(
             is SessionListIntent.Open -> eventChannel.trySend(SessionListEvent.OpenChat(intent.id))
             is SessionListIntent.Manage -> eventChannel.trySend(SessionListEvent.OpenManage(intent.id))
             SessionListIntent.Create -> eventChannel.trySend(SessionListEvent.OpenCreate(directory))
+            SessionListIntent.OpenFiles -> folder()?.let { eventChannel.trySend(SessionListEvent.OpenFiles(it)) }
+            SessionListIntent.OpenGit -> folder()?.let { eventChannel.trySend(SessionListEvent.OpenGit(it)) }
             SessionListIntent.DismissError -> mutableState.update { it.copy(error = null) }
         }
     }
 
     private fun current(): Live? = synchronized(lock) { live }
+
+    /** The list's folder, which files and git open; null when the list has none. */
+    private fun folder(): String? = directory?.takeIf { it.isNotBlank() }
 
     // Connection
 

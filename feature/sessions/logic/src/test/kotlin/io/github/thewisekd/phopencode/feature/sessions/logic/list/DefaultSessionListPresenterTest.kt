@@ -855,4 +855,46 @@ class DefaultSessionListPresenterTest {
             env.events,
         )
     }
+
+    @Test
+    fun `files and git open the list's folder`() = runTest {
+        val env = env()
+        val presenter = env.presenter(directory = "/srv/app")
+        runCurrent()
+        assertTrue(presenter.state.value.hasFolder)
+
+        send(presenter, SessionListIntent.OpenFiles)
+        send(presenter, SessionListIntent.OpenGit)
+
+        assertEquals(
+            listOf(SessionListEvent.OpenFiles("/srv/app"), SessionListEvent.OpenGit("/srv/app")),
+            env.events,
+        )
+    }
+
+    @Test
+    fun `files and git do nothing for the list of every folder`() = runTest {
+        val env = env()
+        val presenter = env.presenter(directory = null)
+        runCurrent()
+        assertFalse(presenter.state.value.hasFolder)
+
+        send(presenter, SessionListIntent.OpenFiles)
+        send(presenter, SessionListIntent.OpenGit)
+
+        assertEquals(emptyList(), env.events)
+    }
+
+    @Test
+    fun `a blank folder has no files or git`() = runTest {
+        val env = env()
+        val presenter = env.presenter(directory = " ")
+        runCurrent()
+        assertFalse(presenter.state.value.hasFolder)
+
+        send(presenter, SessionListIntent.OpenFiles)
+        send(presenter, SessionListIntent.OpenGit)
+
+        assertEquals(emptyList(), env.events)
+    }
 }

@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
@@ -22,10 +23,13 @@ import io.github.thewisekd.phopencode.core.model.MessageId
 import io.github.thewisekd.phopencode.core.model.SessionId
 import io.github.thewisekd.phopencode.core.navigation.ChatRoute
 import io.github.thewisekd.phopencode.core.navigation.ConnectRoute
+import io.github.thewisekd.phopencode.core.navigation.FilesRoute
+import io.github.thewisekd.phopencode.core.navigation.GitRoute
 import io.github.thewisekd.phopencode.core.navigation.Route
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatSession
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatSessionState
+import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatStatus
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerEvent
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerIntent
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerPresenter
@@ -98,6 +102,9 @@ import kotlin.test.assertTrue
 
 private const val SESSION = "ses_1"
 
+/** A made-up folder, with a space and non-ASCII letters, as a route argument must keep them. */
+private const val FOLDER = "/work/örnek proje"
+
 /**
  * A presenter the test drives: its state is set by hand, its events are sent by hand, and every
  * intent it gets is recorded.
@@ -144,8 +151,10 @@ class ChatGraphTest {
     private val composerEvents = Channel<ComposerEvent>(Channel.UNLIMITED)
     private val timelineIntents = Collections.synchronizedList(mutableListOf<TimelineIntent>())
 
+    private val statusState = MutableStateFlow(StatusState())
+
     private val status = object : StatusPresenter {
-        override val state: StateFlow<StatusState> = MutableStateFlow(StatusState())
+        override val state: StateFlow<StatusState> = statusState
         override val events: Flow<StatusEvent> = statusEvents.receiveAsFlow()
         override fun onIntent(intent: StatusIntent) = Unit
     }
@@ -290,6 +299,9 @@ class ChatGraphTest {
                     navController = rememberNavController()
                     NavHost(navController = navController, startDestination = ConnectRoute.ServerList) {
                         composable<ConnectRoute.ServerList> { Box(Modifier.fillMaxSize().testTag("start")) }
+                        // Stand-ins for the files and git features' graphs, which this module cannot see.
+                        composable<FilesRoute.Tree> { Box(Modifier.fillMaxSize().testTag("files")) }
+                        composable<GitRoute.Status> { Box(Modifier.fillMaxSize().testTag("git")) }
                         chatGraph(navController)
                     }
                 }
@@ -311,6 +323,8 @@ class ChatGraphTest {
             destination.hasRoute<ChatRoute.Subagents>() -> entry.toRoute<ChatRoute.Subagents>()
             destination.hasRoute<ChatRoute.ChildSession>() -> entry.toRoute<ChatRoute.ChildSession>()
             destination.hasRoute<ChatRoute.TurnDiff>() -> entry.toRoute<ChatRoute.TurnDiff>()
+            destination.hasRoute<FilesRoute.Tree>() -> entry.toRoute<FilesRoute.Tree>()
+            destination.hasRoute<GitRoute.Status>() -> entry.toRoute<GitRoute.Status>()
             else -> null // The graph itself.
         }
     }
@@ -574,6 +588,50 @@ class ChatGraphTest {
         val fork = ChatRoute.Chat("ses_fork")
         assertEquals(listOf(ConnectRoute.ServerList, fork), backStack())
         compose.onNodeWithTag("placeholder:$fork").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the chat opens the files of its session's folder on top of it`() {
+        setNavHost()
+        val chat = ChatRoute.Chat(SESSION)
+        open(chat)
+
+        actions.getValue(chat).eventChannel.trySend(ActionsEvent.OpenFiles(FOLDER))
+        compose.waitForIdle()
+
+        assertEquals(listOf(ConnectRoute.ServerList, chat, FilesRoute.Tree(FOLDER)), backStack())
+        compose.onNodeWithTag("files").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the chat opens git for its session's folder on top of it`() {
+        setNavHost()
+        val chat = ChatRoute.Chat(SESSION)
+        open(chat)
+
+        actions.getValue(chat).eventChannel.trySend(ActionsEvent.OpenGit(FOLDER))
+        compose.waitForIdle()
+
+        assertEquals(listOf(ConnectRoute.ServerList, chat, GitRoute.Status(FOLDER)), backStack())
+        compose.onNodeWithTag("git").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the chat's files button reaches the actions presenter`() {
+        setNavHost()
+        val chat = ChatRoute.Chat(SESSION)
+        open(chat)
+        // A loaded chat: the status no longer takes the screen.
+        statusState.value = StatusState(ChatStatus.Idle)
+        val fake = actions.getValue(chat)
+        fake.mutableState.value = ActionsState(directory = FOLDER)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(ChatSlotTags.OPEN_FILES).performClick()
+        compose.onNodeWithTag(ChatSlotTags.OPEN_GIT).performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf<ActionsIntent>(ActionsIntent.OpenFiles, ActionsIntent.OpenGit), fake.intents.toList())
     }
 
     @Test

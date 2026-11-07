@@ -33,6 +33,8 @@ internal data class ExpectedSessionListStrings(
     val noMatchMessage: String,
     val create: String,
     val refresh: String,
+    val openFiles: String,
+    val openGit: String,
     val search: String,
     val showArchived: String,
     val archived: String,
@@ -66,6 +68,14 @@ abstract class SessionListScreenLanguageContract {
         compose.onNodeWithContentDescription(strings.refresh).assertIsDisplayed()
         compose.onNodeWithContentDescription(strings.create).assertIsDisplayed()
         compose.onNodeWithContentDescription(strings.manage(first.title!!)).assertExists()
+    }
+
+    @Test
+    fun `the files and git buttons of a folder's list are named`() {
+        compose.setSessionList(listed.copy(directory = FOLDER))
+
+        compose.onNodeWithContentDescription(strings.openFiles).assertIsDisplayed()
+        compose.onNodeWithContentDescription(strings.openGit).assertIsDisplayed()
     }
 
     @Test

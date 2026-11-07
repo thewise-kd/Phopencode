@@ -8,13 +8,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -76,6 +83,8 @@ object ChatSlotTags {
     const val SUBAGENTS: String = "chat:slot:subagents"
     const val SUBAGENT_HEADER: String = "chat:slot:subagent_header"
     const val ACTIONS: String = "chat:slot:actions"
+    const val OPEN_FILES: String = "chat:slot:open_files"
+    const val OPEN_GIT: String = "chat:slot:open_git"
     const val PALETTE: String = "chat:slot:palette"
     const val ATTACHMENTS: String = "chat:slot:attachments"
     const val SWITCHER: String = "chat:slot:switcher"
@@ -100,7 +109,8 @@ object ChatSlotTags {
  *
  * From top to bottom, all inside the screen's insets, keyboard included, so the composer stays
  * above it:
- * - the usage bar, with the subagent badge and the session's action menu at its end;
+ * - the usage bar, with the subagent badge, the buttons to the session's files and git (see
+ *   [FolderButtons]) and the session's action menu at its end;
  * - the status banner;
  * - the timeline, where a long press on a prompt opens its actions;
  * - the pending permission requests, then the pending forms, of this session and its subagents, at
@@ -159,6 +169,7 @@ fun ChatScreen(
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         UsageBar(usage, onUsageIntent, Modifier.weight(1f).testTag(ChatSlotTags.USAGE))
                         SubagentBadge(subagents, onSubagentIntent, Modifier.testTag(ChatSlotTags.SUBAGENTS))
+                        FolderButtons(actions, onActionsIntent)
                         SessionActionsMenu(actions, onActionsIntent, Modifier.testTag(ChatSlotTags.ACTIONS))
                     }
                     StatusBanner(status, onStatusIntent, Modifier.fillMaxWidth().testTag(ChatSlotTags.STATUS))
@@ -200,6 +211,53 @@ fun ChatScreen(
             )
         }
     }
+}
+
+/**
+ * The buttons to the session's folder, [ActionsState.directory]: its files, sending
+ * [ActionsIntent.OpenFiles], and its git, sending [ActionsIntent.OpenGit]. Icon buttons named for a
+ * screen reader, each a full touch target; they cannot be tapped until the folder is known, but
+ * always keep their place, as the action menu's button does.
+ */
+@Composable
+private fun FolderButtons(actions: ActionsState, onActionsIntent: (ActionsIntent) -> Unit) {
+    val known = actions.directory != null
+    IconButton(
+        onClick = { onActionsIntent(ActionsIntent.OpenFiles) },
+        enabled = known,
+        modifier = Modifier.testTag(ChatSlotTags.OPEN_FILES),
+    ) {
+        Icon(imageVector = FolderIcons.Files, contentDescription = stringResource(R.string.chat_actions_open_files))
+    }
+    IconButton(
+        onClick = { onActionsIntent(ActionsIntent.OpenGit) },
+        enabled = known,
+        modifier = Modifier.testTag(ChatSlotTags.OPEN_GIT),
+    ) {
+        Icon(imageVector = FolderIcons.Git, contentDescription = stringResource(R.string.chat_actions_open_git))
+    }
+}
+
+/**
+ * The icons of [FolderButtons]: the 24 dp Material symbols "folder" and "account tree", kept here
+ * as the module does not depend on the icon library.
+ */
+private object FolderIcons {
+    val Files: ImageVector = icon(
+        "Files",
+        "M10,4H4c-1.1,0 -1.99,0.9 -1.99,2L2,18c0,1.1 0.9,2 2,2h16c1.1,0 2,-0.9 2,-2V8c0,-1.1 -0.9,-2 -2,-2h-8l-2,-2z",
+    )
+
+    val Git: ImageVector = icon("Git", "M22,11V3h-7v3H9V3H2v8h7V8h2v10h4v3h7v-8h-7v3h-2V8h2v3z")
+
+    private fun icon(name: String, pathData: String): ImageVector =
+        ImageVector.Builder(
+            name = "ChatFolder.$name",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+        ).addPath(pathData = addPathNodes(pathData), fill = SolidColor(Color.Black)).build()
 }
 
 /**
