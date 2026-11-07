@@ -23,7 +23,8 @@ enum class FolderError {
  * Paths are absolute paths on the server.
  *
  * @property path The folder shown, or null before the first listing.
- * @property entries The children of [path] that can be opened as folders.
+ * @property entries The children of [path] that can be opened as folders, without the hidden ones
+ *   (a name that starts with `.`) unless [showHidden] (P9.31).
  * @property recent The active server's recent folders, newest first.
  * @property errorDetail With [FolderError.Failed] from a failed listing, the failure's class chain,
  *   for example `SshException.Sftp(Failed) <- java.io.EOFException`: class names only, never a
@@ -40,6 +41,13 @@ enum class FolderError {
  *   or a key. [errorDetail] is the same whether diagnostics are on or off.
  * @property debugFailure The failure [debugDetail] is built from, kept so that the detail can be
  *   built again as the connection changes; set only while diagnostics are on.
+ * @property showHidden The user asked to see hidden folders, those whose name starts with `.`. Off
+ *   when the picker opens; it holds while the picker is open, across folders and refreshes. It only
+ *   filters [entries]: [recent] and the paths the user opens or selects are never filtered.
+ * @property hiddenCount How many folders of [path] [entries] leaves out because they are hidden;
+ *   0 while [showHidden].
+ * @property listing Every child of [path] that can be opened as a folder, hidden or not: what
+ *   [entries] is filtered from, so that a change of [showHidden] needs no new listing.
  */
 data class FolderState(
     val loading: Boolean = true,
@@ -50,6 +58,9 @@ data class FolderState(
     val errorDetail: String? = null,
     val debugDetail: String? = null,
     internal val debugFailure: Throwable? = null,
+    val showHidden: Boolean = false,
+    val hiddenCount: Int = 0,
+    internal val listing: List<FileEntry> = emptyList(),
 ) {
     /** [path] has a parent folder. */
     val canGoUp: Boolean get() = path != null && path.trimEnd('/').isNotEmpty()
@@ -71,6 +82,9 @@ sealed interface FolderIntent {
     data object Retry : FolderIntent
 
     data object DismissError : FolderIntent
+
+    /** Shows or hides the folders whose name starts with `.`; the folder is not listed again. */
+    data class SetShowHidden(val show: Boolean) : FolderIntent
 
     data object Close : FolderIntent
 }

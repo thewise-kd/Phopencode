@@ -57,6 +57,13 @@ import kotlinx.coroutines.yield
  * shows its subfolders and the symlinks that lead to a folder, by name ignoring case; files and
  * broken links are left out.
  *
+ * Hidden folders (P9.31), those whose name starts with `.`, are left out of
+ * [FolderState.entries] and counted in [FolderState.hiddenCount] until
+ * [FolderIntent.SetShowHidden] asks for them. The whole listing is kept in the state, so the switch
+ * only filters it again and never lists over SFTP; the choice holds for the presenter's life, across
+ * folders, refreshes and errors. Recent folders, and paths opened or selected by the user, are never
+ * filtered: a hidden folder can always be opened or picked by its path.
+ *
  * Paths are kept and stored in the canonical form of [FolderPaths]. `Up` takes the parent by the
  * text of the path, and stops at `/`.
  *
@@ -206,6 +213,8 @@ class DefaultFolderPresenter(
             }
             FolderIntent.DismissError -> mutableState.update { it.withError(null) }
             FolderIntent.Close -> eventChannel.trySend(FolderEvent.Close)
+            // Only filters the listing already made: nothing is listed again.
+            is FolderIntent.SetShowHidden -> mutableState.update { it.withListing(it.listing, intent.show) }
         }
     }
 
@@ -258,10 +267,10 @@ class DefaultFolderPresenter(
             currentCoroutineContext().ensureActive()
             synchronized(lock) { shownProfile = profile }
             mutableState.update { current ->
-                current.copy(
+                // The choice read inside the update, so a toggle made meanwhile is kept.
+                current.withListing(entries, current.showHidden).copy(
                     loading = false,
                     path = path,
-                    entries = entries,
                     // A storage failure is not about browsing; it stays until dismissed.
                     error = current.error.takeIf { it == FolderError.StorageFailed },
                     errorDetail = null,
@@ -606,6 +615,20 @@ class DefaultFolderPresenter(
          */
         fun FolderState.withError(error: FolderError?, detail: String? = null, failure: Throwable? = null): FolderState =
             copy(error = error, errorDetail = detail, debugDetail = null, debugFailure = failure)
+
+        /**
+         * [listing] as the folder's children, and [entries][FolderState.entries] filtered from it
+         * by [showHidden]; the order of [listing] is kept.
+         */
+        fun FolderState.withListing(listing: List<FileEntry>, showHidden: Boolean): FolderState {
+            val visible = if (showHidden) listing else listing.filterNot { it.name.startsWith('.') }
+            return copy(
+                listing = listing,
+                entries = visible,
+                showHidden = showHidden,
+                hiddenCount = listing.size - visible.size,
+            )
+        }
 
         fun errorOf(e: Exception): FolderError = when (e) {
             is NotConnectedException, is SshException.Disconnected -> FolderError.NotConnected

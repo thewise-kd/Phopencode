@@ -20,4 +20,9 @@
     <string name="connect_folder_error_detail">Ayrıntı: %1$s</string>
     <string name="connect_folder_debug_details">Hata ayıklama ayrıntıları</string>
     <string name="connect_folder_error_storage">Son klasörler bu telefonda okunamadı ya da kaydedilemedi.</string>
+    <string name="connect_folder_show_hidden">Gizli klasörleri göster</string>
+    <string name="connect_folder_hidden_on">Açık</string>
+    <string name="connect_folder_hidden_off">Kapalı</string>
+    <string name="connect_folder_all_hidden_title">Burada yalnızca gizli klasörler var</string>
+    <string name="connect_folder_all_hidden_message">Buradaki her klasörün adı nokta ile başlıyor. Yine de bu klasörü seçebilirsiniz.</string>
 </resources>

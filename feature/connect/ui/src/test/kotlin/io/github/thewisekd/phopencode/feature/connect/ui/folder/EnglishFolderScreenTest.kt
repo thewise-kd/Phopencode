@@ -35,4 +35,9 @@ internal val ENGLISH_FOLDER_STRINGS = ExpectedFolderStrings(
     ),
     details = { "Details: $it" },
     debugHeading = "Debug details",
+    showHidden = "Show hidden folders",
+    hiddenOn = "On",
+    hiddenOff = "Off",
+    allHiddenTitle = "Only hidden folders here",
+    allHiddenMessage = "Every folder here has a name that starts with a dot. You can still select this folder.",
 )

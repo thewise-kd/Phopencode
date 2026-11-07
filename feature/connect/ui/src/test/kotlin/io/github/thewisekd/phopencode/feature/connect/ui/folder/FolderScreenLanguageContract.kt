@@ -3,7 +3,12 @@ package io.github.thewisekd.phopencode.feature.connect.ui.folder
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -37,6 +42,11 @@ internal data class ExpectedFolderStrings(
     val errors: Map<FolderError, String>,
     val details: (String) -> String,
     val debugHeading: String,
+    val showHidden: String,
+    val hiddenOn: String,
+    val hiddenOff: String,
+    val allHiddenTitle: String,
+    val allHiddenMessage: String,
 )
 
 /** What the folder picker shows, the same in each language; a subclass sets the language and its texts. */
@@ -83,6 +93,34 @@ abstract class FolderScreenLanguageContract {
 
         compose.onNodeWithText(strings.emptyTitle).assertIsDisplayed()
         compose.onNodeWithText(strings.emptyMessage).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the hidden folders switch is named and says whether it is on`() {
+        var state by mutableStateOf(browsing)
+        compose.setContent { FolderScreenUnderTest(state) }
+
+        compose.onNodeWithContentDescription(strings.showHidden)
+            .assertIsDisplayed()
+            .assertIsOff()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, strings.hiddenOff))
+
+        state = browsing.copy(showHidden = true)
+        compose.waitForIdle()
+
+        compose.onNodeWithContentDescription(strings.showHidden)
+            .assertIsOn()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, strings.hiddenOn))
+    }
+
+    @Test
+    fun `a folder of only hidden folders says so and offers to show them`() {
+        compose.setFolderScreen(FolderState(loading = false, path = CURRENT, hiddenCount = 2))
+
+        compose.onNodeWithText(strings.allHiddenTitle).assertIsDisplayed()
+        compose.onNodeWithText(strings.allHiddenMessage).assertIsDisplayed()
+        compose.onNodeWithText(strings.showHidden).assertIsDisplayed()
+        compose.onNodeWithText(strings.emptyTitle).assertDoesNotExist()
     }
 
     @Test

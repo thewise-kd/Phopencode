@@ -20,6 +20,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -38,6 +39,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -46,6 +48,7 @@ import io.github.thewisekd.phopencode.core.model.FileEntry
 import io.github.thewisekd.phopencode.core.model.FileEntryType
 import io.github.thewisekd.phopencode.core.navigation.ConnectRoute
 import io.github.thewisekd.phopencode.core.ui.component.EmptyState
+import io.github.thewisekd.phopencode.core.ui.component.EmptyStateAction
 import io.github.thewisekd.phopencode.core.ui.component.ErrorBanner
 import io.github.thewisekd.phopencode.core.ui.component.PhopencodeScaffold
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
@@ -58,7 +61,9 @@ import io.github.thewisekd.phopencode.feature.connect.ui.R
  * Picking the project folder on the server. Draws [state] and sends [onIntent]; it decides nothing
  * itself. The current path sits on top with an Up button, enabled only when [FolderState.canGoUp];
  * below come the recent folders (a tap selects one) and the current folder's subfolders (a tap opens
- * one). "Select this folder" picks the folder shown.
+ * one). "Select this folder" picks the folder shown. A switch on the top bar shows or hides the
+ * folders whose name starts with `.` (P9.31); when every folder here is hidden, the screen says so
+ * and offers to show them.
  *
  * The root keeps the `placeholder:<route>` tag the app's navigation test looks for.
  */
@@ -73,6 +78,7 @@ fun FolderScreen(
         title = stringResource(R.string.connect_folder_title),
         modifier = modifier.fillMaxSize().testTag("placeholder:$route"),
         onBack = { onIntent(FolderIntent.Close) },
+        actions = { ShowHiddenToggle(state.showHidden) { onIntent(FolderIntent.SetShowHidden(it)) } },
         bottomBar = {
             val path = state.path
             SelectBar(enabled = path != null && !state.loading) { path?.let { onIntent(FolderIntent.Select(it)) } }
@@ -102,6 +108,17 @@ fun FolderScreen(
                 when {
                     state.loading -> item(key = "loading") { LoadingFolders() }
                     state.entries.isNotEmpty() -> folders(state.entries, onIntent)
+                    state.error == null && state.path != null && state.hiddenCount > 0 -> item(key = "all-hidden") {
+                        EmptyState(
+                            modifier = Modifier.fillMaxWidth(),
+                            title = stringResource(R.string.connect_folder_all_hidden_title),
+                            message = stringResource(R.string.connect_folder_all_hidden_message),
+                            icon = FolderIcons.Hidden,
+                            action = EmptyStateAction(stringResource(R.string.connect_folder_show_hidden)) {
+                                onIntent(FolderIntent.SetShowHidden(true))
+                            },
+                        )
+                    }
                     state.error == null && state.path != null -> item(key = "empty") {
                         EmptyState(
                             modifier = Modifier.fillMaxWidth(),
@@ -230,6 +247,27 @@ private fun PathBar(path: String?, canGoUp: Boolean, onUp: () -> Unit) {
             style = MaterialTheme.typography.titleSmall,
             maxLines = 1,
             overflow = TextOverflow.StartEllipsis,
+        )
+    }
+}
+
+/**
+ * Shows or hides the folders whose name starts with `.`. A 48 dp toggle: its name stays "Show hidden
+ * folders", and accessibility services hear whether it is on.
+ */
+@Composable
+private fun ShowHiddenToggle(showHidden: Boolean, onChange: (Boolean) -> Unit) {
+    val state = stringResource(
+        if (showHidden) R.string.connect_folder_hidden_on else R.string.connect_folder_hidden_off,
+    )
+    IconToggleButton(
+        checked = showHidden,
+        onCheckedChange = onChange,
+        modifier = Modifier.semantics { stateDescription = state },
+    ) {
+        Icon(
+            imageVector = if (showHidden) FolderIcons.Visible else FolderIcons.Hidden,
+            contentDescription = stringResource(R.string.connect_folder_show_hidden),
         )
     }
 }

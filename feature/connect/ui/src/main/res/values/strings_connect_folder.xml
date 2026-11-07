@@ -20,4 +20,9 @@
     <string name="connect_folder_error_detail">Details: %1$s</string>
     <string name="connect_folder_debug_details">Debug details</string>
     <string name="connect_folder_error_storage">Recent folders could not be read or saved on this phone.</string>
+    <string name="connect_folder_show_hidden">Show hidden folders</string>
+    <string name="connect_folder_hidden_on">On</string>
+    <string name="connect_folder_hidden_off">Off</string>
+    <string name="connect_folder_all_hidden_title">Only hidden folders here</string>
+    <string name="connect_folder_all_hidden_message">Every folder here has a name that starts with a dot. You can still select this folder.</string>
 </resources>

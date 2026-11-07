@@ -32,5 +32,10 @@ class TurkishFolderScreenTest : FolderScreenLanguageContract() {
         ),
         details = { "Ayrıntı: $it" },
         debugHeading = "Hata ayıklama ayrıntıları",
+        showHidden = "Gizli klasörleri göster",
+        hiddenOn = "Açık",
+        hiddenOff = "Kapalı",
+        allHiddenTitle = "Burada yalnızca gizli klasörler var",
+        allHiddenMessage = "Buradaki her klasörün adı nokta ile başlıyor. Yine de bu klasörü seçebilirsiniz.",
     )
 }
