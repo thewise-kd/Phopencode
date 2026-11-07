@@ -1,21 +1,229 @@
-# phopencode
+<p align="center">
+  <img src="docs/assets/logo.svg" alt="Phopencode logo" width="128" height="128">
+</p>
 
-## Türkçe
+<h1 align="center">Phopencode</h1>
 
-phopencode, bir sunucuda `opencode serve` ile çalışan opencode'u telefondan yönetmek için geliştirilen, herkese açık bir Android uygulamasıdır. Kotlin ve Jetpack Compose ile yazılmaktadır.
+<p align="center">
+  <strong>Use opencode on your own server from your Android phone, over SSH.</strong>
+</p>
 
-Proje henüz çok erken aşamadadır: kullanılabilir bir uygulama ve sürüm yoktur. Planlanan işler [docs/PHASES.md](docs/PHASES.md) dosyasındadır.
+<p align="center">
+  <a href="https://github.com/thewise-kd/Phopencode/actions/workflows/ci.yml"><img src="https://github.com/thewise-kd/Phopencode/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+</p>
 
-## English
+<p align="center">
+  <strong>English</strong> | <a href="README.tr.md">Türkçe</a>
+</p>
 
-phopencode is a public Android app for managing, from a phone, opencode running on a server with `opencode serve`. It is being written in Kotlin and Jetpack Compose.
+> [!NOTE]
+> **Status: early development, no release yet.** The core features below work, but there is no
+> published APK. To try the app, [build it from source](#building-from-source).
 
-The project is at a very early stage: there is no usable app and no release yet. The planned work is in [docs/PHASES.md](docs/PHASES.md).
+<!--
+Screenshots: none yet. Add them here once they exist, for example:
+<p align="center"><img src="docs/assets/screenshot-chat.png" alt="Chat screen" width="260"></p>
+-->
 
-## License
+## What it is
 
-[MIT](LICENSE)
+Phopencode is an Android app for working with [opencode](https://opencode.ai) when it runs on a
+server you control. You keep opencode, your code and your credentials on the server; the phone
+connects to it over SSH and gives you the opencode sessions, the chat, the project files and git
+in a native, touch-friendly app.
+
+Why: an agent can run for a long time, ask questions and wait for permissions. Phopencode lets
+you follow it, answer it and review what it changed when you are away from your computer, without
+opening any port of your server to the internet.
+
+## Features
+
+Done (phases P0 to P9 of [docs/PHASES.md](docs/PHASES.md)):
+
+**Connection and servers**
+
+- Server profiles: host, port, user, and an SSH key or password; an optional fixed opencode port.
+- SSH keys: generate ed25519 keys, import OpenSSH keys (passphrase-protected ones too), see the
+  fingerprint and copy the public key.
+- Host key verification: you approve the SHA-256 fingerprint on the first connection; if it
+  changes later, the connection stops with a warning.
+- Finds a running `opencode serve` (also in `~/.opencode/bin` when it is not on `PATH`) and starts
+  one, bound to `127.0.0.1`, only when none runs.
+- Reconnects after a dropped connection; a folder picker over SFTP with recent folders.
+
+**Sessions and chat**
+
+- Session list with search, status, token usage and cost; create (folder, agent, model, title),
+  rename, archive and delete.
+- Live streaming chat with Markdown and highlighted code blocks.
+- Reasoning, tool call and token/context usage cards; a status banner for running, retrying and
+  disconnected states.
+- Send while the agent is running (steer or queue) and stop it.
+- Answer the agent's questions (single choice, multiple choice, free text) and permission
+  requests (once, always, reject).
+- Follow subagents as a live tree and open their sessions.
+- Command palette (`/` for commands and skills, `@` for agents and files), agent and model
+  switching, per-turn diff and revert, compaction and fork.
+
+**Files**
+
+- Browse the project, view files with syntax highlighting, rendered Markdown and image preview.
+- Edit and save, with a warning when the file changed on the server meanwhile.
+- Rename, delete, create folders; search by name and by content (`rg`, or `grep` without it).
+- Upload and download through the system file picker, with progress in a notification.
+
+**Git**
+
+- Status with staged, unstaged and untracked files, ahead/behind and upstream state.
+- Stage, unstage, discard changes (after confirmation) and commit.
+- Diffs, history with commit details, and branches (create, switch, delete).
+- Fetch, pull (fast-forward only) and push. The app never force-pushes.
+
+**General**
+
+- Turkish and English interface following the system language; light and dark theme.
+
+### Roadmap
+
+Not done yet (see [docs/PHASES.md](docs/PHASES.md) for the full plan):
+
+- **P10, catalog and settings:** skill, command, agent and model lists; MCP and plugin status;
+  settings for language, theme, file size limit and deleting app data.
+- **P11, notifications:** a small, dependency-free Python service on the server that sends a push
+  notification through [ntfy](https://ntfy.sh) when the agent asks something, needs a permission,
+  finishes or fails. The notification text is fixed and carries no code, paths or AI output.
+- **P12, release:** accessibility review, app icon and splash screen, third-party license notices,
+  release hardening (R8, no backups, no logs), signed APKs on GitHub Releases and user
+  documentation.
+
+Not planned for the first release: a terminal, git stash/merge conflict resolution/rebase, and
+managing MCP servers or provider credentials
+([full list](docs/PHASES.md#out-of-scope-first-release)).
+
+## How it works
+
+```text
+ Android phone                                  Your server
++---------------+        SSH (port 22)        +---------------------------------------+
+|  Phopencode   | ==========================> | sshd                                  |
+|               |   exec:  find or start      |  |- opencode serve on 127.0.0.1:<port>|
+|               |          opencode, git, rg  |  |- git, rg/grep in your project      |
+|               |   SFTP:  files              |  '- your files                        |
+|               |   tunnel: opencode HTTP API |                                       |
++---------------+   and event stream          +---------------------------------------+
+```
+
+- Everything goes through one SSH connection. The opencode HTTP API and its live event stream
+  travel through an SSH tunnel to `127.0.0.1` on the server.
+- `opencode serve` listens on loopback only, so nothing new is exposed to the internet. On the
+  phone the tunnel opens no local port either, so other apps cannot reach it.
+- When the app starts `opencode serve`, it protects it with a random password that is passed via
+  stdin, never on the command line.
+- Files use SFTP, confined to the folder you opened. Git and content search run as ordinary
+  commands over SSH, with every argument shell-quoted.
+
+### Server requirements
+
+- SSH access with a key or a password.
+- [opencode](https://opencode.ai) 2.2 or newer installed for that user.
+- `git` for the git screens; `rg` (ripgrep) is optional, `grep` is used without it.
+
+## Requirements
+
+- An Android phone with Android 8.0 (API 26) or newer.
+- A server as described in [Server requirements](#server-requirements).
+
+## Building from source
+
+There is no published APK yet, so you build the debug APK yourself.
+
+You need:
+
+- JDK 21 ([docs/dev-setup/jdk.md](docs/dev-setup/jdk.md)).
+- The Android SDK with platform 37 (for example from Android Studio).
+- `ANDROID_HOME` (or `ANDROID_SDK_ROOT`) set to the SDK folder, or `sdk.dir` in
+  `local.properties`. Without an SDK, Gradle only includes the JVM modules.
+
+```sh
+git clone https://github.com/thewise-kd/Phopencode.git
+cd Phopencode
+export ANDROID_HOME="$HOME/Android/Sdk"   # your SDK folder
+
+./gradlew :app:assembleDebug              # APK in app/build/outputs/apk/debug/
+adb install -r app/build/outputs/apk/debug/*.apk
+```
+
+Tests and checks:
+
+```sh
+./gradlew jvmCheck                        # all JVM module tests; needs no Android SDK
+./gradlew :core:api-http:test             # a single module
+./gradlew testDebugUnitTest lint          # Android unit tests and lint; needs the SDK
+python3 scripts/check_boundaries.py       # module boundaries and secret patterns
+python3 scripts/check_strings.py          # Turkish/English string parity
+```
+
+`gradle/verify-wrapper.sh --online` compares the Gradle wrapper with the hashes Gradle publishes.
+
+## Project structure
+
+The logic lives in plain Kotlin/JVM modules that are tested without Android; Compose screens live
+in thin Android modules.
+
+| Path | Contents |
+|---|---|
+| `app/` | Entry point, navigation, dependency injection (Koin) |
+| `core/model`, `core/api` | Domain types; opencode API interfaces and events |
+| `core/api-http` | opencode HTTP client and event stream (OkHttp) |
+| `core/session` | Event reducer and resync after a reconnect |
+| `core/ssh` | SSH, remote commands, SFTP, tunnel, shell quoting (sshj) |
+| `core/remote` | Server discovery and startup, connection manager |
+| `core/files`, `core/git` | File service; git commands and parsers |
+| `core/storage-api`, `core/storage` | Storage interfaces; encrypted storage (Keystore, Tink, DataStore) |
+| `core/navigation`, `core/ui`, `core/markdown`, `core/codeview` | Routes, theme and shared components, Markdown, code viewer |
+| `feature/<name>/logic`, `feature/<name>/ui` | Each feature's state and presenters (JVM) and its Compose screens (Android) |
+| `build-logic/` | Gradle convention plugins |
+
+Features: `connect`, `sessions`, `chat`, `files`, `git`, and, still empty, `catalog`, `notify` and
+`settings`.
 
 ## Security
 
-See [SECURITY.md](SECURITY.md).
+- **Host keys are verified.** A server's key is approved on the first connection; a changed key
+  stops the connection.
+- **Secrets are encrypted on the phone.** Passwords and private keys are stored with Tink under a
+  key in the Android Keystore; profiles hold no passwords. App data is excluded from cloud backup
+  and device transfer.
+- **Nothing is exposed.** opencode listens on `127.0.0.1` only and is reached through the SSH
+  tunnel; the phone opens no local port.
+- **The app does not take over your server.** It never uses `sudo`, never stops, kills or
+  replaces an `opencode serve` that is already running, and starts one only when none runs. The
+  only processes it stops are its own: a command you cancel, or a server it just launched that
+  failed to come up.
+- **Git is safe by default.** No force push, no `git reset --hard`, no `git clean`; pull is
+  fast-forward only; discarding changes needs confirmation.
+- **No analytics or tracking.** Logs never contain passwords, keys or file contents.
+
+To report a vulnerability, see [SECURITY.md](SECURITY.md). Please do not open a public issue.
+
+## Contributing
+
+Issues and pull requests are welcome. Before opening a pull request:
+
+- Run `./gradlew jvmCheck` and the two `scripts/check_*.py` checks; CI runs the Android tests.
+- Add every user-facing string in both English (`values/`) and Turkish (`values-tr/`).
+- Keep Android dependencies out of the JVM modules.
+- Never include real server addresses, keys, passwords or other secrets, in code, tests or issues;
+  use placeholders such as `example.com`.
+
+The task plan and the conventions are in [docs/PHASES.md](docs/PHASES.md).
+
+## License
+
+[MIT](LICENSE) © 2026 thewise-kd
+
+## Disclaimer
+
+Phopencode is an independent project. It is not affiliated with, endorsed by or sponsored by the
+opencode project or SST. "opencode" is used only to name the software this app connects to.

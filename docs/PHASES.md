@@ -101,7 +101,7 @@ This list is created in one go in P0.4. 32 modules in total.
 | `strings.xml` | No single file | Each screen keeps a `strings_<f>_<screen>.xml` file under `values/` and `values-tr/`. Key prefix `<f>_<screen>_` |
 | `AndroidManifest.xml` | Per module | The `app` manifest does not change after P1.10. Permissions and services go in the feature's own manifest |
 | R8 rules | P3.10, P12.4 | Only `app/proguard-rules.pro`, in these two tasks |
-| `README.md`, `CLAUDE.md` | P0.1, P0.4, P12.6 | No other task touches them |
+| `README.md`, `README.tr.md`, `CLAUDE.md` | P0.1, P0.4, P9.29, P12.6 | No other task touches them |
 
 ### What a contract task produces
 
@@ -587,6 +587,7 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | P9.26 | App singletons keep the app scope | P4.16, P3.9, P8.2 | `app/…/di/`, `feature/files/ui/…/FilesModule.kt`, feature `*Module.kt` KDoc, `docs/PHASES.md` (this block) | A singleton first created while a screen's presenter is resolved runs on the app scope, not the screen's; leaving that screen does not close the connection manager or the transfer queue | `CI` |
 | P9.27 | App logo and launcher icon | P1.10 | `app/src/main/res/drawable/ic_launcher_*.xml`, `app/src/main/res/mipmap-anydpi-v26/`, `app/src/main/res/values/ic_launcher_background.xml`, `app/src/main/AndroidManifest.xml` (icon attributes only), `docs/assets/logo*.svg`, `docs/PHASES.md` (this row) | Vector-only adaptive icon (background, foreground inside the 66 dp safe zone, monochrome) wired as `icon` and `roundIcon`; `docs/assets/logo.svg` is the same mark with no raster, external reference or script; the app builds and lint passes | `CI` |
 | P9.28 | App and APK named Phopencode | P1.10 | `app/src/main/res/values*/strings_app.xml` (`app_name`), `app/build.gradle.kts`, `docs/PHASES.md` (this row) | The launcher label is `Phopencode` in English and Turkish; the build writes `Phopencode-debug.apk` and `Phopencode-release.apk`; the Gradle project, modules, packages and application ID keep their names | `CI` |
+| P9.29 | Public README | P9.27, P9.28 | `README.md`, `README.tr.md`, `docs/PHASES.md` (this row and the README entry of "Frequently conflicting files") | English `README.md` and Turkish `README.tr.md` with the same content and a language switch; centred logo from `docs/assets/logo.svg`, real CI and MIT badges; what and why, done features and P10–P12 roadmap, how it works over SSH, requirements, building from source, module map, security summary linking `SECURITY.md`, contributing, early status with no release, MIT license, not affiliated with opencode or SST; no real addresses or secrets; every relative link resolves | `LOCAL` |
 
 `CP9`: push, CI green, `PHONE`: commit and push in a test repository.
 
