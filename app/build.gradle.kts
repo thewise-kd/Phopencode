@@ -2,6 +2,11 @@ plugins {
     id("phopencode.android.application")
 }
 
+// P9.28: AGP names the APKs after the archives name: Phopencode-debug.apk, Phopencode-release.apk.
+base {
+    archivesName = "Phopencode"
+}
+
 android {
     buildTypes {
         release {
