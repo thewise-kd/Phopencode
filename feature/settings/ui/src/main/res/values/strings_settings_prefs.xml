@@ -1,3 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_prefs_title">Settings</string>
+    <string name="settings_prefs_loading">Loading settings…</string>
+
+    <string name="settings_prefs_language_heading">Language</string>
+    <string name="settings_prefs_language_system">System default</string>
+    <!-- Each language is named in its own language, so it can be found whatever the app speaks. -->
+    <string name="settings_prefs_language_turkish" translatable="false">Türkçe</string>
+    <string name="settings_prefs_language_english" translatable="false">English</string>
+
+    <string name="settings_prefs_theme_heading">Theme</string>
+    <string name="settings_prefs_theme_system">System default</string>
+    <string name="settings_prefs_theme_light">Light</string>
+    <string name="settings_prefs_theme_dark">Dark</string>
+
+    <string name="settings_prefs_file_size_heading">File size limit</string>
+    <string name="settings_prefs_file_size_label">Limit in MiB</string>
+    <string name="settings_prefs_file_size_unit">MiB</string>
+    <string name="settings_prefs_file_size_hint">Larger files ask before they open. %1$d to %2$d MiB.</string>
+    <string name="settings_prefs_file_size_blank">Enter a size in MiB.</string>
+    <string name="settings_prefs_file_size_not_a_number">Enter a whole number of MiB.</string>
+    <string name="settings_prefs_file_size_too_small">The limit is at least %1$d MiB.</string>
+    <string name="settings_prefs_file_size_too_large">The limit is at most %1$d MiB.</string>
+
+    <string name="settings_prefs_about_heading">About</string>
+    <string name="settings_prefs_licenses">Open source licenses</string>
+    <string name="settings_prefs_licenses_description">The libraries this app uses and their licenses</string>
+
+    <string name="settings_prefs_data_heading">Data</string>
+    <string name="settings_prefs_delete_description">Erase every server, key, password and setting on this phone.</string>
+    <string name="settings_prefs_delete_button">Delete all data</string>
+    <string name="settings_prefs_delete_confirm_title">Delete all data?</string>
+    <string name="settings_prefs_delete_confirm_message">Every server, key, password and setting on this phone is erased and the connection is closed. This cannot be undone.</string>
+    <string name="settings_prefs_delete_confirm">Delete</string>
+    <string name="settings_prefs_deleting">Deleting all data…</string>
+
+    <string name="settings_prefs_error_save">The setting could not be saved.</string>
+    <string name="settings_prefs_error_delete">Not all data could be deleted. Delete again to finish.</string>
 </resources>

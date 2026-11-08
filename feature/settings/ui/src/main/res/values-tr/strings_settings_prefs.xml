@@ -1,3 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_prefs_title">Ayarlar</string>
+    <string name="settings_prefs_loading">Ayarlar yükleniyor…</string>
+
+    <string name="settings_prefs_language_heading">Dil</string>
+    <string name="settings_prefs_language_system">Sistem varsayılanı</string>
+
+    <string name="settings_prefs_theme_heading">Tema</string>
+    <string name="settings_prefs_theme_system">Sistem varsayılanı</string>
+    <string name="settings_prefs_theme_light">Açık</string>
+    <string name="settings_prefs_theme_dark">Koyu</string>
+
+    <string name="settings_prefs_file_size_heading">Dosya boyutu sınırı</string>
+    <string name="settings_prefs_file_size_label">MiB cinsinden sınır</string>
+    <string name="settings_prefs_file_size_unit">MiB</string>
+    <string name="settings_prefs_file_size_hint">Daha büyük dosyalar açılmadan önce sorar. %1$d ile %2$d MiB arası.</string>
+    <string name="settings_prefs_file_size_blank">MiB cinsinden bir boyut girin.</string>
+    <string name="settings_prefs_file_size_not_a_number">MiB cinsinden bir tam sayı girin.</string>
+    <string name="settings_prefs_file_size_too_small">Sınır en az %1$d MiB olabilir.</string>
+    <string name="settings_prefs_file_size_too_large">Sınır en fazla %1$d MiB olabilir.</string>
+
+    <string name="settings_prefs_about_heading">Hakkında</string>
+    <string name="settings_prefs_licenses">Açık kaynak lisansları</string>
+    <string name="settings_prefs_licenses_description">Uygulamanın kullandığı kütüphaneler ve lisansları</string>
+
+    <string name="settings_prefs_data_heading">Veriler</string>
+    <string name="settings_prefs_delete_description">Bu telefondaki tüm sunucuları, anahtarları, parolaları ve ayarları siler.</string>
+    <string name="settings_prefs_delete_button">Tüm verileri sil</string>
+    <string name="settings_prefs_delete_confirm_title">Tüm veriler silinsin mi?</string>
+    <string name="settings_prefs_delete_confirm_message">Bu telefondaki tüm sunucular, anahtarlar, parolalar ve ayarlar silinir ve bağlantı kapatılır. Bu işlem geri alınamaz.</string>
+    <string name="settings_prefs_delete_confirm">Sil</string>
+    <string name="settings_prefs_deleting">Tüm veriler siliniyor…</string>
+
+    <string name="settings_prefs_error_save">Ayar kaydedilemedi.</string>
+    <string name="settings_prefs_error_delete">Verilerin hepsi silinemedi. Bitirmek için yeniden silin.</string>
 </resources>
