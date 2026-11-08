@@ -20,6 +20,7 @@ import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerAction
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerError
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerIntent
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerState
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PromptAttachment
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -106,6 +107,30 @@ class ComposerBehaviorTest {
         }
 
         assertTrue(harness.intents.isEmpty())
+    }
+
+    @Test
+    fun `a skill attached with nothing typed can be sent, other attachments alone cannot`() {
+        val skill = PromptAttachment.Skill("granny-workflow")
+        val harness = compose.setComposer(ready("  ").copy(attachments = listOf(PromptAttachment.Agent("explore"))))
+        button(SEND).assertIsNotEnabled()
+
+        harness.state.value = ready("  ").copy(attachments = listOf(PromptAttachment.Agent("explore"), skill))
+        button(SEND).assertIsEnabled().performClick()
+        assertEquals(listOf<ComposerIntent>(ComposerIntent.Send), harness.intents)
+
+        harness.state.value = ready().copy(attachments = listOf(skill), enabled = false)
+        button(SEND).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `while running, an attached skill is sent instead of stopping`() {
+        val harness = compose.setComposer(running().copy(attachments = listOf(PromptAttachment.Skill("granny-workflow"))))
+
+        compose.onNodeWithText(STOP).assertDoesNotExist()
+        button(SEND).assertIsEnabled().performClick()
+
+        assertEquals(listOf<ComposerIntent>(ComposerIntent.Send), harness.intents)
     }
 
     @Test

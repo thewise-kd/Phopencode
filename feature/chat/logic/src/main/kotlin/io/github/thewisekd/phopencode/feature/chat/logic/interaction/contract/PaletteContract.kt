@@ -16,14 +16,15 @@ import io.github.thewisekd.phopencode.feature.chat.logic.contract.Presenter
  * - `@` opens [PaletteTrigger.At], anywhere: agents (`CatalogApi.agents`, hidden ones left out) and
  *   files (`FsApi.find(Location(session.directory), query)`).
  * The rest of the word is [PaletteState.query]; items match it case-insensitively, those that
- * start with it first. A built-in matches when its name or an alias starts with it, and shows from
+ * start with it first; a skill or an agent matches by its ID or its name. A built-in matches when its name or an alias starts with it, and shows from
  * the start, while the server's lists load or after they failed; one whose name is a server
  * command's is left out, as the server's command overrides it. A trailing space, or no such word, closes the palette. Lists are asked
  * through `ChatSession.call`, for the session's folder, once per folder; files once per query.
  *
  * A pick ([PaletteIntent.Pick]):
  * - Skill, agent or file: becomes a [PromptAttachment], with [PaletteEvent.Attached] carrying the
- *   draft without the trigger word. The chat hands both to the composer.
+ *   draft without the trigger word. The chat hands both to the composer. A skill attaches by its
+ *   ID, never its name.
  * - Command: runs at once, `MessageApi.command(sessionId, name, text)` through `ChatSession.call`,
  *   with what the draft holds after the command word as `text`; once the server accepts it,
  *   [PaletteEvent.CommandSent] names the draft it was sent from. A failed run, or one cut short,
@@ -36,10 +37,14 @@ import io.github.thewisekd.phopencode.feature.chat.logic.contract.Presenter
  * Sending ([PaletteIntent.Submit]): the chat hands over every draft that starts with a slash word
  * ([SlashWord]) instead of sending it. A server command of exactly that name runs as a pick does,
  * with the rest of the draft as its text; else a built-in of that name or alias, in any case,
- * becomes [PaletteEvent.RunBuiltIn]; else [PaletteEvent.SendPrompt] hands it back to be sent as a
- * prompt. The server's commands win over a built-in of the same name. Until they are known for the
- * session's folder they are asked first; if that fails, a built-in still runs, and anything else
- * keeps the draft and sets [PaletteState.error].
+ * becomes [PaletteEvent.RunBuiltIn]; else a skill whose ID is exactly that name (`/<skill>`, as in
+ * opencode's own TUI) becomes [PaletteEvent.SendSkill], the rest of the draft sent as a prompt with
+ * the skill attached; else [PaletteEvent.SendPrompt] hands it back to be sent as a prompt. So a
+ * server command wins over a built-in, and both over a skill. Until the commands, then the skills,
+ * are known for the session's folder they are asked first, sharing a request already on its way.
+ * If the commands cannot be had, a built-in or a known skill still runs, and anything else keeps
+ * the draft and sets [PaletteState.error]; if the skills cannot be had, the draft goes on as it
+ * would with no skill of that ID: a built-in, else a prompt.
  *
  * @property trigger What opened the palette; null while closed.
  * @property query The word after the trigger. Prints masked.
@@ -77,7 +82,12 @@ enum class PaletteTrigger {
 sealed interface PaletteItem {
     data class Command(val name: String, val description: String? = null) : PaletteItem
 
-    data class Skill(val name: String, val description: String? = null) : PaletteItem
+    /**
+     * @property id `Skill.id`, what the API takes and what a pick attaches.
+     * @property name `Skill.name`, its display form; the same as [id] for a user's skill, not for
+     *   the server's own (id `opencode`, name `OpenCode`).
+     */
+    data class Skill(val id: String, val name: String = id, val description: String? = null) : PaletteItem
 
     /** One of the app's own commands; its texts come from the app. */
     data class BuiltIn(val command: BuiltInCommand) : PaletteItem
@@ -157,6 +167,16 @@ sealed interface PaletteEvent {
      */
     data class RunBuiltIn(val command: BuiltInCommand, val from: String, val draft: String) : PaletteEvent {
         override fun toString(): String = "RunBuiltIn(command=$command, from=***, draft=***)"
+    }
+
+    /**
+     * The sent draft [from] starts with the ID of [skill]. The chat hands it to the composer as
+     * `ComposerIntent.SendSkill`: [text], the draft after the slash word, may be empty, and goes as
+     * a prompt with [skill] and the attachments the composer holds, only if the composer still
+     * holds [from].
+     */
+    data class SendSkill(val skill: PromptAttachment.Skill, val from: String, val text: String) : PaletteEvent {
+        override fun toString(): String = "SendSkill(skill=$skill, from=***, text=***)"
     }
 
     /** [draft] holds no command: the chat sends it as a prompt, if the composer still holds it. */

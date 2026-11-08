@@ -18,6 +18,10 @@ sealed interface PromptAttachment {
     /** An agent, by `Agent.id`, the name the API takes. */
     data class Agent(val id: String) : PromptAttachment
 
-    /** A skill, by `Skill.name`. */
-    data class Skill(val name: String) : PromptAttachment
+    /**
+     * A skill, by `Skill.id`, the ID the API takes (`PromptInput.SkillAttachment`). It is not
+     * `Skill.name`, the display form: for the server's own skills they differ, as id `opencode` for
+     * name `OpenCode`.
+     */
+    data class Skill(val id: String) : PromptAttachment
 }

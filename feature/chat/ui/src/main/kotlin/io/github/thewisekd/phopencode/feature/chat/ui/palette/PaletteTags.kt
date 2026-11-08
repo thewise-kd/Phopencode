@@ -15,7 +15,7 @@ internal object PaletteTags {
 
     fun item(item: PaletteItem): String = "palette:item:" + when (item) {
         is PaletteItem.Command -> "command:${item.name}"
-        is PaletteItem.Skill -> "skill:${item.name}"
+        is PaletteItem.Skill -> "skill:${item.id}:${item.name}"
         is PaletteItem.Agent -> "agent:${item.id}"
         is PaletteItem.File -> "file:${item.path}"
         is PaletteItem.BuiltIn -> "builtin:${item.command.primary}"
@@ -28,6 +28,6 @@ internal object PaletteTags {
     private fun PromptAttachment.key(): String = when (this) {
         is PromptAttachment.File -> "file:$path"
         is PromptAttachment.Agent -> "agent:$id"
-        is PromptAttachment.Skill -> "skill:$name"
+        is PromptAttachment.Skill -> "skill:$id"
     }
 }

@@ -3,6 +3,7 @@ package io.github.thewisekd.phopencode.feature.chat.logic.palette
 import io.github.thewisekd.phopencode.core.api.ApiError
 import io.github.thewisekd.phopencode.core.api.ApiException
 import io.github.thewisekd.phopencode.core.api.Location
+import io.github.thewisekd.phopencode.core.api.OpencodeClient
 import io.github.thewisekd.phopencode.core.model.FileEntry
 import io.github.thewisekd.phopencode.core.model.FileEntryType
 import io.github.thewisekd.phopencode.core.navigation.ChatRoute
@@ -64,8 +65,9 @@ import kotlinx.coroutines.yield
  *   run cut short counts as failed and frees the slot; only this presenter's own scope ending
  *   cancels it.
  * - A sent slash word ([PaletteIntent.Submit]) counts as a command on its way from the moment it
- *   is handed over: one at a time with picked commands. The commands it is checked against are the
- *   kept ones for the session's folder, else asked for and kept like the palette's own.
+ *   is handed over: one at a time with picked commands. The commands, and then, if no command or
+ *   built-in took it, the skills it is checked against are the kept ones for the session's folder,
+ *   else those of the palette's request on its way, else asked for and kept like the palette's own.
  * - Commands and skills are asked and kept apart: a list that fails shows its error and keeps the
  *   other, and a retry asks only for what is missing.
  * - Built-ins are the app's, so they show at once, while the server's lists load or after they
@@ -144,8 +146,9 @@ class DefaultPalettePresenter(
     private val commandLists = ConcurrentHashMap<Folder, List<PaletteItem.Command>>()
     private val skillLists = ConcurrentHashMap<Folder, List<PaletteItem.Skill>>()
 
-    // The request for a folder's commands on its way, shared by all who need it meanwhile.
+    // The request for a folder's list on its way, shared by all who need it meanwhile.
     private val commandFetches = ConcurrentHashMap<Folder, CompletableDeferred<Result<List<PaletteItem.Command>>>>()
+    private val skillFetches = ConcurrentHashMap<Folder, CompletableDeferred<Result<List<PaletteItem.Skill>>>>()
 
     // Read and written only by the load collector, which runs one request at a time.
     private val agentLists = HashMap<Folder, List<PaletteItem.Agent>>()
@@ -232,49 +235,61 @@ class DefaultPalettePresenter(
     }
 
     /**
-     * The commands of [folder]: the kept ones, else those of the request already on its way, else
-     * asked for and kept. The request runs in [scope], so a caller that stops waiting, as the list
-     * does when the word changes, does not stop it for the others; one that failed is dropped, so
-     * the next caller asks again.
+     * The commands of [folder], as [fetchShared] gets them.
      *
      * @throws ApiException The request failed.
      */
-    private suspend fun fetchCommands(folder: Folder): List<PaletteItem.Command> {
-        commandLists[folder]?.let { return it }
-        val mine = CompletableDeferred<Result<List<PaletteItem.Command>>>()
-        val pending = commandFetches.putIfAbsent(folder, mine)
+    private suspend fun fetchCommands(folder: Folder): List<PaletteItem.Command> =
+        fetchShared(folder, commandLists, commandFetches) { client ->
+            client.catalog.commands(folder.location).map { PaletteItem.Command(it.name, it.description) }
+        }
+
+    /**
+     * The skills of [folder], by ID and name, as [fetchShared] gets them.
+     *
+     * @throws ApiException The request failed.
+     */
+    private suspend fun fetchSkills(folder: Folder): List<PaletteItem.Skill> =
+        fetchShared(folder, skillLists, skillFetches) { client ->
+            client.catalog.skills(folder.location).map { PaletteItem.Skill(it.id, it.name, it.description) }
+        }
+
+    /**
+     * A list of [folder]: the one kept in [lists], else that of the request already on its way in
+     * [fetches], else asked for with [ask] and kept. The request runs in [scope], so a caller that
+     * stops waiting, as the list does when the word changes, does not stop it for the others; one
+     * that failed is dropped, so the next caller asks again.
+     *
+     * @throws ApiException The request failed.
+     */
+    private suspend fun <T> fetchShared(
+        folder: Folder,
+        lists: ConcurrentHashMap<Folder, List<T>>,
+        fetches: ConcurrentHashMap<Folder, CompletableDeferred<Result<List<T>>>>,
+        ask: suspend (OpencodeClient) -> List<T>,
+    ): List<T> {
+        lists[folder]?.let { return it }
+        val mine = CompletableDeferred<Result<List<T>>>()
+        val pending = fetches.putIfAbsent(folder, mine)
         if (pending != null) return pending.await().getOrThrow()
         val request = scope.launch {
             val result = try {
-                Result.success(
-                    session.call { client ->
-                        client.catalog.commands(folder.location).map { PaletteItem.Command(it.name, it.description) }
-                    },
-                )
+                Result.success(session.call(ask))
             } catch (e: ApiException) {
                 Result.failure(e)
             }
-            result.onSuccess { commandLists[folder] = it }
-            commandFetches.remove(folder, mine)
+            result.onSuccess { lists[folder] = it }
+            fetches.remove(folder, mine)
             mine.complete(result)
         }
         // A request cut short, or never started, ends as a failed one: dropped, so the next caller
         // asks again, and its waiters freed. Completing again after an answer does nothing.
         request.invokeOnCompletion {
-            commandFetches.remove(folder, mine)
+            fetches.remove(folder, mine)
             mine.complete(Result.failure(ApiException(ApiError.Unexpected())))
         }
         // Waiting stops only this caller if it is cancelled; the request goes on for the others.
         return mine.await().getOrThrow()
-    }
-
-    /** Asks for the skills of [folder], and keeps them. */
-    private suspend fun fetchSkills(folder: Folder): List<PaletteItem.Skill> {
-        val skills = session.call { client ->
-            client.catalog.skills(folder.location).map { PaletteItem.Skill(it.name, it.description) }
-        }
-        skillLists[folder] = skills
-        return skills
     }
 
     private suspend fun loadAt(word: Word, folder: Folder) {
@@ -353,7 +368,7 @@ class DefaultPalettePresenter(
         }
         when (item) {
             is PaletteItem.Command -> run(item, draft, word)
-            is PaletteItem.Skill -> attach(draft, word, PromptAttachment.Skill(item.name))
+            is PaletteItem.Skill -> attach(draft, word, PromptAttachment.Skill(item.id))
             is PaletteItem.Agent -> attach(draft, word, PromptAttachment.Agent(item.id))
             is PaletteItem.File -> attach(draft, word, PromptAttachment.File(item.path))
             // The same precedence as a send: a server command of the built-in's name wins.
@@ -425,8 +440,9 @@ class DefaultPalettePresenter(
 
     /**
      * Works out what the sent [draft] is: a server command of the slash word's exact name runs, else
-     * a built-in of that name or alias goes to the chat, else the draft goes back as a prompt. See
-     * [PaletteState] for the rules.
+     * a built-in of that name or alias goes to the chat, else a skill of that exact ID goes to the
+     * chat with the rest of the draft, else the draft goes back as a prompt. See [PaletteState] for
+     * the rules.
      */
     private fun submit(draft: String) {
         val slash = SlashWord.of(draft)
@@ -440,9 +456,11 @@ class DefaultPalettePresenter(
 
     /**
      * Runs the server command [name] if the session folder's commands hold it, waiting for them if
-     * they are not known yet; else [builtIn], through [PaletteEvent.RunBuiltIn]; else hands [draft]
-     * back as a prompt. When the commands cannot be had, [builtIn] still runs, and with none the
-     * failure shows. [rest] is the command's text, or the draft the built-in leaves. The claim is
+     * they are not known yet; else [builtIn], through [PaletteEvent.RunBuiltIn]; else the skill of
+     * ID [name], through [PaletteEvent.SendSkill], waiting for the skills the same way; else hands
+     * [draft] back as a prompt. When the commands cannot be had, [builtIn] or a known skill still
+     * runs, and with neither the failure shows; skills that cannot be had count as none of that ID.
+     * [rest] is the command's or the skill's text, or the draft the built-in leaves. The claim is
      * held, and freed here.
      */
     private fun dispatch(name: String, builtIn: BuiltInCommand?, rest: String, draft: String) {
@@ -453,7 +471,7 @@ class DefaultPalettePresenter(
                 // Not loaded yet: no server command is known, and none can run.
                 folder == null -> emptySet()
                 else -> try {
-                    // Only the commands decide; the skills play no part, failed or not.
+                    // The commands first: a failed skills list never stops a command or a built-in.
                     fetchCommands(folder).mapTo(HashSet()) { it.name }
                 } catch (e: ApiException) {
                     failure = ChatFailure.of(e.error)
@@ -466,14 +484,31 @@ class DefaultPalettePresenter(
                     release()
                     eventChannel.trySend(PaletteEvent.RunBuiltIn(builtIn, from = draft, draft = rest))
                 }
-                failure != null -> release(failure)
                 else -> {
-                    release()
-                    eventChannel.trySend(PaletteEvent.SendPrompt(draft))
+                    val skill = folder?.let { known -> skillOf(known, name) }
+                    when {
+                        skill != null -> {
+                            release()
+                            eventChannel.trySend(PaletteEvent.SendSkill(PromptAttachment.Skill(skill.id), from = draft, text = rest))
+                        }
+                        failure != null -> release(failure)
+                        else -> {
+                            release()
+                            eventChannel.trySend(PaletteEvent.SendPrompt(draft))
+                        }
+                    }
                 }
             }
         }
     }
+
+    /** The skill of [folder] whose ID is exactly [id]; null when there is none or the skills cannot be had. */
+    private suspend fun skillOf(folder: Folder, id: String): PaletteItem.Skill? =
+        try {
+            fetchSkills(folder).firstOrNull { it.id == id }
+        } catch (_: ApiException) {
+            null
+        }
 
     private companion object {
         /** How long a word must stay before the server is asked for it. */
@@ -505,7 +540,7 @@ class DefaultPalettePresenter(
         fun slashItems(commands: List<PaletteItem.Command>, skills: List<PaletteItem.Skill>, query: String): List<PaletteItem> =
             commands.matching(query) { listOf(it.name) } +
                 builtInItems(query, overridden = commands.mapTo(HashSet()) { it.name }) +
-                skills.matching(query) { listOf(it.name) }
+                skills.matching(query) { listOf(it.id, it.name) }
 
         /**
          * The built-ins with a name or alias that starts with [query], ignoring case, in their

@@ -39,8 +39,12 @@ import kotlinx.coroutines.yield
  *   safe to repeat. The draft cannot change while the prompt is on its way and is cleared only once
  *   the server accepted it, with [ComposerEvent.Sent]; a failed send keeps it and shows the error.
  * - **Attachments** go along as the prompt's files, agents and skills, by kind and in the order
- *   attached; one already held is not added again. Like the draft, they cannot change while a
- *   prompt is on its way, and are cleared only once the server accepted it.
+ *   attached, a skill by its ID; one already held is not added again. Like the draft, they cannot
+ *   change while a prompt is on its way, and are cleared only once the server accepted it. With a
+ *   skill attached, a blank draft is sent as an empty text.
+ * - **SendSkill** is a send of the palette's `/<skill id> text`: [ComposerIntent.SendSkill]'s text
+ *   with its skill after those attached, through the same path, only while the draft is still the
+ *   one it came from.
  * - **Stop** calls `SessionApi.stop` through [ChatSession.call], once, only while something runs.
  *
  * Nothing runs in the constructor: following the session starts after a `yield()`. Nothing here
@@ -83,7 +87,10 @@ class DefaultComposerPresenter(
                 if (it.sending) it else it.copy(attachments = it.attachments - intent.attachment)
             }
             is ComposerIntent.DeliveryChanged -> mutableState.update { it.copy(delivery = intent.delivery) }
-            ComposerIntent.Send -> send()
+            ComposerIntent.Send -> send({ it.canSend }) { it.draft.trim() to it.attachments }
+            is ComposerIntent.SendSkill -> send({ it.enabled && !it.sending && it.draft == intent.from }) {
+                intent.text.trim() to it.attachments.let { held -> if (intent.skill in held) held else held + intent.skill }
+            }
             ComposerIntent.Stop -> stop()
             ComposerIntent.DismissError -> mutableState.update { it.copy(error = null) }
         }
@@ -99,14 +106,21 @@ class DefaultComposerPresenter(
         }
     }
 
-    private fun send() {
-        val claimed = claim({ it.canSend }) { it.copy(sending = true, error = null) } ?: return
-        val attached = claimed.attachments
+    /**
+     * Sends what [content] makes of the claimed state, its text and attachments, if [allowed] holds;
+     * the draft and the attachments clear once the server accepted it.
+     */
+    private inline fun send(
+        allowed: (ComposerState) -> Boolean,
+        content: (ComposerState) -> Pair<String, List<PromptAttachment>>,
+    ) {
+        val claimed = claim(allowed) { it.copy(sending = true, error = null) } ?: return
+        val (text, attached) = content(claimed)
         val prompt = Prompt(
-            text = claimed.draft.trim(),
+            text = text,
             files = attached.filterIsInstance<PromptAttachment.File>().map { it.path },
             agents = attached.filterIsInstance<PromptAttachment.Agent>().map { it.id },
-            skills = attached.filterIsInstance<PromptAttachment.Skill>().map { it.name },
+            skills = attached.filterIsInstance<PromptAttachment.Skill>().map { it.id },
             delivery = claimed.delivery.takeIf { claimed.running },
         )
         scope.launch {

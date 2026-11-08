@@ -30,6 +30,7 @@ class EnglishPaletteTest : PaletteLanguageContract() {
             INIT to listOf("/init", "Create AGENTS.md", "Command"),
             REVIEW to listOf("/review", REVIEW_DESCRIPTION, "Command"),
             PDF to listOf("pdf-özet", "Skill"),
+            OPENCODE to listOf("OpenCode", "/opencode", "Çalışma alanını yönet", "Skill"),
             EXPLORE to listOf("Explore", "Searches the code", "Agent"),
             SOURCE to listOf("src/çekirdek/Main.kt", "File"),
             FOLDER to listOf("src/çekirdek", "Folder"),

@@ -32,14 +32,20 @@ internal const val REVIEW_DESCRIPTION = "Değişiklikleri gözden geçir"
 internal val INIT = PaletteItem.Command("init", "Create AGENTS.md")
 internal val REVIEW = PaletteItem.Command("review", REVIEW_DESCRIPTION)
 internal val PDF = PaletteItem.Skill("pdf-özet")
+
+/** One of the server's own skills: its ID, what is sent and typed, is not its name. */
+internal val OPENCODE = PaletteItem.Skill(id = "opencode", name = "OpenCode", description = "Çalışma alanını yönet")
 internal val NEW = PaletteItem.BuiltIn(BuiltInCommand.New)
 internal val UNDO = PaletteItem.BuiltIn(BuiltInCommand.Undo)
 internal val EXPLORE = PaletteItem.Agent(id = "explore", name = "Explore", description = "Searches the code")
 internal val SOURCE = PaletteItem.File("src/çekirdek/Main.kt")
 internal val FOLDER = PaletteItem.File("src/çekirdek", directory = true)
 
-/** An open `/` palette with commands, built-ins (one with an alias, one without) then a skill. */
-internal val SLASH = PaletteState(trigger = PaletteTrigger.Slash, query = "", items = listOf(INIT, REVIEW, NEW, UNDO, PDF))
+/**
+ * An open `/` palette with commands, built-ins (one with an alias, one without) then skills (one
+ * named as its ID, one not).
+ */
+internal val SLASH = PaletteState(trigger = PaletteTrigger.Slash, query = "", items = listOf(INIT, REVIEW, NEW, UNDO, PDF, OPENCODE))
 
 /** An open `/` palette with every built-in. */
 internal val BUILT_INS = PaletteState(

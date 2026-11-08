@@ -523,4 +523,147 @@ class DefaultComposerPresenterTest {
         assertFalse(ComposerIntent.Attach(file).toString().contains(file.path))
         assertFalse(ComposerIntent.Detach(file).toString().contains(file.path))
     }
+
+    // Skills (P9.33)
+
+    @Test
+    fun `a skill attached with nothing typed can be sent, with an empty text`() = runTest {
+        val (chat, presenter) = setup()
+        val seen = events(presenter)
+        presenter.onIntent(ComposerIntent.DraftChanged("   "))
+        assertFalse(presenter.state.value.canSend)
+
+        presenter.onIntent(ComposerIntent.Attach(skill))
+        assertTrue(presenter.state.value.canSend)
+        presenter.onIntent(ComposerIntent.Send)
+        runCurrent()
+
+        assertEquals(listOf(Prompt("", skills = listOf("review"))), chat.sent)
+        assertEquals("", presenter.state.value.draft)
+        assertEquals(emptyList(), presenter.state.value.attachments)
+        assertEquals(listOf<ComposerEvent>(ComposerEvent.Sent), seen)
+    }
+
+    @Test
+    fun `only a skill lets a blank draft be sent`() = runTest {
+        val (chat, presenter) = setup()
+        presenter.onIntent(ComposerIntent.Attach(file))
+        presenter.onIntent(ComposerIntent.Attach(agent))
+
+        assertFalse(presenter.state.value.canSend)
+        presenter.onIntent(ComposerIntent.Send)
+        runCurrent()
+        assertEquals(0, chat.promptCalls())
+
+        chat.mutableState.value = chat.mutableState.value.copy(availability = ChatAvailability.NotConnected)
+        runCurrent()
+        presenter.onIntent(ComposerIntent.Attach(skill))
+        assertFalse(presenter.state.value.canSend)
+        presenter.onIntent(ComposerIntent.Send)
+        runCurrent()
+        assertEquals(0, chat.calls)
+    }
+
+    @Test
+    fun `a sent skill goes with the rest of the draft and the attachments held, and clears them once accepted`() = runTest {
+        val (chat, presenter) = setup(SessionStatus.Running)
+        val seen = events(presenter)
+        presenter.onIntent(ComposerIntent.DeliveryChanged(PromptDelivery.Queue))
+        presenter.onIntent(ComposerIntent.DraftChanged("/granny-workflow do X"))
+        presenter.onIntent(ComposerIntent.Attach(file))
+        presenter.onIntent(ComposerIntent.Attach(PromptAttachment.Skill("pdf")))
+
+        presenter.onIntent(
+            ComposerIntent.SendSkill(from = "/granny-workflow do X", text = "do X", skill = PromptAttachment.Skill("granny-workflow")),
+        )
+        runCurrent()
+
+        assertEquals(
+            listOf(
+                Prompt(
+                    "do X",
+                    files = listOf(file.path),
+                    skills = listOf("pdf", "granny-workflow"),
+                    delivery = PromptDelivery.Queue,
+                ),
+            ),
+            chat.sent,
+        )
+        assertEquals("", presenter.state.value.draft)
+        assertEquals(emptyList(), presenter.state.value.attachments)
+        assertEquals(listOf<ComposerEvent>(ComposerEvent.Sent), seen)
+    }
+
+    @Test
+    fun `a sent skill already attached goes once, and an empty text is sent empty`() = runTest {
+        val (chat, presenter) = setup()
+        presenter.onIntent(ComposerIntent.DraftChanged("/review"))
+        presenter.onIntent(ComposerIntent.Attach(skill))
+
+        presenter.onIntent(ComposerIntent.SendSkill(from = "/review", text = "", skill = skill))
+        runCurrent()
+
+        assertEquals(listOf(Prompt("", skills = listOf("review"))), chat.sent)
+    }
+
+    @Test
+    fun `a sent skill goes only while the composer holds the draft it came from`() = runTest {
+        val (chat, presenter) = setup()
+        presenter.onIntent(ComposerIntent.DraftChanged("/review now and more"))
+
+        presenter.onIntent(ComposerIntent.SendSkill(from = "/review now", text = "now", skill = skill))
+        runCurrent()
+
+        assertEquals(0, chat.calls)
+        assertEquals("/review now and more", presenter.state.value.draft)
+        assertFalse(presenter.state.value.sending)
+    }
+
+    @Test
+    fun `a sent skill that fails keeps the draft and the attachments and shows the error`() = runTest {
+        val (chat, presenter) = setup()
+        val seen = events(presenter)
+        presenter.onIntent(ComposerIntent.DraftChanged("/review now"))
+        presenter.onIntent(ComposerIntent.Attach(file))
+        chat.client.control.failNext(ApiError.Server(500))
+
+        presenter.onIntent(ComposerIntent.SendSkill(from = "/review now", text = "now", skill = skill))
+        runCurrent()
+
+        assertEquals("/review now", presenter.state.value.draft)
+        assertEquals(listOf<PromptAttachment>(file), presenter.state.value.attachments)
+        assertEquals(ComposerError(ComposerAction.Send, ChatFailure.ServerFailed), presenter.state.value.error)
+        assertTrue(seen.isEmpty())
+    }
+
+    @Test
+    fun `a sent skill is sent once, and not while disabled`() = runTest {
+        val (chat, presenter) = setup()
+        presenter.onIntent(ComposerIntent.DraftChanged("/review"))
+        chat.client.control.stall()
+        val intent = ComposerIntent.SendSkill(from = "/review", text = "", skill = skill)
+
+        presenter.onIntent(intent)
+        presenter.onIntent(intent)
+        presenter.onIntent(ComposerIntent.Send)
+        runCurrent()
+        assertTrue(presenter.state.value.sending)
+        chat.client.control.resume()
+        runCurrent()
+        assertEquals(1, chat.promptCalls())
+
+        chat.mutableState.value = chat.mutableState.value.copy(availability = ChatAvailability.NotConnected)
+        runCurrent()
+        presenter.onIntent(ComposerIntent.DraftChanged("/review"))
+        presenter.onIntent(intent)
+        runCurrent()
+        assertEquals(1, chat.promptCalls())
+    }
+
+    @Test
+    fun `a sent skill's draft and text stay out of what prints`() {
+        val intent = ComposerIntent.SendSkill(from = "/review " + text, text = text, skill = skill)
+
+        assertFalse(intent.toString().contains(text))
+    }
 }

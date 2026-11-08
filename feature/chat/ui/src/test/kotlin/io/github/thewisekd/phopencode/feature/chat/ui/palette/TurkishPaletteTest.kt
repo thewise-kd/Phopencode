@@ -30,6 +30,7 @@ class TurkishPaletteTest : PaletteLanguageContract() {
             INIT to listOf("/init", "Create AGENTS.md", "Komut"),
             REVIEW to listOf("/review", REVIEW_DESCRIPTION, "Komut"),
             PDF to listOf("pdf-özet", "Beceri"),
+            OPENCODE to listOf("OpenCode", "/opencode", "Çalışma alanını yönet", "Beceri"),
             EXPLORE to listOf("Explore", "Searches the code", "Ajan"),
             SOURCE to listOf("src/çekirdek/Main.kt", "Dosya"),
             FOLDER to listOf("src/çekirdek", "Klasör"),

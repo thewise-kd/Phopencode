@@ -618,6 +618,37 @@ class ChatGraphTest {
     }
 
     @Test
+    fun `a slash word that is a skill goes to the composer to send with the skill attached`() {
+        val chat = openReadyChat("/granny-workflow do X")
+        val skill = PromptAttachment.Skill("granny-workflow")
+
+        compose.onNodeWithTag(COMPOSER_ACTION_TAG).performClick()
+        compose.waitForIdle()
+        assertTrue(PaletteIntent.Submit("/granny-workflow do X") in palettes.getValue(chat).intents)
+
+        palettes.getValue(chat).eventChannel.trySend(PaletteEvent.SendSkill(skill, from = "/granny-workflow do X", text = "do X"))
+        compose.waitForIdle()
+
+        assertEquals(
+            listOf<ComposerIntent>(ComposerIntent.SendSkill(from = "/granny-workflow do X", text = "do X", skill = skill)),
+            composerIntents.toList(),
+        )
+    }
+
+    @Test
+    fun `a skill chip with nothing typed is sent by the composer`() {
+        val chat = openReadyChat("")
+        composerState.value = ComposerState(enabled = true, attachments = listOf(PromptAttachment.Skill("opencode")))
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(COMPOSER_ACTION_TAG).performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf<ComposerIntent>(ComposerIntent.Send), composerIntents.toList())
+        assertTrue(palettes.getValue(chat).intents.none { it is PaletteIntent.Submit })
+    }
+
+    @Test
     fun `compact and fork ask the actions for their confirmation and clear the draft`() {
         val chat = openReadyChat("/compact")
         val fake = actions.getValue(chat)

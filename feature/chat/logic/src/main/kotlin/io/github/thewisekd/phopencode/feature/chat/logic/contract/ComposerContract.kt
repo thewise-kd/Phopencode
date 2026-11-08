@@ -11,7 +11,8 @@ import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.Pr
  * draft as `Prompt.text`, through `ChatSession.call`; while the session runs, [delivery] goes along
  * as `Prompt.delivery` (steer interjects, queue waits for the end), else the server's default.
  * [attachments] go along as `Prompt.files`, `Prompt.agents` and `Prompt.skills`, by kind, in the
- * order attached. The draft and the attachments are cleared only once the server accepted the
+ * order attached; a skill by its ID. A draft with a skill attached may be blank: it goes as an empty
+ * `Prompt.text`, which the server takes, and the skill does the asking. The draft and the attachments are cleared only once the server accepted the
  * prompt: a failed send keeps them, and neither changes while a prompt is on its way. Stopping is
  * `SessionApi.stop`.
  *
@@ -35,9 +36,16 @@ data class ComposerState(
     val stopping: Boolean = false,
     val error: ComposerError? = null,
 ) {
-    /** Whether [ComposerIntent.Send] would send; while running it sends with [delivery]. */
+    /**
+     * Whether [ComposerIntent.Send] would send; while running it sends with [delivery]. A blank
+     * draft is sent only with a skill attached.
+     */
     val canSend: Boolean
-        get() = enabled && !sending && draft.isNotBlank()
+        get() = enabled && !sending && hasContent
+
+    /** Something to send: text, or a skill, which may go with an empty text. */
+    val hasContent: Boolean
+        get() = draft.isNotBlank() || attachments.any { it is PromptAttachment.Skill }
 
     /** Whether [ComposerIntent.Stop] would stop anything. */
     val canStop: Boolean
@@ -70,6 +78,16 @@ sealed interface ComposerIntent {
 
     /** Sends [ComposerState.draft], trimmed. */
     data object Send : ComposerIntent
+
+    /**
+     * Sends [text] with [skill] after the attachments held, once, as [Send] does, with the same
+     * delivery, guards, errors and clearing, but only while [ComposerState.draft] is still [from]:
+     * the draft `/<skill id> text` the palette worked out (`PaletteEvent.SendSkill`). [text] may be
+     * empty. Prints masked.
+     */
+    data class SendSkill(val from: String, val text: String, val skill: PromptAttachment.Skill) : ComposerIntent {
+        override fun toString(): String = "SendSkill(from=***, text=***, skill=$skill)"
+    }
 
     data object Stop : ComposerIntent
 

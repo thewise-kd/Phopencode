@@ -41,9 +41,9 @@ import io.github.thewisekd.phopencode.feature.chat.ui.R
  * Writes and sends a prompt, and stops the running work (P6.6). Draws [state], sends [onIntent]; the
  * presenter decides everything.
  *
- * One button sends or stops, in the same place: while the work runs and nothing is typed it is Stop,
- * enabled by [ComposerState.canStop]; otherwise it is Send, enabled by [ComposerState.canSend], so a
- * prompt typed while running is sent with the chosen delivery rather than stopping the work. The
+ * One button sends or stops, in the same place: while the work runs with nothing typed and no skill
+ * attached it is Stop, enabled by [ComposerState.canStop]; otherwise it is Send, enabled by
+ * [ComposerState.canSend], so a prompt typed while running is sent with the chosen delivery rather than stopping the work. The
  * delivery choice, steer or queue, shows only while running, the only time it goes along. Sending and
  * stopping are still messages, not core/ui's `Loading`: its spinner never stops, and the app's
  * ActivityScenario tests would never come to rest. An error shows above the field with a dismiss
@@ -103,10 +103,13 @@ fun Composer(
     }
 }
 
-/** The one button: Stop while the work runs and nothing is typed, Send otherwise. */
+/**
+ * The one button: Stop while the work runs and there is nothing to send, neither text nor a skill;
+ * Send otherwise.
+ */
 @Composable
 private fun SendOrStop(state: ComposerState, onIntent: (ComposerIntent) -> Unit) {
-    val stops = state.running && state.draft.isBlank()
+    val stops = state.running && !state.hasContent
     Button(
         onClick = { onIntent(if (stops) ComposerIntent.Stop else ComposerIntent.Send) },
         enabled = if (stops) state.canStop else state.canSend,

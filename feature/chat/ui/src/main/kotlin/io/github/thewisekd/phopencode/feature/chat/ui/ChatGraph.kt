@@ -72,8 +72,8 @@ import org.koin.mp.KoinPlatform
  *   actions open a turn's diff or switch to a fork; subagents open their list. The session's
  *   folder opens the files ([FilesRoute.Tree]) and git ([GitRoute.Status]) screens on top.
  *   Sending a draft that starts with a slash word goes to the palette ([PaletteIntent.Submit]), not
- *   the composer; the palette hands back a prompt to send, or a built-in, which runs here: see
- *   [runBuiltIn].
+ *   the composer; the palette hands back a prompt to send, or a skill to send with the rest of
+ *   the draft, both through the composer, or a built-in, which runs here: see [runBuiltIn].
  * - [ChatRoute.Subagents]: the subagent list; a subagent opens its [ChatRoute.ChildSession].
  * - [ChatRoute.ChildSession]: a subagent's timeline, read only, with its way back to the parent.
  * - [ChatRoute.TurnDiff]: one turn's changes and their revert.
@@ -127,6 +127,9 @@ fun NavGraphBuilder.chatGraph(navController: NavController) {
                     timeline.onIntent(TimelineIntent.JumpToLatest)
                 }
                 is PaletteEvent.RunBuiltIn -> navController.runBuiltIn(event, route, composer, palette, actions, switcher)
+                // The composer sends it only if it still holds the draft the skill came from.
+                is PaletteEvent.SendSkill ->
+                    composer.onIntent(ComposerIntent.SendSkill(from = event.from, text = event.text, skill = event.skill))
                 // Sent only if the composer still holds what was handed over.
                 is PaletteEvent.SendPrompt -> if (composer.state.value.draft == event.draft) {
                     composer.onIntent(ComposerIntent.Send)
@@ -313,7 +316,7 @@ private fun String.isWebUrl(): Boolean {
 /**
  * Hands [intent] to [composer], except a send of a draft that starts with a slash word
  * ([SlashWord]): that goes to [palette] as [PaletteIntent.Submit], which tells a server command, a
- * built-in and a prompt apart.
+ * built-in, a skill and a prompt apart.
  */
 private fun sendThroughPalette(intent: ComposerIntent, composer: ComposerPresenter, palette: PalettePresenter) {
     val draft = composer.state.value.draft

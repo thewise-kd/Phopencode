@@ -57,6 +57,7 @@ class PaletteBehaviorTest {
         val harness = compose.setPalette(SLASH)
         compose.onNodeWithTag(PaletteTags.item(REVIEW)).performScrollTo().performClick()
         compose.onNodeWithTag(PaletteTags.item(PDF)).performScrollTo().performClick()
+        compose.onNodeWithTag(PaletteTags.item(OPENCODE)).performScrollTo().performClick()
 
         harness.state.value = AT
         compose.onNodeWithTag(PaletteTags.item(EXPLORE)).performScrollTo().performClick()
@@ -66,6 +67,7 @@ class PaletteBehaviorTest {
             listOf<PaletteIntent>(
                 PaletteIntent.Pick(REVIEW),
                 PaletteIntent.Pick(PDF),
+                PaletteIntent.Pick(OPENCODE),
                 PaletteIntent.Pick(EXPLORE),
                 PaletteIntent.Pick(FOLDER),
             ),

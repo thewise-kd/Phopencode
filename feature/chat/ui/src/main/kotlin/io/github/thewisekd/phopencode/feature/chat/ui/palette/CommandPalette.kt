@@ -154,7 +154,10 @@ private fun Header(trigger: PaletteTrigger, onClose: () -> Unit) {
     }
 }
 
-/** One item, read as one: its name, its description, then its kind. */
+/**
+ * One item, read as one: its name, a skill's `/id` when that is not its name (what a sent draft
+ * takes), its description, then its kind.
+ */
 @Composable
 private fun PaletteRow(item: PaletteItem, enabled: Boolean, onPick: () -> Unit) {
     val spacing = PhopencodeTheme.spacing
@@ -178,6 +181,15 @@ private fun PaletteRow(item: PaletteItem, enabled: Boolean, onPick: () -> Unit) 
                 maxLines = NAME_LINES,
                 overflow = TextOverflow.Ellipsis,
             )
+            if (item is PaletteItem.Skill && item.id != item.name) {
+                Text(
+                    text = "/${item.id}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             item.description()?.let {
                 Text(
                     text = it,

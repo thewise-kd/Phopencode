@@ -75,7 +75,8 @@ interface MessageApi {
  *
  * @property files Attached file paths.
  * @property agents Agents mentioned, by name.
- * @property skills Skills attached, by name.
+ * @property skills Skills attached, by `Skill.id` (`PromptInput.SkillAttachment`), not by
+ *   `Skill.name`: for the server's own skills they differ, as id `opencode` for name `OpenCode`.
  * @property delivery How to hand this over while the session runs; null is the server's default,
  *   [PromptDelivery.Steer].
  * @property resume Whether to continue the session's work; null is the server's default.

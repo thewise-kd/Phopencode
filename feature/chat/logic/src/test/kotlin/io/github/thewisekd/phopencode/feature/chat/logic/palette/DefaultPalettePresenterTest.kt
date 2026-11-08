@@ -152,8 +152,9 @@ private class FakeChatSession(override val sessionId: SessionId) : ChatSession {
     fun catalogCalls(): List<String> = client.control.calls.filter { it.startsWith("catalog.") }
 }
 
-private fun skill(name: String, description: String? = null) =
-    Skill(id = "skl_$name", name = name, description = description, path = "/skills/$name.md", content = "body of $name")
+/** A skill as `GET /api/skill` lists it: a user's skill has its name as its id, a built-in one not. */
+private fun skill(name: String, description: String? = null, id: String = name) =
+    Skill(id = id, name = name, description = description, path = "/skills/$id.md", content = "body of $name")
 
 private fun agent(id: String, hidden: Boolean = false) =
     Agent(id = id, name = id.replaceFirstChar { it.uppercase() }, description = "$id agent", mode = AgentMode.All, hidden = hidden)
@@ -209,7 +210,7 @@ class DefaultPalettePresenterTest {
     private fun PaletteState.names(): List<String> = items.map {
         when (it) {
             is PaletteItem.Command -> "/${it.name}"
-            is PaletteItem.Skill -> "skill:${it.name}"
+            is PaletteItem.Skill -> "skill:${it.id}"
             is PaletteItem.Agent -> "@${it.id}"
             is PaletteItem.File -> "file:${it.path}"
             is PaletteItem.BuiltIn -> "builtin:${it.command.primary}"
@@ -248,7 +249,7 @@ class DefaultPalettePresenterTest {
         assertEquals(listOf("/review", "/init", "/preview") + ALL_BUILT_INS + listOf("skill:release", "skill:Refactor"), state.names())
         assertEquals(PaletteItem.Command("review", "Review changes"), state.items.first())
         assertEquals(PaletteItem.BuiltIn(BuiltInCommand.New), state.items[3])
-        assertEquals(PaletteItem.Skill("release", "Cut a release"), state.items[3 + ALL_BUILT_INS.size])
+        assertEquals(PaletteItem.Skill(id = "release", name = "release", description = "Cut a release"), state.items[3 + ALL_BUILT_INS.size])
         assertEquals(setOf("catalog.commands", "catalog.skills"), chat.catalogCalls().toSet())
         assertTrue(chat.finds.isEmpty())
     }
@@ -490,7 +491,7 @@ class DefaultPalettePresenterTest {
         val (_, presenter, events) = setup()
         type(presenter, "/rel")
 
-        presenter.onIntent(PaletteIntent.Pick(PaletteItem.Skill("release", "Cut a release")))
+        presenter.onIntent(PaletteIntent.Pick(PaletteItem.Skill(id = "release", name = "release", description = "Cut a release")))
         settle()
 
         assertEquals(listOf<PaletteEvent>(PaletteEvent.Attached("", PromptAttachment.Skill("release"))), events)
@@ -1212,5 +1213,208 @@ class DefaultPalettePresenterTest {
 
         assertFalse("READ" in printed)
         assertFalse("README" in printed)
+    }
+
+    // Skills by id (P9.33)
+
+    /** Skills as the real server lists them: built-in ones have an id other than their name. */
+    private fun FakeChatSession.seedServerSkills() {
+        client.catalog.setSkills(
+            listOf(
+                skill("OpenCode", "Use opencode", id = "opencode"),
+                skill("Browser", "Drive a browser", id = "skl-web"),
+                skill("granny-workflow", "Granny's steps"),
+            ),
+            Location(DIR),
+        )
+    }
+
+    @Test
+    fun `a skill item carries its id and its name, and a pick attaches the id`() = runTest {
+        val (_, presenter, events) = setup { it.seedServerSkills() }
+        type(presenter, "/open")
+
+        val item = PaletteItem.Skill(id = "opencode", name = "OpenCode", description = "Use opencode")
+        assertEquals(listOf<PaletteItem>(item), presenter.state.value.items)
+
+        presenter.onIntent(PaletteIntent.Pick(item))
+        settle()
+
+        assertEquals(listOf<PaletteEvent>(PaletteEvent.Attached("", PromptAttachment.Skill("opencode"))), events)
+    }
+
+    @Test
+    fun `a skill matches its id or its name, in any case`() = runTest {
+        val (_, presenter) = setup { it.seedServerSkills() }
+
+        type(presenter, "/SKL-")
+        assertEquals(listOf("skill:skl-web"), presenter.state.value.names())
+
+        type(presenter, "/brow")
+        assertEquals(listOf("skill:skl-web"), presenter.state.value.names())
+
+        type(presenter, "/GRANNY")
+        assertEquals(listOf("skill:granny-workflow"), presenter.state.value.names())
+    }
+
+    @Test
+    fun `sending a skill's exact id sends the rest of the draft with that skill attached`() = runTest {
+        val (chat, presenter, events) = setup { it.seedServerSkills() }
+
+        presenter.onIntent(PaletteIntent.Submit("/granny-workflow do X\n and Y"))
+        settle()
+        presenter.onIntent(PaletteIntent.Submit("  /opencode  "))
+        settle()
+
+        assertEquals(
+            listOf<PaletteEvent>(
+                PaletteEvent.SendSkill(
+                    PromptAttachment.Skill("granny-workflow"),
+                    from = "/granny-workflow do X\n and Y",
+                    text = "do X\n and Y",
+                ),
+                PaletteEvent.SendSkill(PromptAttachment.Skill("opencode"), from = "  /opencode  ", text = ""),
+            ),
+            events,
+        )
+        assertTrue(chat.client.messages.commandsRun.isEmpty())
+        assertFalse(presenter.state.value.running)
+        assertNull(presenter.state.value.error)
+    }
+
+    @Test
+    fun `a skill's name, or its id in another case, is no skill to send`() = runTest {
+        val (_, presenter, events) = setup { it.seedServerSkills() }
+
+        presenter.onIntent(PaletteIntent.Submit("/OpenCode hi"))
+        settle()
+        presenter.onIntent(PaletteIntent.Submit("/Granny-workflow"))
+        settle()
+
+        assertEquals(
+            listOf<PaletteEvent>(PaletteEvent.SendPrompt("/OpenCode hi"), PaletteEvent.SendPrompt("/Granny-workflow")),
+            events,
+        )
+    }
+
+    @Test
+    fun `a server command, then a built-in, wins over a skill of the same id`() = runTest {
+        val (chat, presenter, events) = setup {
+            it.client.catalog.setCommands(listOf(Command("granny-workflow")), Location(DIR))
+            it.client.catalog.setSkills(listOf(skill("granny-workflow"), skill("new"), skill("clear")), Location(DIR))
+        }
+
+        presenter.onIntent(PaletteIntent.Submit("/granny-workflow go"))
+        settle()
+        presenter.onIntent(PaletteIntent.Submit("/new"))
+        settle()
+        presenter.onIntent(PaletteIntent.Submit("/clear"))
+        settle()
+
+        assertEquals(listOf(CommandRun(MAIN, "granny-workflow", "go")), chat.client.messages.commandsRun)
+        assertEquals(
+            listOf<PaletteEvent>(
+                PaletteEvent.CommandSent(from = "/granny-workflow go"),
+                PaletteEvent.RunBuiltIn(BuiltInCommand.New, from = "/new", draft = ""),
+                PaletteEvent.RunBuiltIn(BuiltInCommand.New, from = "/clear", draft = ""),
+            ),
+            events,
+        )
+    }
+
+    @Test
+    fun `a skill sent while the skills load waits for them, sharing the palette's request`() = runTest {
+        val (chat, presenter, events) = setup { it.seedServerSkills() }
+        chat.client.control.stall()
+        type(presenter, "/granny-workflow")
+        assertTrue(presenter.state.value.loading)
+
+        presenter.onIntent(PaletteIntent.Submit("/granny-workflow"))
+        runCurrent()
+        assertTrue(presenter.state.value.running)
+        assertTrue(events.isEmpty())
+
+        chat.client.control.resume()
+        settle()
+
+        assertEquals(
+            listOf<PaletteEvent>(PaletteEvent.SendSkill(PromptAttachment.Skill("granny-workflow"), from = "/granny-workflow", text = "")),
+            events,
+        )
+        assertEquals(1, chat.catalogCalls().count { it == "catalog.skills" })
+        assertEquals(1, chat.catalogCalls().count { it == "catalog.commands" })
+        assertFalse(presenter.state.value.running)
+    }
+
+    @Test
+    fun `a slash word sent before any list is known asks for the commands, then the skills, once each`() = runTest {
+        val (chat, presenter, events) = setup { it.seedServerSkills() }
+
+        presenter.onIntent(PaletteIntent.Submit("/opencode fix it"))
+        settle()
+        presenter.onIntent(PaletteIntent.Submit("/hello"))
+        settle()
+
+        assertEquals(
+            listOf<PaletteEvent>(
+                PaletteEvent.SendSkill(PromptAttachment.Skill("opencode"), from = "/opencode fix it", text = "fix it"),
+                PaletteEvent.SendPrompt("/hello"),
+            ),
+            events,
+        )
+        assertEquals(listOf("catalog.commands", "catalog.skills"), chat.catalogCalls())
+    }
+
+    @Test
+    fun `when the skills cannot be had a slash word falls through to a built-in or a plain prompt`() = runTest {
+        val (_, presenter, events) = setup {
+            it.seedServerSkills()
+            it.skillsFailure = ApiError.Server(500)
+        }
+
+        presenter.onIntent(PaletteIntent.Submit("/granny-workflow do X"))
+        settle()
+        presenter.onIntent(PaletteIntent.Submit("/compact"))
+        settle()
+
+        assertEquals(
+            listOf<PaletteEvent>(
+                PaletteEvent.SendPrompt("/granny-workflow do X"),
+                PaletteEvent.RunBuiltIn(BuiltInCommand.Compact, from = "/compact", draft = ""),
+            ),
+            events,
+        )
+        assertFalse(presenter.state.value.running)
+    }
+
+    @Test
+    fun `when only the commands cannot be had a known skill is still sent`() = runTest {
+        val (_, presenter, events) = setup {
+            it.seedServerSkills()
+            it.commandsFailure = ApiError.Server(500)
+        }
+
+        presenter.onIntent(PaletteIntent.Submit("/granny-workflow do X"))
+        settle()
+
+        assertEquals(
+            listOf<PaletteEvent>(
+                PaletteEvent.SendSkill(PromptAttachment.Skill("granny-workflow"), from = "/granny-workflow do X", text = "do X"),
+            ),
+            events,
+        )
+        assertNull(presenter.state.value.error)
+        assertFalse(presenter.state.value.running)
+    }
+
+    @Test
+    fun `a sent skill's draft and text stay out of what prints`() {
+        val event = PaletteEvent.SendSkill(
+            PromptAttachment.Skill("granny-workflow"),
+            from = "/granny-workflow secret plan",
+            text = "secret plan",
+        )
+
+        assertFalse(event.toString().contains("secret"))
     }
 }

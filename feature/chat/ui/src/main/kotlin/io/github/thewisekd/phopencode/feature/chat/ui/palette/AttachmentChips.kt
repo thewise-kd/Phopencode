@@ -100,7 +100,7 @@ private fun AttachmentChip(attachment: PromptAttachment, onRemove: () -> Unit) {
 private fun PromptAttachment.displayName(): String = when (this) {
     is PromptAttachment.File -> path
     is PromptAttachment.Agent -> id
-    is PromptAttachment.Skill -> name
+    is PromptAttachment.Skill -> id
 }
 
 @StringRes
