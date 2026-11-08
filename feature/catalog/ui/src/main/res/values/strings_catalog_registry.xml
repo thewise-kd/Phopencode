@@ -1,3 +1,88 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="catalog_registry_title">Commands, agents, models</string>
+    <string name="catalog_registry_tab_commands">Commands</string>
+    <string name="catalog_registry_tab_agents">Agents</string>
+    <string name="catalog_registry_tab_models">Models</string>
+    <!-- The top bar button that reads the shown tab's list from the server again. -->
+    <string name="catalog_registry_reload">Reload this list</string>
+    <string name="catalog_registry_loading_commands">Loading commands…</string>
+    <string name="catalog_registry_loading_agents">Loading agents…</string>
+    <string name="catalog_registry_loading_models">Loading models…</string>
+    <!-- A list is read again while its previous rows stay shown. -->
+    <string name="catalog_registry_reloading">Reloading…</string>
+    <string name="catalog_registry_empty_commands_title">No commands</string>
+    <string name="catalog_registry_empty_commands_message">This server has no custom commands.</string>
+    <string name="catalog_registry_empty_agents_title">No agents</string>
+    <string name="catalog_registry_empty_agents_message">This server lists no agents.</string>
+    <string name="catalog_registry_empty_models_title">No models</string>
+    <string name="catalog_registry_empty_models_message">No provider on this server offers a model.</string>
+    <!-- What tapping a row does, read by TalkBack. -->
+    <string name="catalog_registry_open">Open details</string>
+    <string name="catalog_registry_no_description">No description</string>
+    <string name="catalog_registry_mode_primary">Primary</string>
+    <string name="catalog_registry_mode_subagent">Subagent</string>
+    <string name="catalog_registry_mode_all">Primary and subagent</string>
+    <!-- %1$s: a mode this app does not know, as the server names it. -->
+    <string name="catalog_registry_mode_unknown">Mode: %1$s</string>
+    <!-- An internal agent the server hides from its own lists. -->
+    <string name="catalog_registry_hidden">Hidden</string>
+    <!-- Marks the server's default model. -->
+    <string name="catalog_registry_default">Default</string>
+    <!-- %1$s: a model's context limit, as "200,000 tokens". -->
+    <string name="catalog_registry_context_line">Context: %1$s</string>
+    <plurals name="catalog_registry_tokens">
+        <item quantity="one">%1$s token</item>
+        <item quantity="other">%1$s tokens</item>
+    </plurals>
+    <string name="catalog_registry_loading_command">Loading the command…</string>
+    <string name="catalog_registry_loading_agent">Loading the agent…</string>
+    <string name="catalog_registry_loading_model">Loading the model…</string>
+    <string name="catalog_registry_section_description">Description</string>
+    <string name="catalog_registry_section_mode">Mode</string>
+    <string name="catalog_registry_section_model">Model</string>
+    <string name="catalog_registry_section_permissions">Permissions</string>
+    <!-- An agent with no model of its own runs on the model the session picks. -->
+    <string name="catalog_registry_agent_no_model">Uses the session\'s model</string>
+    <!-- What tapping the agent's model does, read by TalkBack. -->
+    <string name="catalog_registry_open_model">Open the model</string>
+    <string name="catalog_registry_no_permissions">No permission rules</string>
+    <string name="catalog_registry_permission_allow">Allow</string>
+    <string name="catalog_registry_permission_deny">Deny</string>
+    <string name="catalog_registry_permission_ask">Ask</string>
+    <!-- %1$s: an effect this app does not know, as the server names it. -->
+    <string name="catalog_registry_permission_unknown">Unknown: %1$s</string>
+    <string name="catalog_registry_provider">Provider</string>
+    <string name="catalog_registry_model_id">Model ID</string>
+    <string name="catalog_registry_section_limits">Token limits</string>
+    <string name="catalog_registry_limit_context">Context</string>
+    <string name="catalog_registry_limit_input">Input</string>
+    <string name="catalog_registry_limit_output">Output</string>
+    <!-- The server gave no such limit, which is not a limit of zero. -->
+    <string name="catalog_registry_not_given">Not given</string>
+    <string name="catalog_registry_section_pricing">Pricing</string>
+    <string name="catalog_registry_pricing_unit">USD per million tokens</string>
+    <!-- The price tier that applies with no condition. -->
+    <string name="catalog_registry_tier_base">Standard</string>
+    <!-- %1$s: a number of tokens, as "200,000". -->
+    <string name="catalog_registry_tier_context">Above %1$s context tokens</string>
+    <!-- %1$s: a tier kind this app does not know, as the server names it; %2$s: its size. -->
+    <string name="catalog_registry_tier_other">%1$s above %2$s</string>
+    <string name="catalog_registry_price_input">Input</string>
+    <string name="catalog_registry_price_output">Output</string>
+    <string name="catalog_registry_price_cache_read">Cache read</string>
+    <string name="catalog_registry_price_cache_write">Cache write</string>
+    <!-- %1$s: an amount in USD, as "3.00". -->
+    <string name="catalog_registry_price">$%1$s</string>
+    <!-- The server gave no such price, which is not the same as free. -->
+    <string name="catalog_registry_price_unknown">Unknown</string>
+    <string name="catalog_registry_no_pricing">The server gives no prices for this model.</string>
+    <string name="catalog_registry_section_variants">Variants</string>
+    <string name="catalog_registry_error_not_connected">Not connected to the server. Go back and connect again.</string>
+    <string name="catalog_registry_error_unreachable">The server could not be reached. Check the connection and try again.</string>
+    <string name="catalog_registry_error_unauthorized">The server refused the credentials.</string>
+    <string name="catalog_registry_error_not_found">Not found on the server. It may have been removed from its configuration.</string>
+    <string name="catalog_registry_error_rejected">The server refused the request.</string>
+    <string name="catalog_registry_error_server">The server ran into an error.</string>
+    <string name="catalog_registry_error_unknown">Something went wrong.</string>
 </resources>
