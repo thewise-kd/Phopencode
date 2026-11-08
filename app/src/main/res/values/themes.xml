@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- The window behind Compose, which draws its own theme from core:ui. -->
-    <style name="Theme.Phopencode" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- The window behind Compose, which draws its own theme from core:ui. Its background
+         is core:ui's light background, so no other color shows before the first frame. -->
+    <style name="Theme.Phopencode" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#FFF4FAF9</item>
+        <item name="android:colorBackground">#FFF4FAF9</item>
+    </style>
 </resources>

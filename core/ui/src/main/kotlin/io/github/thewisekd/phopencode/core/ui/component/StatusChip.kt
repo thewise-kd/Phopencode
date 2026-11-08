@@ -44,7 +44,8 @@ enum class StatusTone(@param:StringRes internal val labelRes: Int, internal val 
 }
 
 /**
- * A small read-only status. A screen's own [label], such as "Connected", replaces the
+ * A small read-only status: a soft tinted chip whose icon takes the status's accent
+ * color. A screen's own [label], such as "Connected", replaces the
  * status name on screen, and TalkBack then reads the name as the node's state.
  */
 @Composable
@@ -65,7 +66,7 @@ fun StatusChip(
         shape = MaterialTheme.shapes.small,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = spacing.sm, vertical = spacing.xs),
+            modifier = Modifier.padding(start = spacing.sm, end = spacing.md, top = spacing.xs, bottom = spacing.xs),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(spacing.xs),
         ) {
@@ -73,6 +74,7 @@ fun StatusChip(
                 imageVector = status.icon,
                 contentDescription = null,
                 modifier = Modifier.size(spacing.lg),
+                tint = colors.color,
             )
             Text(
                 text = label,

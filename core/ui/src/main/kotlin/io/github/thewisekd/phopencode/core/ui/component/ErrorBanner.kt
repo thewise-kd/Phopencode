@@ -5,9 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -18,18 +16,24 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import io.github.thewisekd.phopencode.core.ui.R
+import io.github.thewisekd.phopencode.core.ui.icon.PhopencodeIcons
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 
+/** Marks an [ErrorBanner]'s warning icon, for tests. */
+internal const val ERROR_BANNER_ICON_TAG = "ui-common:error-banner-icon"
+
 /**
- * An error shown in place, above the content it concerns. A button appears only when
- * its callback is given. The icon is decorative: the merged node says "error" in its
- * state, next to the message.
+ * An error shown in place, above the content it concerns: a rounded card in the error
+ * container color with a warning icon. A button appears only when its callback is
+ * given. The icon is decorative: the merged node says "error" in its state, next to
+ * the message.
  */
 @Composable
 fun ErrorBanner(
@@ -50,14 +54,26 @@ fun ErrorBanner(
             },
         color = colors.container,
         contentColor = colors.onContainer,
-        shape = MaterialTheme.shapes.medium,
+        shape = MaterialTheme.shapes.large,
     ) {
-        Column(modifier = Modifier.padding(horizontal = spacing.md, vertical = spacing.sm)) {
+        Column(
+            modifier = Modifier.padding(
+                start = spacing.lg,
+                end = if (onDismiss != null) spacing.xs else spacing.lg,
+                top = if (onDismiss != null) spacing.xs else spacing.md,
+                bottom = if (onRetry != null) spacing.xs else spacing.md,
+            ),
+        ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                horizontalArrangement = Arrangement.spacedBy(spacing.md),
             ) {
-                Icon(imageVector = Icons.Outlined.ErrorOutline, contentDescription = null)
+                Icon(
+                    imageVector = PhopencodeIcons.Warning,
+                    contentDescription = null,
+                    modifier = Modifier.testTag(ERROR_BANNER_ICON_TAG),
+                    tint = colors.color,
+                )
                 Text(
                     text = message,
                     modifier = Modifier.weight(1f),
@@ -66,7 +82,7 @@ fun ErrorBanner(
                 if (onDismiss != null) {
                     IconButton(onClick = onDismiss) {
                         Icon(
-                            imageVector = Icons.Outlined.Close,
+                            imageVector = PhopencodeIcons.Close,
                             contentDescription = stringResource(R.string.ui_common_error_dismiss),
                         )
                     }
@@ -78,7 +94,12 @@ fun ErrorBanner(
                     modifier = Modifier.align(Alignment.End),
                     colors = ButtonDefaults.textButtonColors(contentColor = colors.onContainer),
                 ) {
-                    Text(stringResource(R.string.ui_common_retry))
+                    Icon(
+                        imageVector = PhopencodeIcons.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.padding(end = spacing.sm).size(ButtonDefaults.IconSize),
+                    )
+                    Text(stringResource(R.string.ui_common_retry), style = MaterialTheme.typography.labelLarge)
                 }
             }
         }

@@ -22,6 +22,7 @@ import org.junit.Test
 import kotlin.test.assertEquals
 
 private const val LOADING_TAG = "loading"
+private const val SUBTITLE = "Some detail"
 
 /** Every built-in text of `strings_ui_common.xml`, as a user of that language reads it. */
 data class ExpectedStrings(
@@ -52,11 +53,12 @@ abstract class ComponentLanguageContract {
 
     private fun assertScaffold(darkTheme: Boolean, scheme: ColorScheme) {
         compose.setThemedContent(darkTheme) {
-            PhopencodeScaffold(title = SCREEN_TITLE, onBack = {}) { Text(MESSAGE) }
+            PhopencodeScaffold(title = SCREEN_TITLE, subtitle = SUBTITLE, onBack = {}) { Text(MESSAGE) }
         }
 
         compose.onNodeWithContentDescription(strings.navigateBack).assertIsDisplayed().assertHasClickAction()
         assertEquals(scheme.onSurface, compose.onNodeWithText(SCREEN_TITLE, useUnmergedTree = true).textColor())
+        assertEquals(scheme.onSurfaceVariant, compose.onNodeWithText(SUBTITLE, useUnmergedTree = true).textColor())
     }
 
     @Test
@@ -141,8 +143,9 @@ abstract class ComponentLanguageContract {
             ConfirmDialog(title = SCREEN_TITLE, message = MESSAGE, onConfirm = {}, onDismiss = {})
         }
 
+        // The confirm button is the dialog's one filled button, cancel a text button.
         val confirm = compose.onNodeWithText(strings.confirm, useUnmergedTree = true).assertIsDisplayed()
-        assertEquals(scheme.primary, confirm.textColor())
+        assertEquals(scheme.onPrimary, confirm.textColor())
         val cancel = compose.onNodeWithText(strings.cancel, useUnmergedTree = true).assertIsDisplayed()
         assertEquals(scheme.primary, cancel.textColor())
     }

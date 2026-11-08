@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -20,7 +21,8 @@ import io.github.thewisekd.phopencode.core.ui.R
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 
 /**
- * Work without a known end. It centers its content in the space [modifier] gives it.
+ * Work without a known end: a round-capped teal spinner on a soft track, over a muted
+ * message. It centers its content in the space [modifier] gives it.
  * The spinner and the text are one node, so TalkBack does not stop twice on one fact.
  */
 @Composable
@@ -40,7 +42,11 @@ fun Loading(
         verticalArrangement = Arrangement.spacedBy(spacing.md, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        CircularProgressIndicator()
+        CircularProgressIndicator(
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            strokeCap = StrokeCap.Round,
+        )
         Text(
             text = message,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

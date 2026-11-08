@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -145,6 +146,25 @@ class PhopencodeThemeTest {
             assertSame(PhopencodeTypography, typography)
             assertSame(PhopencodeCodeTypography, code)
         }
+    }
+
+    @Test
+    fun `the theme passes its shapes to Material in both schemes`() {
+        var dark by mutableStateOf(false)
+        var shapes: Shapes? = null
+        compose.setContent {
+            PhopencodeTheme(darkTheme = dark) {
+                CaptureScheme()
+                shapes = MaterialTheme.shapes
+            }
+        }
+        assertScheme(LightColorScheme)
+        compose.runOnIdle { assertSame(PhopencodeShapes, shapes) }
+
+        dark = true
+
+        assertScheme(DarkColorScheme)
+        compose.runOnIdle { assertSame(PhopencodeShapes, shapes) }
     }
 
     @Test

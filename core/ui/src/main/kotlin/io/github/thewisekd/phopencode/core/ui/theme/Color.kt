@@ -8,56 +8,71 @@ import androidx.compose.ui.graphics.Color
 // Tonal palettes: the number is the tone, 0 is black and 100 is white. Screens read
 // roles from `MaterialTheme.colorScheme`, never these. Every role is set below, since
 // a role left out silently keeps Material's purple baseline value.
+//
+// The brand is the logo's teal (Teal20 and Teal90). Coral is the warm accent, the
+// complement of teal, for the few things that should catch the eye. Neutrals carry a
+// soft teal tint, and the dark theme sits on deep ink rather than black.
+
+// Brand teal, the logo's family.
 private val Teal10 = Color(0xFF002020)
 private val Teal20 = Color(0xFF003737)
 private val Teal30 = Color(0xFF004F4F)
-private val Teal40 = Color(0xFF006A6A)
-private val Teal80 = Color(0xFF80D5D4)
+private val Teal40 = Color(0xFF006A69)
+private val Teal80 = Color(0xFF7FD6D4)
 private val Teal90 = Color(0xFF9CF1F0)
 
+// Muted sea-glass teal, for secondary controls and tonal buttons.
 private val Sage10 = Color(0xFF051F1F)
 private val Sage20 = Color(0xFF1B3534)
-private val Sage30 = Color(0xFF324B4B)
-private val Sage40 = Color(0xFF4A6363)
-private val Sage80 = Color(0xFFB0CCCB)
-private val Sage90 = Color(0xFFCCE8E7)
+private val Sage30 = Color(0xFF324B4A)
+private val Sage40 = Color(0xFF4A6362)
+private val Sage80 = Color(0xFFB1CCCA)
+private val Sage90 = Color(0xFFCDE8E6)
 
-private val Blue10 = Color(0xFF041C35)
-private val Blue20 = Color(0xFF1C3148)
-private val Blue30 = Color(0xFF334860)
-private val Blue40 = Color(0xFF4B607C)
-private val Blue80 = Color(0xFFB3C8E8)
-private val Blue90 = Color(0xFFD3E4FF)
+// Warm coral accent.
+private val Coral10 = Color(0xFF3A0B00)
+private val Coral20 = Color(0xFF5C1A04)
+private val Coral30 = Color(0xFF7D2D0F)
+private val Coral40 = Color(0xFF9C4323)
+private val Coral80 = Color(0xFFFFB59C)
+private val Coral90 = Color(0xFFFFDBCF)
 
 private val Red10 = Color(0xFF410002)
 private val Red20 = Color(0xFF690005)
-private val Red30 = Color(0xFF93000A)
+// A deep, muted red for the dark error container, so a dark error card does not glare.
+private val Red25 = Color(0xFF6E1A16)
 private val Red40 = Color(0xFFBA1A1A)
 private val Red80 = Color(0xFFFFB4AB)
 private val Red90 = Color(0xFFFFDAD6)
 
-private val Neutral4 = Color(0xFF090F0F)
-private val Neutral6 = Color(0xFF0E1514)
-private val Neutral10 = Color(0xFF161D1D)
-private val Neutral12 = Color(0xFF1A2121)
-private val Neutral17 = Color(0xFF252B2B)
-private val Neutral20 = Color(0xFF2B3231)
-private val Neutral22 = Color(0xFF303636)
-private val Neutral24 = Color(0xFF343A3A)
-private val Neutral87 = Color(0xFFD5DBDA)
-private val Neutral90 = Color(0xFFDDE4E3)
-private val Neutral92 = Color(0xFFE3E9E9)
-private val Neutral94 = Color(0xFFE9EFEE)
-private val Neutral95 = Color(0xFFECF2F1)
-private val Neutral96 = Color(0xFFEFF5F4)
-private val Neutral98 = Color(0xFFF4FBFA)
+// Teal-tinted light neutrals.
+private val Neutral10 = Color(0xFF141D1D)
+private val Neutral20 = Color(0xFF293232)
+private val Neutral86 = Color(0xFFD3DCDB)
+private val Neutral89 = Color(0xFFD7E5E3)
+private val Neutral90 = Color(0xFFDCE5E4)
+private val Neutral91 = Color(0xFFDFEBE9)
+private val Neutral93 = Color(0xFFE6F0EE)
+private val Neutral95 = Color(0xFFEAF2F1)
+private val Neutral96 = Color(0xFFEDF5F3)
+private val Neutral98 = Color(0xFFF4FAF9)
 private val Neutral100 = Color(0xFFFFFFFF)
 
-private val NeutralVariant30 = Color(0xFF3F4948)
-private val NeutralVariant50 = Color(0xFF6F7979)
-private val NeutralVariant60 = Color(0xFF8F9A99)
-private val NeutralVariant80 = Color(0xFFBEC9C8)
-private val NeutralVariant90 = Color(0xFFDAE5E4)
+// Deep ink: dark neutrals leaning blue-teal, so the dark theme is never flat black.
+private val Ink4 = Color(0xFF061012)
+private val Ink6 = Color(0xFF0B1517)
+private val Ink11 = Color(0xFF131E20)
+private val Ink13 = Color(0xFF172325)
+private val Ink16 = Color(0xFF1F2B2D)
+private val Ink21 = Color(0xFF2A3638)
+private val Ink24 = Color(0xFF303B3D)
+
+private val NeutralVariant30 = Color(0xFF3E4948)
+private val NeutralVariant50 = Color(0xFF6E7A79)
+private val NeutralVariant60 = Color(0xFF8C9897)
+private val NeutralVariant80 = Color(0xFFBDC9C8)
+private val NeutralVariant82 = Color(0xFFBEC9C7)
+private val NeutralVariant90 = Color(0xFFDAE5E3)
 
 private val Scrim = Color(0xFF000000)
 
@@ -71,10 +86,10 @@ internal val LightColorScheme: ColorScheme = lightColorScheme(
     onSecondary = Neutral100,
     secondaryContainer = Sage90,
     onSecondaryContainer = Sage10,
-    tertiary = Blue40,
+    tertiary = Coral40,
     onTertiary = Neutral100,
-    tertiaryContainer = Blue90,
-    onTertiaryContainer = Blue10,
+    tertiaryContainer = Coral90,
+    onTertiaryContainer = Coral10,
     background = Neutral98,
     onBackground = Neutral10,
     surface = Neutral98,
@@ -89,15 +104,15 @@ internal val LightColorScheme: ColorScheme = lightColorScheme(
     errorContainer = Red90,
     onErrorContainer = Red10,
     outline = NeutralVariant50,
-    outlineVariant = NeutralVariant80,
+    outlineVariant = NeutralVariant82,
     scrim = Scrim,
     surfaceBright = Neutral98,
-    surfaceContainer = Neutral94,
-    surfaceContainerHigh = Neutral92,
-    surfaceContainerHighest = Neutral90,
+    surfaceContainer = Neutral93,
+    surfaceContainerHigh = Neutral91,
+    surfaceContainerHighest = Neutral89,
     surfaceContainerLow = Neutral96,
     surfaceContainerLowest = Neutral100,
-    surfaceDim = Neutral87,
+    surfaceDim = Neutral86,
     primaryFixed = Teal90,
     primaryFixedDim = Teal80,
     onPrimaryFixed = Teal10,
@@ -106,10 +121,10 @@ internal val LightColorScheme: ColorScheme = lightColorScheme(
     secondaryFixedDim = Sage80,
     onSecondaryFixed = Sage10,
     onSecondaryFixedVariant = Sage30,
-    tertiaryFixed = Blue90,
-    tertiaryFixedDim = Blue80,
-    onTertiaryFixed = Blue10,
-    onTertiaryFixedVariant = Blue30,
+    tertiaryFixed = Coral90,
+    tertiaryFixedDim = Coral80,
+    onTertiaryFixed = Coral10,
+    onTertiaryFixedVariant = Coral30,
 )
 
 internal val DarkColorScheme: ColorScheme = darkColorScheme(
@@ -122,13 +137,13 @@ internal val DarkColorScheme: ColorScheme = darkColorScheme(
     onSecondary = Sage20,
     secondaryContainer = Sage30,
     onSecondaryContainer = Sage90,
-    tertiary = Blue80,
-    onTertiary = Blue20,
-    tertiaryContainer = Blue30,
-    onTertiaryContainer = Blue90,
-    background = Neutral6,
+    tertiary = Coral80,
+    onTertiary = Coral20,
+    tertiaryContainer = Coral30,
+    onTertiaryContainer = Coral90,
+    background = Ink6,
     onBackground = Neutral90,
-    surface = Neutral6,
+    surface = Ink6,
     onSurface = Neutral90,
     surfaceVariant = NeutralVariant30,
     onSurfaceVariant = NeutralVariant80,
@@ -137,18 +152,18 @@ internal val DarkColorScheme: ColorScheme = darkColorScheme(
     inverseOnSurface = Neutral20,
     error = Red80,
     onError = Red20,
-    errorContainer = Red30,
+    errorContainer = Red25,
     onErrorContainer = Red90,
     outline = NeutralVariant60,
     outlineVariant = NeutralVariant30,
     scrim = Scrim,
-    surfaceBright = Neutral24,
-    surfaceContainer = Neutral12,
-    surfaceContainerHigh = Neutral17,
-    surfaceContainerHighest = Neutral22,
-    surfaceContainerLow = Neutral10,
-    surfaceContainerLowest = Neutral4,
-    surfaceDim = Neutral6,
+    surfaceBright = Ink24,
+    surfaceContainer = Ink13,
+    surfaceContainerHigh = Ink16,
+    surfaceContainerHighest = Ink21,
+    surfaceContainerLow = Ink11,
+    surfaceContainerLowest = Ink4,
+    surfaceDim = Ink6,
     primaryFixed = Teal90,
     primaryFixedDim = Teal80,
     onPrimaryFixed = Teal10,
@@ -157,8 +172,8 @@ internal val DarkColorScheme: ColorScheme = darkColorScheme(
     secondaryFixedDim = Sage80,
     onSecondaryFixed = Sage10,
     onSecondaryFixedVariant = Sage30,
-    tertiaryFixed = Blue90,
-    tertiaryFixedDim = Blue80,
-    onTertiaryFixed = Blue10,
-    onTertiaryFixedVariant = Blue30,
+    tertiaryFixed = Coral90,
+    tertiaryFixedDim = Coral80,
+    onTertiaryFixed = Coral10,
+    onTertiaryFixedVariant = Coral30,
 )

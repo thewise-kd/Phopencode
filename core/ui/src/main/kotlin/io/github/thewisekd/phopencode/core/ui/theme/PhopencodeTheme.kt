@@ -23,6 +23,7 @@ fun PhopencodeTheme(
     ) {
         MaterialTheme(
             colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
+            shapes = PhopencodeShapes,
             typography = PhopencodeTypography,
             content = content,
         )

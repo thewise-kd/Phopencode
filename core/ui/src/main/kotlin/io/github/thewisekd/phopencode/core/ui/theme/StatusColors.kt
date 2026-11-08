@@ -25,47 +25,49 @@ data class PhopencodeStatusColors(
     val info: StatusColor,
 )
 
+// Tuned to the teal and coral scheme: green leans cool and amber leans golden, so
+// neither reads as the brand teal or the coral accent, and every container is soft.
 internal val LightStatusColors = PhopencodeStatusColors(
     success = StatusColor(
         color = Color(0xFF1B6B3A),
         onColor = Color(0xFFFFFFFF),
-        container = Color(0xFFB7F1C2),
+        container = Color(0xFFB9F0C6),
         onContainer = Color(0xFF00210C),
     ),
     warning = StatusColor(
         color = Color(0xFF7A5900),
         onColor = Color(0xFFFFFFFF),
-        container = Color(0xFFFFDEA1),
+        container = Color(0xFFFFDF9E),
         onContainer = Color(0xFF261900),
     ),
     danger = LightColorScheme.run { StatusColor(error, onError, errorContainer, onErrorContainer) },
     info = StatusColor(
-        color = Color(0xFF00639B),
+        color = Color(0xFF00629D),
         onColor = Color(0xFFFFFFFF),
-        container = Color(0xFFCEE5FF),
-        onContainer = Color(0xFF001D33),
+        container = Color(0xFFD0E4FF),
+        onContainer = Color(0xFF001D34),
     ),
 )
 
 internal val DarkStatusColors = PhopencodeStatusColors(
     success = StatusColor(
-        color = Color(0xFF7DDA9A),
+        color = Color(0xFF80D99B),
         onColor = Color(0xFF00391A),
         container = Color(0xFF00522A),
-        onContainer = Color(0xFF99F7B4),
+        onContainer = Color(0xFF9DF6B5),
     ),
     warning = StatusColor(
-        color = Color(0xFFF5BF48),
-        onColor = Color(0xFF402D00),
-        container = Color(0xFF5C4200),
-        onContainer = Color(0xFFFFDEA1),
+        color = Color(0xFFF2C14C),
+        onColor = Color(0xFF3F2E00),
+        container = Color(0xFF5A4300),
+        onContainer = Color(0xFFFFDF9E),
     ),
     danger = DarkColorScheme.run { StatusColor(error, onError, errorContainer, onErrorContainer) },
     info = StatusColor(
-        color = Color(0xFF96CCFF),
-        onColor = Color(0xFF003353),
-        container = Color(0xFF004A76),
-        onContainer = Color(0xFFCEE5FF),
+        color = Color(0xFF9ACBFF),
+        onColor = Color(0xFF003355),
+        container = Color(0xFF004A77),
+        onContainer = Color(0xFFD0E4FF),
     ),
 )
 

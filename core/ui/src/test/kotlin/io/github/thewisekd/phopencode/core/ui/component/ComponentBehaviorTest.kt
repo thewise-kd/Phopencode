@@ -1,6 +1,7 @@
 package io.github.thewisekd.phopencode.core.ui.component
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
@@ -16,7 +17,10 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.test.performClick
+import io.github.thewisekd.phopencode.core.ui.icon.PhopencodeIcons
 import io.github.thewisekd.phopencode.core.ui.theme.LightColorScheme
 import io.github.thewisekd.phopencode.core.ui.theme.LightStatusColors
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeSpacing
@@ -37,6 +41,7 @@ private const val DISMISS = "Dismiss error"
 private const val DANGEROUS = "Dangerous action"
 private const val CONTENT_TAG = "content"
 private const val BANNER_TAG = "banner"
+private const val SUBTITLE = "Some detail"
 
 private val isButton = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)
 
@@ -108,7 +113,81 @@ class ComponentBehaviorTest {
         }
     }
 
+    @Test
+    fun `a scaffold subtitle shows under the title on one line and is not a heading`() {
+        compose.setThemedContent { PhopencodeScaffold(title = SCREEN_TITLE, subtitle = SUBTITLE) {} }
+
+        compose.onNodeWithText(SCREEN_TITLE).assertIsDisplayed().assert(isHeading)
+        val subtitle = compose.onNodeWithText(SUBTITLE, useUnmergedTree = true).assertIsDisplayed()
+        subtitle.assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Heading))
+        assertEquals(LightColorScheme.onSurfaceVariant, subtitle.textColor())
+        assertEquals(1, subtitle.maxLines())
+        val title = compose.onNodeWithText(SCREEN_TITLE, useUnmergedTree = true).getUnclippedBoundsInRoot()
+        val under = subtitle.getUnclippedBoundsInRoot()
+        assertTrue(under.top >= title.bottom, "subtitle at ${under.top}, title ends at ${title.bottom}")
+    }
+
+    @Test
+    fun `a scaffold without a subtitle draws only its title`() {
+        compose.setThemedContent { PhopencodeScaffold(title = SCREEN_TITLE) {} }
+
+        compose.onNodeWithText(SCREEN_TITLE).assertIsDisplayed()
+        compose.onNodeWithText(SUBTITLE).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a long scaffold subtitle is cut with an ellipsis instead of wrapping`() {
+        val long = "x".repeat(400)
+        compose.setThemedContent { PhopencodeScaffold(title = SCREEN_TITLE, subtitle = long) {} }
+
+        // Robolectric does not measure glyphs, so the cut itself is checked by its settings.
+        val node = compose.onNodeWithText(long, useUnmergedTree = true)
+        val layout = node.textLayout()
+        assertEquals(1, layout.lineCount)
+        assertEquals(1, layout.layoutInput.maxLines)
+        assertEquals(TextOverflow.Ellipsis, layout.layoutInput.overflow)
+        val root = compose.onRoot().getUnclippedBoundsInRoot()
+        assertTrue(node.getUnclippedBoundsInRoot().right <= root.right, "the subtitle runs off the screen")
+    }
+
     // EmptyState
+
+    @Test
+    fun `an empty state with an icon shows it above the title, without speaking it`() {
+        compose.setThemedContent { EmptyState(title = SCREEN_TITLE, icon = PhopencodeIcons.Chat) }
+
+        val icon = compose.onNodeWithTag(EMPTY_STATE_ICON_TAG, useUnmergedTree = true).assertIsDisplayed()
+        icon.assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
+        val title = compose.onNodeWithText(SCREEN_TITLE).getUnclippedBoundsInRoot()
+        assertTrue(icon.getUnclippedBoundsInRoot().bottom <= title.top)
+    }
+
+    @Test
+    fun `an empty state without an icon draws none`() {
+        compose.setThemedContent { EmptyState(title = SCREEN_TITLE, icon = null) }
+
+        compose.onNodeWithTag(EMPTY_STATE_ICON_TAG, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText(SCREEN_TITLE).assertIsDisplayed()
+    }
+
+    @Test
+    fun `an empty state stays readable and its action reachable in large text`() {
+        var clicks = 0
+        compose.setThemedContent(fontScale = 2f) {
+            EmptyState(
+                modifier = Modifier.fillMaxSize(),
+                title = SCREEN_TITLE,
+                message = MESSAGE,
+                icon = PhopencodeIcons.Folder,
+                action = EmptyStateAction(label = BUTTON_LABEL, onClick = { clicks++ }),
+            )
+        }
+
+        compose.onNodeWithText(SCREEN_TITLE).assertIsDisplayed()
+        compose.onNodeWithText(MESSAGE).assertIsDisplayed()
+        compose.onNodeWithText(BUTTON_LABEL).assertIsDisplayed().assertTouchHeightIsAtLeast(touchTarget).performClick()
+        compose.runOnIdle { assertEquals(1, clicks) }
+    }
 
     @Test
     fun `the empty state title is a heading and hides what was not given`() {
@@ -143,6 +222,15 @@ class ComponentBehaviorTest {
             .assert(hasStateDescription("Error"))
             .assert(isLiveRegion)
         compose.onNodeWithText(MESSAGE).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the banner shows a warning icon that is not spoken twice`() {
+        compose.setThemedContent { ErrorBanner(message = MESSAGE) }
+
+        compose.onNodeWithTag(ERROR_BANNER_ICON_TAG, useUnmergedTree = true)
+            .assertIsDisplayed()
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
     }
 
     @Test

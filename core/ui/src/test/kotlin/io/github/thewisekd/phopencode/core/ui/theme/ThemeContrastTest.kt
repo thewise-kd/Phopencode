@@ -14,6 +14,9 @@ import kotlin.test.assertTrue
 private const val AA_TEXT = 4.5
 private const val AA_NON_TEXT = 3.0
 
+/** How far a card's surface must stand from the background behind it. */
+private const val SURFACE_STEP = 1.15
+
 /** Every color role of the Material 3 scheme this build compiles against. */
 private const val COLOR_ROLES = 48
 
@@ -99,6 +102,11 @@ private fun pairedRoles(scheme: Scheme): List<ContrastPair> = with(scheme.colors
         text("onTertiaryFixed on tertiaryFixedDim", onTertiaryFixed, tertiaryFixedDim),
         text("onTertiaryFixedVariant on tertiaryFixed", onTertiaryFixedVariant, tertiaryFixed),
         text("onTertiaryFixedVariant on tertiaryFixedDim", onTertiaryFixedVariant, tertiaryFixedDim),
+        // An icon in the brand or accent color inside a soft tinted circle or chip of the same family.
+        ContrastPair("primary on primaryContainer", primary, primaryContainer, AA_NON_TEXT),
+        ContrastPair("tertiary on tertiaryContainer", tertiary, tertiaryContainer, AA_NON_TEXT),
+        // A filled round icon button, such as send, on the field it sits in.
+        ContrastPair("primary on surfaceContainerHigh", primary, surfaceContainerHigh, AA_NON_TEXT),
     )
 }
 
@@ -173,6 +181,47 @@ class ThemeContrastTest {
             assertEquals(scheme.colors.onError, scheme.status.danger.onColor, scheme.name)
             assertEquals(scheme.colors.errorContainer, scheme.status.danger.container, scheme.name)
             assertEquals(scheme.colors.onErrorContainer, scheme.status.danger.onContainer, scheme.name)
+        }
+    }
+
+    @Test
+    fun `surface containers are layered, so a card stands out from the background`() {
+        schemes.forEach { scheme ->
+            with(scheme.colors) {
+                val ladder = listOf(
+                    surfaceContainerLowest,
+                    surfaceContainerLow,
+                    surfaceContainer,
+                    surfaceContainerHigh,
+                    surfaceContainerHighest,
+                ).map(::relativeLuminance)
+                val expected = if (scheme.name == "dark") ladder.sorted() else ladder.sortedDescending()
+                assertEquals(expected, ladder, "${scheme.name}: the containers must step away from the background")
+                assertEquals(ladder.size, ladder.distinct().size, "${scheme.name}: two containers are equal")
+                val card = contrast(surfaceContainerHighest, background)
+                assertTrue(card >= SURFACE_STEP, "${scheme.name}: a card is only $card from the background")
+            }
+        }
+    }
+
+    @Test
+    fun `neutrals carry a soft teal tint and the dark background is deep ink, not black`() {
+        schemes.forEach { scheme ->
+            with(scheme.colors.background) {
+                assertTrue(green > red && blue > red, "${scheme.name}: background $this is not teal-tinted")
+            }
+        }
+        assertTrue(DarkColorScheme.background != Color.Black)
+        assertTrue(relativeLuminance(DarkColorScheme.background) > relativeLuminance(Color(0xFF050505)))
+    }
+
+    @Test
+    fun `the accent is warm, next to a teal brand`() {
+        schemes.forEach { scheme ->
+            with(scheme.colors) {
+                assertTrue(tertiary.red > tertiary.blue, "${scheme.name}: tertiary $tertiary is not warm")
+                assertTrue(primary.green > primary.red && primary.blue > primary.red, "${scheme.name}: primary is not teal")
+            }
         }
     }
 

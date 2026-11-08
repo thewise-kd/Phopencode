@@ -1,7 +1,5 @@
 package io.github.thewisekd.phopencode.core.ui.component
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -15,15 +13,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import io.github.thewisekd.phopencode.core.ui.R
+import io.github.thewisekd.phopencode.core.ui.icon.PhopencodeIcons
 
 /**
  * Asks before an action. The caller removes the dialog: neither callback does, so
  * [onConfirm] can keep it open until the work is done. Back and a tap outside count
  * as [onDismiss].
  *
- * A [destructive] dialog adds a warning icon with a spoken label and a filled confirm
- * button in the error color, so it stands out without relying on color. Its
- * [confirmLabel] should name the action, such as "Delete".
+ * The confirm button is the one filled button, so the way forward is clear; cancel is
+ * a text button. A [destructive] dialog adds a warning icon with a spoken label and
+ * fills its confirm button in the error color, so it stands out without relying on
+ * color. Its [confirmLabel] should name the action, such as "Delete".
  */
 @Composable
 fun ConfirmDialog(
@@ -36,37 +36,39 @@ fun ConfirmDialog(
     dismissLabel: String = stringResource(R.string.ui_common_cancel),
     destructive: Boolean = false,
 ) {
+    val colors = MaterialTheme.colorScheme
     AlertDialog(
         onDismissRequest = onDismiss,
         modifier = modifier,
         icon = if (destructive) {
             {
                 Icon(
-                    imageVector = Icons.Outlined.WarningAmber,
+                    imageVector = PhopencodeIcons.Warning,
                     contentDescription = stringResource(R.string.ui_common_dangerous_action),
                 )
             }
         } else {
             null
         },
-        iconContentColor = MaterialTheme.colorScheme.error,
-        title = { Text(text = title, modifier = Modifier.semantics { heading() }) },
-        text = { Text(text = message) },
+        iconContentColor = colors.error,
+        title = {
+            Text(
+                text = title,
+                modifier = Modifier.semantics { heading() },
+                style = MaterialTheme.typography.headlineSmall,
+            )
+        },
+        text = { Text(text = message, style = MaterialTheme.typography.bodyMedium) },
         confirmButton = {
-            if (destructive) {
-                Button(
-                    onClick = onConfirm,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError,
-                    ),
-                ) {
-                    Text(confirmLabel)
-                }
-            } else {
-                TextButton(onClick = onConfirm) {
-                    Text(confirmLabel)
-                }
+            Button(
+                onClick = onConfirm,
+                colors = if (destructive) {
+                    ButtonDefaults.buttonColors(containerColor = colors.error, contentColor = colors.onError)
+                } else {
+                    ButtonDefaults.buttonColors(containerColor = colors.primary, contentColor = colors.onPrimary)
+                },
+            ) {
+                Text(confirmLabel)
             }
         },
         dismissButton = {
@@ -74,5 +76,9 @@ fun ConfirmDialog(
                 Text(dismissLabel)
             }
         },
+        shape = MaterialTheme.shapes.extraLarge,
+        containerColor = colors.surfaceContainerHigh,
+        titleContentColor = colors.onSurface,
+        textContentColor = colors.onSurfaceVariant,
     )
 }
