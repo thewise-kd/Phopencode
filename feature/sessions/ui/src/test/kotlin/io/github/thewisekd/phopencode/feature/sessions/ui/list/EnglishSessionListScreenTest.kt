@@ -5,6 +5,10 @@ import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionsFa
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 /** Level 36 has no arm64 Linux runtime, so the Pi runs 26 only; CI runs both. */
 @RunWith(RobolectricTestRunner::class)
@@ -19,10 +23,10 @@ internal val ENGLISH_SESSION_LIST_STRINGS = ExpectedSessionListStrings(
     refreshing = "Refreshing sessions…",
     loadingMore = "Loading more sessions…",
     emptyTitle = "No sessions yet",
-    emptyMessage = "Start a session to work with opencode on this server.",
+    emptyMessage = "Each chat is an opencode session that works in a folder on this server.",
     noMatchTitle = "No matching sessions",
     noMatchMessage = "No session title matches your search.",
-    create = "New session",
+    create = "New chat",
     refresh = "Refresh sessions",
     openFiles = "Open files",
     openGit = "Open git",
@@ -41,6 +45,16 @@ internal val ENGLISH_SESSION_LIST_STRINGS = ExpectedSessionListStrings(
         SessionBadge.Running to "Running",
         SessionBadge.Failed to "Failed",
         SessionBadge.Interrupted to "Interrupted",
+    ),
+    ages = mapOf(
+        20.seconds to "just now",
+        1.minutes to "1 min ago",
+        5.minutes to "5 min ago",
+        3.hours to "3 h ago",
+        1.days to "1 day ago",
+        4.days to "4 days ago",
+        30.days to "Feb 13",
+        400.days to "Feb 8, 2025",
     ),
     errors = mapOf(
         SessionsFailure.NotConnected to "Not connected to the server. Go back and connect again.",

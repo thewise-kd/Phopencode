@@ -5,10 +5,10 @@
     <string name="sessions_list_refreshing">Oturumlar yenileniyor…</string>
     <string name="sessions_list_loading_more">Daha fazla oturum yükleniyor…</string>
     <string name="sessions_list_empty_title">Henüz oturum yok</string>
-    <string name="sessions_list_empty_message">Bu sunucuda opencode ile çalışmak için bir oturum başlatın.</string>
+    <string name="sessions_list_empty_message">Her sohbet, bu sunucudaki bir klasörde çalışan bir opencode oturumudur.</string>
     <string name="sessions_list_no_match_title">Eşleşen oturum yok</string>
     <string name="sessions_list_no_match_message">Aramanızla eşleşen bir oturum başlığı yok.</string>
-    <string name="sessions_list_create">Yeni oturum</string>
+    <string name="sessions_list_create">Yeni sohbet</string>
     <string name="sessions_list_refresh">Oturumları yenile</string>
     <!-- The labels of the top bar's buttons to the list's folder, read by a screen reader. -->
     <string name="sessions_list_open_files">Dosyaları aç</string>
@@ -26,6 +26,23 @@
     <string name="sessions_list_badge_running">Çalışıyor</string>
     <string name="sessions_list_badge_failed">Başarısız</string>
     <string name="sessions_list_badge_interrupted">Kesildi</string>
+    <!-- How long ago a session last changed. -->
+    <string name="sessions_list_time_now">az önce</string>
+    <!-- %1$d: whole minutes, 1 to 59. -->
+    <plurals name="sessions_list_time_minutes">
+        <item quantity="one">%1$d dk önce</item>
+        <item quantity="other">%1$d dk önce</item>
+    </plurals>
+    <!-- %1$d: whole hours, 1 to 23. -->
+    <plurals name="sessions_list_time_hours">
+        <item quantity="one">%1$d sa önce</item>
+        <item quantity="other">%1$d sa önce</item>
+    </plurals>
+    <!-- %1$d: whole days, 1 to 6. -->
+    <plurals name="sessions_list_time_days">
+        <item quantity="one">%1$d gün önce</item>
+        <item quantity="other">%1$d gün önce</item>
+    </plurals>
     <!-- %1$s: the token count, already formatted for the language. -->
     <plurals name="sessions_list_tokens">
         <item quantity="one">%1$s token</item>

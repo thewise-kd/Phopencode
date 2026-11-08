@@ -3,6 +3,9 @@ package io.github.thewisekd.phopencode.feature.sessions.ui.create
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -18,11 +21,14 @@ import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionsFa
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** The texts of the creation screen in one language. Formats take a model name or a failure's reason. */
 internal data class ExpectedCreateStrings(
     val title: String,
     val folder: String,
+    val sectionFolder: String,
+    val sectionDetails: String,
     val folderHelp: String,
     val folderErrors: Map<CreateFolderError, String>,
     val recent: String,
@@ -67,6 +73,25 @@ abstract class SessionCreateScreenLanguageContract {
         compose.onNodeWithText(strings.agentDefault).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText(strings.model).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText(strings.create).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the fields are grouped under short section headings`() {
+        compose.setCreateScreen(ready.copy(skillId = "skill-1"))
+
+        val heading = SemanticsMatcher.keyIsDefined(SemanticsProperties.Heading)
+        val folderSection = compose.onNodeWithText(strings.sectionFolder).assert(heading)
+        val detailsSection = compose.onNodeWithText(strings.sectionDetails).performScrollTo().assert(heading)
+        compose.onNodeWithText(strings.agent).performScrollTo().assert(heading)
+        compose.onNodeWithText(strings.model).performScrollTo().assert(heading)
+        compose.onNodeWithText(strings.recent).performScrollTo().assert(heading)
+
+        val folderSectionTop = folderSection.fetchSemanticsNode().positionInRoot.y
+        val detailsTop = detailsSection.fetchSemanticsNode().positionInRoot.y
+        val folderTop = compose.onNodeWithTag(SessionCreateTags.FOLDER).fetchSemanticsNode().positionInRoot.y
+        val titleTop = compose.onNodeWithTag(SessionCreateTags.TITLE).fetchSemanticsNode().positionInRoot.y
+        assertTrue(folderSectionTop < folderTop && folderTop < detailsTop, "the folder is in its section")
+        assertTrue(detailsTop < titleTop, "the title is in the details section")
     }
 
     @Test

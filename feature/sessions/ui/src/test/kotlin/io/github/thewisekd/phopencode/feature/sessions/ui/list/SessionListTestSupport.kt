@@ -1,6 +1,7 @@
 package io.github.thewisekd.phopencode.feature.sessions.ui.list
 
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
@@ -20,6 +21,8 @@ import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionLis
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionRow
 import java.math.BigDecimal
 import java.math.BigInteger
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /** Made-up sessions and folders: no real project, path or prompt. */
 internal const val FOLDER = "/work/sample"
@@ -47,6 +50,13 @@ internal val untitled = SessionRow(
     status = SessionBadge.Idle,
 )
 
+/** The moment the tests' screens take as now. */
+internal val NOW: Instant = Instant.parse("2026-03-15T12:00:00Z")
+
+internal object FixedClock : Clock {
+    override fun now(): Instant = NOW
+}
+
 internal val listed = SessionListState(loading = false, rows = listOf(first, second), endReached = true)
 
 internal fun ComposeContentTestRule.setSessionList(
@@ -56,7 +66,9 @@ internal fun ComposeContentTestRule.setSessionList(
 ) {
     setContent {
         PhopencodeTheme(darkTheme = false) {
-            Surface { SessionListScreen(route = route, state = state, onIntent = onIntent) }
+            CompositionLocalProvider(LocalSessionListClock provides FixedClock) {
+                Surface { SessionListScreen(route = route, state = state, onIntent = onIntent) }
+            }
         }
     }
 }

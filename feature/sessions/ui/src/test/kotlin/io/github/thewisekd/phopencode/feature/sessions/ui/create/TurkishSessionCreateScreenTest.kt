@@ -11,8 +11,10 @@ import org.robolectric.annotation.Config
 @Config(sdk = [26, 36], qualifiers = "tr")
 class TurkishSessionCreateScreenTest : SessionCreateScreenLanguageContract() {
     override val strings = ExpectedCreateStrings(
-        title = "Yeni oturum",
+        title = "Yeni sohbet",
         folder = "Klasör",
+        sectionFolder = "Proje klasörü",
+        sectionDetails = "Ayrıntılar",
         folderHelp = "Sunucuda / ile başlayan tam bir yol.",
         folderErrors = mapOf(
             CreateFolderError.Missing to "Oturumun çalışacağı klasörü girin.",
@@ -30,7 +32,7 @@ class TurkishSessionCreateScreenTest : SessionCreateScreenLanguageContract() {
         modelCancel = "İptal",
         loading = "Ajanlar ve modeller yükleniyor…",
         skill = "Seçilen beceri ilk mesajınıza eklenir.",
-        create = "Oturum oluştur",
+        create = "Sohbeti başlat",
         creating = "Oluşturuluyor…",
         createError = { "Oturum oluşturulamadı. $it" },
         catalogError = { "Ajanlar ve modeller yüklenemedi; sunucunun varsayılanları kullanılır. $it" },

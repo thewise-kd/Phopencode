@@ -8,6 +8,7 @@ import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -17,6 +18,8 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -43,6 +46,10 @@ import java.math.BigDecimal
 import java.math.BigInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.minutes
+
+/** core/ui's tag for the circle around an empty state's icon. */
+private const val EMPTY_STATE_ICON_TAG = "ui-common:empty-state-icon"
 
 /** What the session list draws for each state, and which intents its controls send. */
 @RunWith(RobolectricTestRunner::class)
@@ -93,7 +100,8 @@ class SessionListScreenBehaviorTest {
 
         compose.onNodeWithText(strings.emptyTitle).assertIsDisplayed()
         compose.onNodeWithText(strings.emptyMessage).assertIsDisplayed()
-        compose.onNodeWithContentDescription(strings.create).assertDoesNotExist()
+        compose.onNodeWithTag(EMPTY_STATE_ICON_TAG, useUnmergedTree = true).assertIsDisplayed()
+        compose.onAllNodesWithText(strings.create).assertCountEquals(1)
         compose.onNodeWithText(strings.create).performScrollTo().assertTouchSizeIsAtLeast().performClick()
 
         compose.runOnIdle { assertEquals(listOf<SessionListIntent>(SessionListIntent.Create), sentByUser()) }
@@ -218,19 +226,58 @@ class SessionListScreenBehaviorTest {
     }
 
     @Test
-    fun `a list of every folder shows each session's folder`() {
+    fun `a list of every folder shows each session's folder as a chip`() {
         show(listed)
 
         compose.onNodeWithText(FOLDER, useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText(OTHER_FOLDER, useUnmergedTree = true).assertIsDisplayed()
+        compose.onAllNodesWithTag(SESSION_FOLDER_CHIP_TAG, useUnmergedTree = true).assertCountEquals(2)
     }
 
     @Test
-    fun `a list of one folder shows the folder once, above the rows`() {
+    fun `a list of one folder shows the folder once, in the top bar, and no folder chips`() {
         val rows = listOf(first, second.copy(directory = FOLDER))
         show(listed.copy(directory = FOLDER, rows = rows))
 
+        compose.onAllNodesWithText(FOLDER, useUnmergedTree = true).assertCountEquals(1)
         compose.onNodeWithText(FOLDER, useUnmergedTree = true).assertIsDisplayed()
+        compose.onAllNodesWithTag(SESSION_FOLDER_CHIP_TAG, useUnmergedTree = true).assertCountEquals(0)
+        val titleBottom = compose.onNodeWithText(strings.title).fetchSemanticsNode().boundsInRoot.bottom
+        val folderTop = compose.onNodeWithText(FOLDER, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.top
+        val searchTop = compose.onNode(hasSetTextAction()).fetchSemanticsNode().boundsInRoot.top
+        assertTrue(folderTop >= titleBottom && folderTop < searchTop, "the folder sits under the title, in the bar")
+    }
+
+    @Test
+    fun `a long folder keeps its last folders in the top bar`() {
+        assertEquals("/work/sample", compactFolder("/work/sample"))
+        assertEquals("…/clients/acme/website-frontend", compactFolder("/home/someone/projects/clients/acme/website-frontend"))
+        assertEquals("…/a-very-long-folder-name-that-is-too-long", compactFolder("/x/y/a-very-long-folder-name-that-is-too-long"))
+    }
+
+    @Test
+    fun `a running session carries a running mark, an idle one none`() {
+        show(listed)
+
+        compose.onNodeWithTag(sessionRunningMarkTag(first.id), useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag(sessionRunningMarkTag(second.id), useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText(strings.badges.getValue(SessionBadge.Running), useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a session without a time shows none`() {
+        show(listed.copy(rows = listOf(second.copy(updatedAt = null))))
+
+        compose.onNodeWithText(second.title!!).assertIsDisplayed()
+        compose.onNodeWithText("ago", substring = true, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("just now", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a time in the future, from a clock that runs ahead, reads as just now`() {
+        show(listed.copy(rows = listOf(second.copy(updatedAt = NOW + 3.minutes))))
+
+        compose.onNodeWithText("just now", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test
@@ -281,10 +328,10 @@ class SessionListScreenBehaviorTest {
     }
 
     @Test
-    fun `the labelled add button creates a session when sessions are listed`() {
+    fun `the extended new chat button shows its label and creates a session when sessions are listed`() {
         show(listed)
 
-        compose.onNodeWithContentDescription(strings.create).assertTouchSizeIsAtLeast().performClick()
+        compose.onNodeWithText(strings.create).assertIsDisplayed().assertTouchSizeIsAtLeast().performClick()
 
         compose.runOnIdle { assertEquals(listOf<SessionListIntent>(SessionListIntent.Create), sentByUser()) }
     }

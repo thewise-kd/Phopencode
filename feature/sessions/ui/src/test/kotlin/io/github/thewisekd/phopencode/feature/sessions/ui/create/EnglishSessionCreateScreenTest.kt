@@ -14,8 +14,10 @@ class EnglishSessionCreateScreenTest : SessionCreateScreenLanguageContract() {
 }
 
 internal val ENGLISH_CREATE_STRINGS = ExpectedCreateStrings(
-    title = "New session",
+    title = "New chat",
     folder = "Folder",
+    sectionFolder = "Project folder",
+    sectionDetails = "Details",
     folderHelp = "An absolute path on the server, starting with /.",
     folderErrors = mapOf(
         CreateFolderError.Missing to "Enter the folder the session works in.",
@@ -33,7 +35,7 @@ internal val ENGLISH_CREATE_STRINGS = ExpectedCreateStrings(
     modelCancel = "Cancel",
     loading = "Loading agents and models…",
     skill = "The chosen skill is attached to your first message.",
-    create = "Create session",
+    create = "Start chat",
     creating = "Creating…",
     createError = { "The session could not be created. $it" },
     catalogError = { "Agents and models could not be loaded; the server's defaults are used. $it" },

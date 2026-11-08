@@ -79,6 +79,11 @@ class SessionListIdleTest {
     }
 
     @Test
+    fun `a list whose times refresh each minute comes to rest between ticks`() {
+        assertComesToRest(listed.copy(rows = listed.rows.map { it.copy(updatedAt = NOW) }))
+    }
+
+    @Test
     fun `the empty state comes to rest`() {
         assertComesToRest(SessionListState(loading = false, endReached = true))
     }

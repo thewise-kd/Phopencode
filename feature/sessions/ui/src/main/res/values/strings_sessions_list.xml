@@ -5,10 +5,10 @@
     <string name="sessions_list_refreshing">Refreshing sessions…</string>
     <string name="sessions_list_loading_more">Loading more sessions…</string>
     <string name="sessions_list_empty_title">No sessions yet</string>
-    <string name="sessions_list_empty_message">Start a session to work with opencode on this server.</string>
+    <string name="sessions_list_empty_message">Each chat is an opencode session that works in a folder on this server.</string>
     <string name="sessions_list_no_match_title">No matching sessions</string>
     <string name="sessions_list_no_match_message">No session title matches your search.</string>
-    <string name="sessions_list_create">New session</string>
+    <string name="sessions_list_create">New chat</string>
     <string name="sessions_list_refresh">Refresh sessions</string>
     <!-- The labels of the top bar's buttons to the list's folder, read by a screen reader. -->
     <string name="sessions_list_open_files">Open files</string>
@@ -26,6 +26,23 @@
     <string name="sessions_list_badge_running">Running</string>
     <string name="sessions_list_badge_failed">Failed</string>
     <string name="sessions_list_badge_interrupted">Interrupted</string>
+    <!-- How long ago a session last changed. -->
+    <string name="sessions_list_time_now">just now</string>
+    <!-- %1$d: whole minutes, 1 to 59. -->
+    <plurals name="sessions_list_time_minutes">
+        <item quantity="one">%1$d min ago</item>
+        <item quantity="other">%1$d min ago</item>
+    </plurals>
+    <!-- %1$d: whole hours, 1 to 23. -->
+    <plurals name="sessions_list_time_hours">
+        <item quantity="one">%1$d h ago</item>
+        <item quantity="other">%1$d h ago</item>
+    </plurals>
+    <!-- %1$d: whole days, 1 to 6. -->
+    <plurals name="sessions_list_time_days">
+        <item quantity="one">%1$d day ago</item>
+        <item quantity="other">%1$d days ago</item>
+    </plurals>
     <!-- %1$s: the token count, already formatted for the language. -->
     <plurals name="sessions_list_tokens">
         <item quantity="one">%1$s token</item>

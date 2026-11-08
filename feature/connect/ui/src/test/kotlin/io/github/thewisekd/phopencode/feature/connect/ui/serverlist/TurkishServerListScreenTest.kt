@@ -1,8 +1,11 @@
 package io.github.thewisekd.phopencode.feature.connect.ui.serverlist
 
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import io.github.thewisekd.phopencode.core.navigation.ConnectRoute
 import io.github.thewisekd.phopencode.feature.connect.logic.contract.ServerListState
@@ -31,7 +34,19 @@ class TurkishServerListScreenTest {
 
         compose.onNodeWithText("Sunucular").assertIsDisplayed()
         compose.onNodeWithText("Henüz sunucu yok").assertIsDisplayed()
+        compose.onNodeWithText("opencode serve çalıştıran bilgisayardır", substring = true).assertIsDisplayed()
         compose.onNodeWithText("Sunucu ekle").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the top bar's icon buttons, the add button and the mode chips are in Turkish`() {
+        show(ServerListState(loading = false, servers = listOf(firstServer, secondServer)))
+
+        compose.onNodeWithContentDescription("SSH anahtarları").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Ayarlar").assertIsDisplayed()
+        compose.onNodeWithText("Sunucu ekle").assertIsDisplayed()
+        compose.onNodeWithText("SSH anahtarı", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("Parola", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test
@@ -41,5 +56,13 @@ class TurkishServerListScreenTest {
         compose.onNodeWithText("Sunucu silinsin mi?").assertIsDisplayed()
         compose.onNodeWithText("Sil").assertIsDisplayed()
         compose.onNodeWithContentDescription("Düzenle: ${firstServer.name}").assertExists()
+    }
+
+    @Test
+    fun `the avatar letter follows Turkish casing`() {
+        show(ServerListState(loading = false, servers = listOf(firstServer.copy(name = "istanbul"))))
+
+        compose.onNodeWithTag(serverAvatarTag(firstServer.id), useUnmergedTree = true)
+            .assert(SemanticsMatcher.expectValue(AvatarLetterKey, "İ"))
     }
 }

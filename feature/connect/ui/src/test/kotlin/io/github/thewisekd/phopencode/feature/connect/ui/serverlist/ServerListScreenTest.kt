@@ -10,7 +10,9 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -28,19 +30,25 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.util.Locale
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 private const val TITLE = "Servers"
 private const val LOADING = "Loading servers…"
 private const val EMPTY_TITLE = "No servers yet"
-private const val EMPTY_MESSAGE = "Add a server you reach over SSH to manage opencode on it."
+private const val EMPTY_MESSAGE = "A server is the computer that runs opencode serve. The app reaches it over SSH."
 private const val ADD = "Add server"
 private const val KEYS = "SSH keys"
 private const val SETTINGS = "Settings"
 private const val DELETE = "Delete"
 private const val CANCEL = "Cancel"
 private const val DELETE_TITLE = "Delete server?"
+private const val MODE_KEY = "SSH key"
+private const val MODE_PASSWORD = "Password"
+
+/** core/ui's tag for the circle around an empty state's icon. */
+private const val EMPTY_STATE_ICON_TAG = "ui-common:empty-state-icon"
 
 private val listed = ServerListState(loading = false, servers = listOf(firstServer, secondServer))
 
@@ -116,6 +124,8 @@ class ServerListScreenTest {
 
         compose.onNodeWithText(EMPTY_TITLE).assertIsDisplayed()
         compose.onNodeWithText(EMPTY_MESSAGE).assertIsDisplayed()
+        compose.onNodeWithTag(EMPTY_STATE_ICON_TAG).assertIsDisplayed()
+        compose.onAllNodesWithText(ADD).assertCountEquals(1)
         compose.onNodeWithText(ADD).assertTouchSizeIsAtLeast().performClick()
 
         compose.runOnIdle { assertEquals(listOf<ServerListIntent>(ServerListIntent.Add), intents) }
@@ -133,6 +143,57 @@ class ServerListScreenTest {
         val firstTop = rowOf(firstServer.name).fetchSemanticsNode().boundsInRoot.top
         val secondTop = rowOf(secondServer.name).fetchSemanticsNode().boundsInRoot.top
         assertTrue(firstTop < secondTop, "the presenter's order is kept")
+    }
+
+    @Test
+    fun `each server shows the first letter of its name in an avatar`() {
+        show(listed)
+
+        compose.onNodeWithTag(serverAvatarTag(firstServer.id), useUnmergedTree = true)
+            .assertIsDisplayed()
+            .assert(SemanticsMatcher.expectValue(AvatarLetterKey, "B"))
+        compose.onNodeWithTag(serverAvatarTag(secondServer.id), useUnmergedTree = true)
+            .assert(SemanticsMatcher.expectValue(AvatarLetterKey, "L"))
+    }
+
+    @Test
+    fun `the avatar letter is the first visible letter, upper-cased, or a stand-in`() {
+        assertEquals("R", avatarLetter("  raspberry", Locale.ENGLISH))
+        assertEquals("7", avatarLetter("7th floor", Locale.ENGLISH))
+        assertEquals("\uD83D\uDE80", avatarLetter("\uD83D\uDE80 rocket", Locale.ENGLISH))
+        assertEquals("?", avatarLetter("   ", Locale.ENGLISH))
+    }
+
+    @Test
+    fun `the avatar letter is not read out as part of the row`() {
+        show(listed)
+
+        rowOf(firstServer.name).assert(
+            SemanticsMatcher("row text without the avatar letter") { node ->
+                node.config.getOrElse(SemanticsProperties.Text) { emptyList() }.none { it.text == "B" }
+            },
+        )
+    }
+
+    @Test
+    fun `each server shows how it logs in as a chip`() {
+        show(listed)
+
+        compose.onNodeWithText(MODE_KEY, useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText(MODE_PASSWORD, useUnmergedTree = true).assertIsDisplayed()
+        rowOf(firstServer.name).assert(hasText(MODE_KEY))
+        rowOf(secondServer.name).assert(hasText(MODE_PASSWORD))
+    }
+
+    @Test
+    fun `a server row says that a tap connects`() {
+        show(listed)
+
+        rowOf(firstServer.name).assert(
+            SemanticsMatcher("click label is Connect") { node ->
+                node.config.getOrElseNullable(SemanticsActions.OnClick) { null }?.label == "Connect"
+            },
+        )
     }
 
     @Test
@@ -160,20 +221,22 @@ class ServerListScreenTest {
     }
 
     @Test
-    fun `the labelled add button adds a server when servers are listed`() {
+    fun `the extended add button shows its label and adds a server when servers are listed`() {
         show(listed)
 
-        compose.onNodeWithContentDescription(ADD).assertTouchSizeIsAtLeast().performClick()
+        compose.onNodeWithText(ADD).assertIsDisplayed().assertTouchSizeIsAtLeast().performClick()
 
         compose.runOnIdle { assertEquals(listOf<ServerListIntent>(ServerListIntent.Add), intents) }
     }
 
     @Test
-    fun `the top bar opens keys and settings`() {
+    fun `the top bar opens keys and settings from named icon buttons`() {
         show(listed)
 
-        compose.onNodeWithText(KEYS).assertTouchSizeIsAtLeast().performClick()
-        compose.onNodeWithText(SETTINGS).assertTouchSizeIsAtLeast().performClick()
+        compose.onNodeWithText(KEYS).assertDoesNotExist()
+        compose.onNodeWithText(SETTINGS).assertDoesNotExist()
+        compose.onNodeWithContentDescription(KEYS).assertTouchSizeIsAtLeast().performClick()
+        compose.onNodeWithContentDescription(SETTINGS).assertTouchSizeIsAtLeast().performClick()
 
         compose.runOnIdle {
             assertEquals(listOf(ServerListIntent.OpenKeys, ServerListIntent.OpenSettings), intents)

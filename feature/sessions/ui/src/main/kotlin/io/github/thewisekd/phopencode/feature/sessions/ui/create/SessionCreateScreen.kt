@@ -1,10 +1,12 @@
 package io.github.thewisekd.phopencode.feature.sessions.ui.create
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +25,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -36,6 +39,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -57,6 +61,7 @@ import io.github.thewisekd.phopencode.core.model.ModelRef
 import io.github.thewisekd.phopencode.core.navigation.SessionsRoute
 import io.github.thewisekd.phopencode.core.ui.component.ErrorBanner
 import io.github.thewisekd.phopencode.core.ui.component.PhopencodeScaffold
+import io.github.thewisekd.phopencode.core.ui.icon.PhopencodeIcons
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.CreateFolderError
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionCreateIntent
@@ -68,10 +73,11 @@ import io.github.thewisekd.phopencode.feature.sessions.ui.R
  * Creating a session (P5.5). Draws [state] and sends [onIntent]; the presenter validates, creates and
  * then opens the chat, which `SessionsGraph` turns into navigation.
  *
- * The folder is typed or picked from the recent folders; the title is optional. Once the catalog is
- * loaded, the agent is picked from a radio group and the model from a dialog, each with a way back to
- * the server's choice. "Create session" sits under the form, always in reach, and is enabled only when
- * [SessionCreateState.canCreate].
+ * The fields are grouped in rounded cards with short titles: the folder, typed or picked from the
+ * recent folders; the details, an optional title; then, once the catalog is loaded, the agent, picked
+ * from a radio group, and the model, from a dialog, each with a way back to the server's choice.
+ * "Start chat", the one filled button, sits under the form, always in reach, and is enabled only
+ * when [SessionCreateState.canCreate].
  *
  * Folders and titles are user data: the screen shows them and sends them with their intents, and
  * nothing else. The root keeps the `placeholder:<route>` tag the app's navigation test looks for.
@@ -115,7 +121,7 @@ private fun CreateForm(
         modifier = modifier
             .verticalScroll(rememberScrollState())
             .padding(horizontal = spacing.lg, vertical = spacing.md),
-        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         state.error?.let { failure ->
             ErrorBanner(
@@ -130,41 +136,54 @@ private fun CreateForm(
             )
         }
 
-        FolderField(state.directory, state.folderError, enabled, onIntent)
-        RecentFolders(state.recentFolders, enabled, onIntent)
+        FormCard(R.string.sessions_create_section_folder) {
+            FolderField(state.directory, state.folderError, enabled, onIntent)
+            RecentFolders(state.recentFolders, enabled, onIntent)
+        }
 
-        OutlinedTextField(
-            value = state.title,
-            onValueChange = { onIntent(SessionCreateIntent.TitleChanged(it)) },
-            modifier = Modifier.fillMaxWidth().testTag(SessionCreateTags.TITLE),
-            enabled = enabled,
-            label = { Text(stringResource(R.string.sessions_create_session_title)) },
-            supportingText = { Text(stringResource(R.string.sessions_create_session_title_help)) },
-            keyboardOptions = KeyboardOptions(
-                capitalization = KeyboardCapitalization.Sentences,
-                keyboardType = KeyboardType.Text,
-                imeAction = ImeAction.Done,
-            ),
-            keyboardActions = KeyboardActions(onDone = { onCreate() }),
-            singleLine = true,
-        )
-
-        if (state.skillId != null) {
-            Text(
-                text = stringResource(R.string.sessions_create_skill),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium,
-            )
+        FormCard(R.string.sessions_create_section_details) {
+            TitleField(state, enabled, onIntent, onCreate)
+            if (state.skillId != null) {
+                Text(
+                    text = stringResource(R.string.sessions_create_skill),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
         }
 
         when {
             state.loading -> LoadingCatalog()
             state.catalogError == null -> {
-                AgentChoice(state, enabled, onIntent)
-                ModelChoice(state, enabled, onIntent)
+                FormCard(R.string.sessions_create_agent) { AgentChoice(state, enabled, onIntent) }
+                FormCard(R.string.sessions_create_model) { ModelChoice(state, enabled, onIntent) }
             }
         }
     }
+}
+
+@Composable
+private fun TitleField(
+    state: SessionCreateState,
+    enabled: Boolean,
+    onIntent: (SessionCreateIntent) -> Unit,
+    onCreate: () -> Unit,
+) {
+    OutlinedTextField(
+        value = state.title,
+        onValueChange = { onIntent(SessionCreateIntent.TitleChanged(it)) },
+        modifier = Modifier.fillMaxWidth().testTag(SessionCreateTags.TITLE),
+        enabled = enabled,
+        label = { Text(stringResource(R.string.sessions_create_session_title)) },
+        supportingText = { Text(stringResource(R.string.sessions_create_session_title_help)) },
+        keyboardOptions = KeyboardOptions(
+            capitalization = KeyboardCapitalization.Sentences,
+            keyboardType = KeyboardType.Text,
+            imeAction = ImeAction.Done,
+        ),
+        keyboardActions = KeyboardActions(onDone = { onCreate() }),
+        singleLine = true,
+    )
 }
 
 @Composable
@@ -200,7 +219,7 @@ private fun FolderField(
 @Composable
 private fun RecentFolders(recent: List<String>, enabled: Boolean, onIntent: (SessionCreateIntent) -> Unit) {
     if (recent.isEmpty()) return
-    SectionHeading(R.string.sessions_create_recent)
+    SubHeading(R.string.sessions_create_recent)
     val selectLabel = stringResource(R.string.sessions_create_recent_select)
     Column {
         recent.forEach { path ->
@@ -213,13 +232,23 @@ private fun RecentFolders(recent: List<String>, enabled: Boolean, onIntent: (Ses
                     },
                 contentAlignment = Alignment.CenterStart,
             ) {
-                // A long path loses its start, not its end: the last folders tell paths apart.
-                Text(
-                    text = path,
-                    maxLines = 1,
-                    overflow = TextOverflow.StartEllipsis,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(PhopencodeTheme.spacing.md),
+                ) {
+                    Icon(
+                        imageVector = PhopencodeIcons.Folder,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    // A long path loses its start, not its end: the last folders tell paths apart.
+                    Text(
+                        text = path,
+                        maxLines = 1,
+                        overflow = TextOverflow.StartEllipsis,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
             }
         }
     }
@@ -228,7 +257,6 @@ private fun RecentFolders(recent: List<String>, enabled: Boolean, onIntent: (Ses
 /** The agents to start with, and the server's choice first. */
 @Composable
 private fun AgentChoice(state: SessionCreateState, enabled: Boolean, onIntent: (SessionCreateIntent) -> Unit) {
-    SectionHeading(R.string.sessions_create_agent)
     Column(Modifier.selectableGroup()) {
         ChoiceRow(
             label = stringResource(R.string.sessions_create_agent_default),
@@ -262,7 +290,6 @@ private fun ModelChoice(state: SessionCreateState, enabled: Boolean, onIntent: (
         ?: stringResource(R.string.sessions_create_model_default)
     val current = state.selectedModel?.let { state.models.labelOf(it) } ?: defaultLabel
 
-    SectionHeading(R.string.sessions_create_model)
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -275,7 +302,20 @@ private fun ModelChoice(state: SessionCreateState, enabled: Boolean, onIntent: (
             .testTag(SessionCreateTags.MODEL),
         contentAlignment = Alignment.CenterStart,
     ) {
-        Text(text = current, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = current,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Icon(
+                imageVector = PhopencodeIcons.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 
     if (picking && enabled) {
@@ -343,7 +383,7 @@ private val ModelRef.display: String
 /** The same model, whatever the variant: the picker lists models, not variants. */
 private fun ModelRef.sameModelAs(other: ModelRef): Boolean = providerId == other.providerId && modelId == other.modelId
 
-/** "Create session", always in reach under the form. */
+/** "Start chat", always in reach under the form. */
 @Composable
 private fun CreateBar(enabled: Boolean, creating: Boolean, onCreate: () -> Unit) {
     Surface(tonalElevation = PhopencodeTheme.spacing.xxs) {
@@ -372,15 +412,38 @@ private fun CreateBar(enabled: Boolean, creating: Boolean, onCreate: () -> Unit)
     }
 }
 
+/** A group of the form: a rounded card with a short title, a heading for TalkBack. */
 @Composable
-private fun SectionHeading(@StringRes text: Int) {
+private fun FormCard(@StringRes title: Int, content: @Composable ColumnScope.() -> Unit) {
+    val spacing = PhopencodeTheme.spacing
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(horizontal = spacing.lg, vertical = spacing.md),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        Text(
+            text = stringResource(title),
+            modifier = Modifier.fillMaxWidth().semantics { heading() },
+            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.titleSmall,
+        )
+        content()
+    }
+}
+
+/** A title inside a card, such as the recent folders under the folder field. */
+@Composable
+private fun SubHeading(@StringRes text: Int) {
     Text(
         text = stringResource(text),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = PhopencodeTheme.spacing.sm)
+            .padding(top = PhopencodeTheme.spacing.xs)
             .semantics { heading() },
-        color = MaterialTheme.colorScheme.primary,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         style = MaterialTheme.typography.labelLarge,
     )
 }

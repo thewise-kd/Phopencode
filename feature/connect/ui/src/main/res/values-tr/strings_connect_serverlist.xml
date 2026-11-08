@@ -3,10 +3,13 @@
     <string name="connect_serverlist_title">Sunucular</string>
     <string name="connect_serverlist_loading">Sunucular yükleniyor…</string>
     <string name="connect_serverlist_empty_title">Henüz sunucu yok</string>
-    <string name="connect_serverlist_empty_message">opencode\'u yönetmek için SSH ile bağlandığınız bir sunucu ekleyin.</string>
+    <string name="connect_serverlist_empty_message">Sunucu, opencode serve çalıştıran bilgisayardır. Uygulama ona SSH ile bağlanır.</string>
     <string name="connect_serverlist_add">Sunucu ekle</string>
     <string name="connect_serverlist_keys">SSH anahtarları</string>
     <string name="connect_serverlist_settings">Ayarlar</string>
+    <!-- How a server logs in, shown as a small chip on its card. -->
+    <string name="connect_serverlist_mode_key">SSH anahtarı</string>
+    <string name="connect_serverlist_mode_password">Parola</string>
     <string name="connect_serverlist_connect">Bağlan</string>
     <string name="connect_serverlist_edit">Düzenle: %1$s</string>
     <string name="connect_serverlist_delete">Sil</string>

@@ -1,17 +1,23 @@
 package io.github.thewisekd.phopencode.feature.sessions.ui.list
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
@@ -20,13 +26,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,6 +46,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -59,6 +66,7 @@ import io.github.thewisekd.phopencode.core.ui.component.ErrorBanner
 import io.github.thewisekd.phopencode.core.ui.component.PhopencodeScaffold
 import io.github.thewisekd.phopencode.core.ui.component.StatusChip
 import io.github.thewisekd.phopencode.core.ui.component.StatusTone
+import io.github.thewisekd.phopencode.core.ui.icon.PhopencodeIcons
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionBadge
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionListIntent
@@ -66,11 +74,22 @@ import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionLis
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionRow
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionsFailure
 import io.github.thewisekd.phopencode.feature.sessions.ui.R
+import kotlin.time.Instant
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 
 /** Room under the last session, so the add button never covers it. */
-private val FAB_CLEARANCE = 88.dp
+private val FAB_CLEARANCE = 96.dp
+
+private val RUNNING_MARK_WIDTH = 4.dp
+
+private val CHIP_ICON_SIZE = 14.dp
+
+/** About what the top bar's subtitle shows on a phone beside three icon buttons. */
+private const val FOLDER_SUBTITLE_MAX = 32
+
+/** What stands for the folders a compacted path leaves out. Not a word: a mark. */
+private const val ELLIPSIS_PREFIX = "…/"
 
 /** The next page is asked for this many rows before the end comes into view. */
 private const val LOAD_AHEAD = 3
@@ -79,11 +98,12 @@ private const val LOAD_AHEAD = 3
  * The root sessions of the connected server, newest first. Draws [state] and sends [onIntent]; it
  * decides nothing itself.
  *
- * When the list is limited to a folder ([SessionListState.hasFolder]), the top bar has buttons that
- * open that folder's files and git, before the refresh button; the list of every folder has none.
+ * When the list is limited to a folder ([SessionListState.hasFolder]), the top bar names that folder
+ * under its title and has buttons that open the folder's files and git, before the refresh button;
+ * the list of every folder has none.
  *
- * Above the rows sit the folder the list is limited to, the search field and the archived switch;
- * each row shows the session's title, status badge, and tokens and cost. Pulling the list down, or
+ * Above the rows sit the search field and the archived switch; each row is a rounded card with the
+ * session's title, how long ago it changed, its tokens and cost, and its status badge. Pulling the list down, or
  * the refresh button for those who cannot pull, reloads the first page; the end of the list coming
  * into view asks for the next one. Progress is shown as still messages, never as a spinner: an
  * endless animation keeps Robolectric's `idle()` in the app's tests from returning.
@@ -102,37 +122,42 @@ fun SessionListScreen(
 ) {
     val createLabel = stringResource(R.string.sessions_list_create)
     val canRefresh = !state.loading && !state.refreshing
+    val now = rememberListNow()
     PhopencodeScaffold(
         title = stringResource(R.string.sessions_list_title),
         modifier = modifier.fillMaxSize().testTag("placeholder:$route"),
+        subtitle = state.directory?.takeIf { state.hasFolder }?.let(::compactFolder),
         actions = {
             if (state.hasFolder) {
                 IconButton(onClick = { onIntent(SessionListIntent.OpenFiles) }) {
                     Icon(
-                        imageVector = SessionListIcons.Folder,
+                        imageVector = PhopencodeIcons.Folder,
                         contentDescription = stringResource(R.string.sessions_list_open_files),
                     )
                 }
                 IconButton(onClick = { onIntent(SessionListIntent.OpenGit) }) {
                     Icon(
-                        imageVector = SessionListIcons.Branches,
+                        imageVector = PhopencodeIcons.Git,
                         contentDescription = stringResource(R.string.sessions_list_open_git),
                     )
                 }
             }
             IconButton(onClick = { onIntent(SessionListIntent.Refresh) }, enabled = canRefresh) {
                 Icon(
-                    imageVector = SessionListIcons.Refresh,
+                    imageVector = PhopencodeIcons.Refresh,
                     contentDescription = stringResource(R.string.sessions_list_refresh),
                 )
             }
         },
         floatingActionButton = {
-            // The empty state has its own button; one is enough. Not the extended button: in
-            // Material 3 1.4 it hides its text from accessibility services, leaving no label.
+            // The empty state has its own button; one is enough. The content overload, so the
+            // label is plain text that TalkBack reads: the icon and text overload of Material 3 1.4
+            // hides its text from accessibility services.
             if (!(state.isEmpty && !state.isSearching)) {
-                FloatingActionButton(onClick = { onIntent(SessionListIntent.Create) }) {
-                    Icon(imageVector = SessionListIcons.Add, contentDescription = createLabel)
+                ExtendedFloatingActionButton(onClick = { onIntent(SessionListIntent.Create) }) {
+                    Icon(imageVector = PhopencodeIcons.Add, contentDescription = null)
+                    Spacer(Modifier.width(PhopencodeTheme.spacing.sm))
+                    Text(createLabel)
                 }
             }
         },
@@ -173,7 +198,7 @@ fun SessionListScreen(
                 ) {
                     controls(state, onIntent)
                     when {
-                        state.rows.isNotEmpty() -> sessions(state, onIntent)
+                        state.rows.isNotEmpty() -> sessions(state, now, onIntent)
                         state.loading -> item(key = "loading") {
                             StillProgress(R.string.sessions_list_loading, Modifier.fillParentMaxSize())
                         }
@@ -182,6 +207,7 @@ fun SessionListScreen(
                                 modifier = Modifier.fillParentMaxSize(),
                                 title = stringResource(R.string.sessions_list_no_match_title),
                                 message = stringResource(R.string.sessions_list_no_match_message),
+                                icon = PhopencodeIcons.Search,
                             )
                         }
                         state.isEmpty -> item(key = "empty") {
@@ -189,6 +215,7 @@ fun SessionListScreen(
                                 modifier = Modifier.fillParentMaxSize(),
                                 title = stringResource(R.string.sessions_list_empty_title),
                                 message = stringResource(R.string.sessions_list_empty_message),
+                                icon = PhopencodeIcons.Chat,
                                 action = EmptyStateAction(createLabel) { onIntent(SessionListIntent.Create) },
                             )
                         }
@@ -214,7 +241,7 @@ private fun PullIndicator(
     PullToRefreshDefaults.IndicatorBox(state = pull, isRefreshing = refreshing, modifier = modifier) {
         if (refreshing) {
             Icon(
-                imageVector = SessionListIcons.Refresh,
+                imageVector = PhopencodeIcons.Refresh,
                 contentDescription = null,
                 tint = PullToRefreshDefaults.indicatorColor,
             )
@@ -259,21 +286,8 @@ private fun LoadMoreWhenNearTheEnd(
     }
 }
 
-/** The folder the list is limited to, the search field and the archived switch. */
+/** The search field and the archived switch. The folder the list is limited to is in the top bar. */
 private fun LazyListScope.controls(state: SessionListState, onIntent: (SessionListIntent) -> Unit) {
-    state.directory?.let { directory ->
-        item(key = "directory") {
-            Text(
-                text = directory,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = PhopencodeTheme.spacing.lg, vertical = PhopencodeTheme.spacing.xs),
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 1,
-                overflow = TextOverflow.StartEllipsis,
-            )
-        }
-    }
     item(key = "search") {
         OutlinedTextField(
             value = state.query,
@@ -282,6 +296,8 @@ private fun LazyListScope.controls(state: SessionListState, onIntent: (SessionLi
                 .fillMaxWidth()
                 .padding(horizontal = PhopencodeTheme.spacing.lg, vertical = PhopencodeTheme.spacing.xs),
             label = { Text(stringResource(R.string.sessions_list_search)) },
+            leadingIcon = { Icon(imageVector = PhopencodeIcons.Search, contentDescription = null) },
+            shape = MaterialTheme.shapes.large,
             singleLine = true,
         )
     }
@@ -301,20 +317,25 @@ private fun LazyListScope.controls(state: SessionListState, onIntent: (SessionLi
             Text(
                 text = stringResource(R.string.sessions_list_show_archived),
                 modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium,
             )
             Switch(checked = state.showArchived, onCheckedChange = null)
         }
-        HorizontalDivider()
     }
 }
 
 /** The rows, then what follows them: the next page loading, or why it did not load. */
-private fun LazyListScope.sessions(state: SessionListState, onIntent: (SessionListIntent) -> Unit) {
+private fun LazyListScope.sessions(state: SessionListState, now: Instant, onIntent: (SessionListIntent) -> Unit) {
     val showDirectory = state.directory == null
     items(state.rows, key = { "session:${it.id.value}" }) { row ->
-        SessionRowItem(row, showDirectory, onIntent)
-        HorizontalDivider()
+        SessionCard(
+            row = row,
+            showDirectory = showDirectory,
+            now = now,
+            onIntent = onIntent,
+            modifier = Modifier.padding(horizontal = PhopencodeTheme.spacing.lg, vertical = PhopencodeTheme.spacing.xs),
+        )
     }
     when {
         state.loadingMore -> item(key = "loading-more") {
@@ -341,41 +362,163 @@ private fun LazyListScope.sessions(state: SessionListState, onIntent: (SessionLi
 }
 
 /**
- * One session: a tap opens its chat, the trailing button manages it. Its folder shows only when the
- * list spans every folder.
+ * One session as a rounded card: a tap opens its chat, the trailing button manages it. Under the
+ * title sit how long ago it changed and its tokens and cost, then its status, its folder when the list
+ * spans every folder, and whether it is archived. A running session has an accent bar along its start
+ * edge as well as its badge, so it stands out while scrolling.
  */
 @Composable
-private fun SessionRowItem(row: SessionRow, showDirectory: Boolean, onIntent: (SessionListIntent) -> Unit) {
+private fun SessionCard(
+    row: SessionRow,
+    showDirectory: Boolean,
+    now: Instant,
+    onIntent: (SessionListIntent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val name = row.title ?: stringResource(R.string.sessions_list_untitled)
-    ListItem(
-        modifier = Modifier.clickable(
-            onClickLabel = stringResource(R.string.sessions_list_open),
-            role = Role.Button,
-        ) { onIntent(SessionListIntent.Open(row.id)) },
-        headlineContent = { Text(text = name, maxLines = 2, overflow = TextOverflow.Ellipsis) },
-        supportingContent = {
-            val directory = row.directory?.takeIf { showDirectory }
-            if (row.archived || directory != null || row.usage != null) {
-                Column(verticalArrangement = Arrangement.spacedBy(PhopencodeTheme.spacing.xxs)) {
-                    if (row.archived) Text(stringResource(R.string.sessions_list_archived), maxLines = 1)
-                    // A long path loses its start: the last folders tell paths apart.
-                    directory?.let { Text(text = it, maxLines = 1, overflow = TextOverflow.StartEllipsis) }
-                    row.usage?.let { Text(text = usageText(it), maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                }
-            }
-        },
-        trailingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                row.status.badge?.let { (tone, label) -> StatusChip(status = tone, label = stringResource(label)) }
-                IconButton(onClick = { onIntent(SessionListIntent.Manage(row.id)) }) {
-                    Icon(
-                        imageVector = SessionListIcons.More,
-                        contentDescription = stringResource(R.string.sessions_list_manage, name),
-                    )
-                }
-            }
-        },
-    )
+    val spacing = PhopencodeTheme.spacing
+    val colors = MaterialTheme.colorScheme
+    val shape = MaterialTheme.shapes.medium
+    val running = row.status == SessionBadge.Running
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .clip(shape)
+            .background(colors.surfaceContainer)
+            .clickable(
+                onClickLabel = stringResource(R.string.sessions_list_open),
+                role = Role.Button,
+            ) { onIntent(SessionListIntent.Open(row.id)) },
+    ) {
+        if (running) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(RUNNING_MARK_WIDTH)
+                    .background(colors.primary)
+                    .testTag(sessionRunningMarkTag(row.id)),
+            )
+        }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(
+                    start = if (running) spacing.lg - RUNNING_MARK_WIDTH else spacing.lg,
+                    top = spacing.md,
+                    bottom = spacing.md,
+                ),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            Text(
+                text = name,
+                color = colors.onSurface,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            MetaLine(row, now)
+            Chips(row, showDirectory)
+        }
+        IconButton(
+            onClick = { onIntent(SessionListIntent.Manage(row.id)) },
+            modifier = Modifier.padding(top = spacing.xs, end = spacing.xs),
+        ) {
+            Icon(
+                imageVector = PhopencodeIcons.MoreVert,
+                contentDescription = stringResource(R.string.sessions_list_manage, name),
+                tint = colors.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** How long ago the session changed, and its tokens and cost, muted, on one line when they fit. */
+@Composable
+private fun MetaLine(row: SessionRow, now: Instant) {
+    val time = row.updatedAt?.let { relativeTime(it, now) }
+    val usage = row.usage?.let { usageText(it) }
+    if (time == null && usage == null) return
+    val style = MaterialTheme.typography.bodySmall
+    val color = MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(PhopencodeTheme.spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        time?.let { Text(text = it, color = color, style = style, maxLines = 1) }
+        if (time != null && usage != null) {
+            // A separator mark, not a word; TalkBack skips it.
+            Text(text = "·", color = color, style = style, modifier = Modifier.clearAndSetSemantics {})
+        }
+        usage?.let {
+            Text(text = it, color = color, style = style, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** The status badge, the folder when the list spans folders, and the archived mark; nothing when none applies. */
+@Composable
+private fun Chips(row: SessionRow, showDirectory: Boolean) {
+    val badge = row.status.badge
+    val directory = row.directory?.takeIf { showDirectory }
+    if (badge == null && directory == null && !row.archived) return
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(PhopencodeTheme.spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        badge?.let { (tone, label) -> StatusChip(status = tone, label = stringResource(label)) }
+        if (row.archived) SmallChip(text = stringResource(R.string.sessions_list_archived))
+        directory?.let {
+            SmallChip(
+                text = it,
+                icon = PhopencodeIcons.Folder,
+                modifier = Modifier.weight(1f, fill = false).testTag(SESSION_FOLDER_CHIP_TAG),
+            )
+        }
+    }
+}
+
+/** A quiet tinted chip. A long path loses its start, not its end: the last folders tell paths apart. */
+@Composable
+private fun SmallChip(text: String, modifier: Modifier = Modifier, icon: ImageVector? = null) {
+    val spacing = PhopencodeTheme.spacing
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = spacing.sm, vertical = spacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            icon?.let { Icon(imageVector = it, contentDescription = null, modifier = Modifier.size(CHIP_ICON_SIZE)) }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1,
+                overflow = TextOverflow.StartEllipsis,
+            )
+        }
+    }
+}
+
+/**
+ * [path] short enough for the top bar's subtitle: whole when it fits in [max] characters, otherwise
+ * "…/" and as many of its last folders as fit, at least the last one.
+ */
+internal fun compactFolder(path: String, max: Int = FOLDER_SUBTITLE_MAX): String {
+    if (path.length <= max) return path
+    val parts = path.trimEnd('/').split('/').filter { it.isNotEmpty() }
+    if (parts.isEmpty()) return path
+    var tail = parts.last()
+    for (part in parts.dropLast(1).asReversed()) {
+        val longer = "$part/$tail"
+        if (ELLIPSIS_PREFIX.length + longer.length > max) break
+        tail = longer
+    }
+    return ELLIPSIS_PREFIX + tail
 }
 
 /** What a badge shows: its tone and label. An idle session shows none; most sessions are idle. */

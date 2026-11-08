@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="sessions_create_title">New session</string>
+    <string name="sessions_create_title">New chat</string>
+    <!-- Short titles of the form's groups. -->
+    <string name="sessions_create_section_folder">Project folder</string>
+    <string name="sessions_create_section_details">Details</string>
     <string name="sessions_create_folder">Folder</string>
     <string name="sessions_create_folder_help">An absolute path on the server, starting with /.</string>
     <string name="sessions_create_folder_error_missing">Enter the folder the session works in.</string>
@@ -19,7 +22,7 @@
     <string name="sessions_create_model_cancel">Cancel</string>
     <string name="sessions_create_loading">Loading agents and models…</string>
     <string name="sessions_create_skill">The chosen skill is attached to your first message.</string>
-    <string name="sessions_create_create">Create session</string>
+    <string name="sessions_create_create">Start chat</string>
     <string name="sessions_create_creating">Creating…</string>
     <string name="sessions_create_error_create">The session could not be created. %1$s</string>
     <string name="sessions_create_error_catalog">Agents and models could not be loaded; the server\'s defaults are used. %1$s</string>

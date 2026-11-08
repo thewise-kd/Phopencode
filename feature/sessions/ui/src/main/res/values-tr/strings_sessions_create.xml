@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="sessions_create_title">Yeni oturum</string>
+    <string name="sessions_create_title">Yeni sohbet</string>
+    <!-- Short titles of the form's groups. -->
+    <string name="sessions_create_section_folder">Proje klasörü</string>
+    <string name="sessions_create_section_details">Ayrıntılar</string>
     <string name="sessions_create_folder">Klasör</string>
     <string name="sessions_create_folder_help">Sunucuda / ile başlayan tam bir yol.</string>
     <string name="sessions_create_folder_error_missing">Oturumun çalışacağı klasörü girin.</string>
@@ -19,7 +22,7 @@
     <string name="sessions_create_model_cancel">İptal</string>
     <string name="sessions_create_loading">Ajanlar ve modeller yükleniyor…</string>
     <string name="sessions_create_skill">Seçilen beceri ilk mesajınıza eklenir.</string>
-    <string name="sessions_create_create">Oturum oluştur</string>
+    <string name="sessions_create_create">Sohbeti başlat</string>
     <string name="sessions_create_creating">Oluşturuluyor…</string>
     <string name="sessions_create_error_create">Oturum oluşturulamadı. %1$s</string>
     <string name="sessions_create_error_catalog">Ajanlar ve modeller yüklenemedi; sunucunun varsayılanları kullanılır. %1$s</string>

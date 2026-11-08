@@ -3,10 +3,13 @@
     <string name="connect_serverlist_title">Servers</string>
     <string name="connect_serverlist_loading">Loading servers…</string>
     <string name="connect_serverlist_empty_title">No servers yet</string>
-    <string name="connect_serverlist_empty_message">Add a server you reach over SSH to manage opencode on it.</string>
+    <string name="connect_serverlist_empty_message">A server is the computer that runs opencode serve. The app reaches it over SSH.</string>
     <string name="connect_serverlist_add">Add server</string>
     <string name="connect_serverlist_keys">SSH keys</string>
     <string name="connect_serverlist_settings">Settings</string>
+    <!-- How a server logs in, shown as a small chip on its card. -->
+    <string name="connect_serverlist_mode_key">SSH key</string>
+    <string name="connect_serverlist_mode_password">Password</string>
     <string name="connect_serverlist_connect">Connect</string>
     <string name="connect_serverlist_edit">Edit %1$s</string>
     <string name="connect_serverlist_delete">Delete</string>

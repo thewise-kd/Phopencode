@@ -17,6 +17,7 @@ import org.junit.Test
 import java.math.BigDecimal
 import java.math.BigInteger
 import kotlin.test.assertEquals
+import kotlin.time.Duration
 
 /** The failures after which loading the first page again can help. */
 internal val RETRYABLE = SessionsFailure.entries.toSet() - setOf(SessionsFailure.NotConnected, SessionsFailure.Unauthorized)
@@ -48,6 +49,8 @@ internal data class ExpectedSessionListStrings(
     /** 1 token costing at least 0.0004, some steps reporting no cost. */
     val usageAboveZero: String,
     val badges: Map<SessionBadge, String>,
+    /** How long ago a session changed, by age. */
+    val ages: Map<Duration, String>,
     val errors: Map<SessionsFailure, String>,
 )
 
@@ -66,7 +69,7 @@ abstract class SessionListScreenLanguageContract {
         compose.onNodeWithText(strings.search).assertExists()
         compose.onNodeWithText(strings.showArchived).assertIsDisplayed()
         compose.onNodeWithContentDescription(strings.refresh).assertIsDisplayed()
-        compose.onNodeWithContentDescription(strings.create).assertIsDisplayed()
+        compose.onNodeWithText(strings.create).assertIsDisplayed()
         compose.onNodeWithContentDescription(strings.manage(first.title!!)).assertExists()
     }
 
@@ -76,6 +79,19 @@ abstract class SessionListScreenLanguageContract {
 
         compose.onNodeWithContentDescription(strings.openFiles).assertIsDisplayed()
         compose.onNodeWithContentDescription(strings.openGit).assertIsDisplayed()
+    }
+
+    @Test
+    fun `each row says how long ago it changed`() {
+        val rows = strings.ages.keys.mapIndexed { index, age ->
+            second.copy(id = SessionId("ses_age_$index"), title = "Session $index", updatedAt = NOW - age)
+        }
+        compose.setSessionList(listed.copy(rows = rows))
+
+        strings.ages.values.forEach {
+            compose.scrollListTo(hasText(it), useUnmergedTree = true)
+            compose.onNodeWithText(it, useUnmergedTree = true).assertIsDisplayed()
+        }
     }
 
     @Test
