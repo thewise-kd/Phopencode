@@ -625,6 +625,13 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | P10.8 | Settings logic | P10.1 | `feature/settings/logic/…/prefs/` | Language (system, TR, EN), theme, file size limit, delete data | `PI` |
 | P10.9 | Settings screen | P10.1 | `feature/settings/ui/…/prefs/`, `strings_settings_prefs.xml` | Language changes instantly; data deletion needs confirmation | `CI` |
 
+**G4 (parallel)**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P10.10 | Apply the stored theme | P10.8 | `app/…/MainActivity.kt`, app tests, `docs/PHASES.md` (P10 rows) | `MainActivity` follows the stored `ThemePreference`: system follows the phone, light and dark force it; changes apply without restarting | `CI` |
+| P10.11 | Catalog entry point | P10.3, P10.5, P10.7 | the session list screen and its graph wiring (`feature/sessions/ui/…/list/`, `SessionsGraph.kt`), `strings_sessions_list.xml` | The session list's top bar has a Catalog menu opening Skills, Commands/agents/models and MCP status; TR/EN strings | `CI` |
+
 `CP10`: push, CI green.
 
 ### P11: Notifications
@@ -710,10 +717,10 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | P7 | 15 | 1, 6, 6, 2 | 6 | 8 | 7 |
 | P8 | 15 | 3, 6, 6 | 6 | 8 | 7 |
 | P9 | 15 | 3, 6, 6 | 6 | 9 | 6 |
-| P10 | 9 | 1, 6, 2 | 6 | 5 | 4 |
+| P10 | 11 | 1, 6, 2, 2 | 6 | 5 | 6 |
 | P11 | 12 | 4, 3, 5 | 5 | 10 | 2 |
 | P12 | 9 | 1, 3, 3, 1, 1 | 3 | 4 | 5 |
-| Total | 149 | 45 groups | 6 | 95 | 54 |
+| Total | 151 | 46 groups | 6 | 95 | 56 |
 
 `logic` and `ui` tasks run at the same time after the contract. The group limit is for the Pi; on a stronger machine, consecutive groups of the same phase can be merged, since the dependency column is sufficient.
 
