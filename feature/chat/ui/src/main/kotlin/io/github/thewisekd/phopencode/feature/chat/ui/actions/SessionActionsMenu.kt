@@ -56,8 +56,9 @@ private const val DISABLED_ALPHA = 0.38f
  * - **The button:** a "more" icon button, named for a screen reader, that sends
  *   [ActionsIntent.OpenMenu]; it cannot be tapped until [ActionsState.enabled], but always keeps
  *   its place in the chat.
- * - **The status:** while a compaction is on its way or on the server, or a fork is on its way, a
- *   short still text before the button says so, on the same line, so the row grows no taller.
+ * - **The status:** while a compaction is on its way or on the server, or a fork or a new session
+ *   (the `/new` built-in) is on its way, a short still text before the button says so, on the same
+ *   line, so the row grows no taller.
  * - **The menu:** while [ActionsState.menuOpen], a dialog with compact and fork, the whole session,
  *   each with a line on what it does; each sends [ActionsIntent.Request], and both are disabled
  *   while an action runs, with a note saying so. Its button, back or a tap outside sends
@@ -90,7 +91,8 @@ fun SessionActionsMenu(
         val confirming = state.confirming
         val error = state.error
         when {
-            confirming != null -> Confirmation(confirming, state.canAct, onIntent)
+            // A new session is never asked for; the presenter never sets it here.
+            confirming != null && confirming != SessionAction.NewSession -> Confirmation(confirming, state.canAct, onIntent)
             state.menuOpen -> Menu(state, onIntent)
             error != null -> FailureDialog(error, onIntent)
         }
@@ -102,6 +104,7 @@ fun SessionActionsMenu(
 private fun ActionsState.statusRes(): Int? = when {
     running == SessionAction.Compact || compacting -> R.string.chat_actions_status_compacting
     running is SessionAction.Fork -> R.string.chat_actions_status_forking
+    running == SessionAction.NewSession -> R.string.chat_actions_status_creating
     else -> null
 }
 
@@ -210,6 +213,7 @@ private fun MenuAction(@StringRes title: Int, @StringRes detail: Int, enabled: B
 @Composable
 private fun Confirmation(action: SessionAction, canConfirm: Boolean, onIntent: (ActionsIntent) -> Unit) {
     val (title, message, confirm) = when (action) {
+        SessionAction.NewSession -> return
         SessionAction.Compact -> Triple(
             R.string.chat_actions_confirm_compact_title,
             R.string.chat_actions_confirm_compact_message,
@@ -269,6 +273,7 @@ private fun Failure(error: ActionError, onIntent: (ActionsIntent) -> Unit) {
     val what = when (error.action) {
         SessionAction.Compact -> R.string.chat_actions_error_compact
         is SessionAction.Fork -> R.string.chat_actions_error_fork
+        SessionAction.NewSession -> R.string.chat_actions_error_new_session
     }
     ErrorBanner(
         modifier = Modifier.testTag(ActionsTags.ERROR),

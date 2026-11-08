@@ -37,4 +37,23 @@
     <string name="chat_palette_remove_agent">Remove the agent %1$s</string>
     <!-- Read for a chip's remove button. %1$s: the skill's name. -->
     <string name="chat_palette_remove_skill">Remove the skill %1$s</string>
+    <!-- The kind of a row for one of the app's own commands, told apart from the server's. -->
+    <string name="chat_palette_kind_builtin">Built-in</string>
+    <!-- What each built-in command does, under its name. -->
+    <string name="chat_palette_builtin_new">Start a new session in this folder</string>
+    <string name="chat_palette_builtin_compact">Summarize the session to free up context</string>
+    <string name="chat_palette_builtin_fork">Copy the session into a new one</string>
+    <string name="chat_palette_builtin_undo">Undo the last turn</string>
+    <string name="chat_palette_builtin_redo">Cancel the pending undo</string>
+    <string name="chat_palette_builtin_models">Switch the model</string>
+    <string name="chat_palette_builtin_agents">Switch the agent</string>
+    <string name="chat_palette_builtin_sessions">Go back to the session list</string>
+    <!-- %1$s: a built-in command's other names, such as "/clear". -->
+    <string name="chat_palette_builtin_aliases">Also: %1$s</string>
+    <!-- Why a built-in command did not run. -->
+    <string name="chat_palette_notice_unavailable">This command is not available right now.</string>
+    <string name="chat_palette_notice_nothing_to_undo">There is no turn to undo.</string>
+    <string name="chat_palette_notice_nothing_to_redo">There is no pending undo to cancel.</string>
+    <!-- Read for the button that closes such a note. -->
+    <string name="chat_palette_notice_dismiss">Dismiss</string>
 </resources>

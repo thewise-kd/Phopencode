@@ -1,5 +1,6 @@
 package io.github.thewisekd.phopencode.feature.chat.logic.palette
 
+import io.github.thewisekd.phopencode.core.api.ApiError
 import io.github.thewisekd.phopencode.core.api.ApiException
 import io.github.thewisekd.phopencode.core.api.Location
 import io.github.thewisekd.phopencode.core.model.FileEntry
@@ -8,6 +9,7 @@ import io.github.thewisekd.phopencode.core.navigation.ChatRoute
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatFailure
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatSession
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatSessionState
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.BuiltInCommand
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteAction
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteError
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteEvent
@@ -17,8 +19,14 @@ import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.Pa
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteState
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteTrigger
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PromptAttachment
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SlashWord
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,10 +35,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 
@@ -51,8 +59,17 @@ import kotlinx.coroutines.yield
  * - Events wait, unbounded, until the chat collects them: a pick has already changed the draft, so
  *   its event is never dropped. They come only from the user's picks, so they stay few.
  * - A command runs on its own, one at a time, and is not cancelled by later typing. Once it is
- *   accepted the draft empties, unless it changed while the command ran: then the newer text stays,
- *   and [PaletteEvent.CommandSent] carries it.
+ *   accepted, [PaletteEvent.CommandSent] names the exact draft it was sent from, never a copy kept
+ *   here, which may be older; the chat empties the composer only if it still holds that draft. A
+ *   run cut short counts as failed and frees the slot; only this presenter's own scope ending
+ *   cancels it.
+ * - A sent slash word ([PaletteIntent.Submit]) counts as a command on its way from the moment it
+ *   is handed over: one at a time with picked commands. The commands it is checked against are the
+ *   kept ones for the session's folder, else asked for and kept like the palette's own.
+ * - Commands and skills are asked and kept apart: a list that fails shows its error and keeps the
+ *   other, and a retry asks only for what is missing.
+ * - Built-ins are the app's, so they show at once, while the server's lists load or after they
+ *   failed. A built-in runs nothing here: [PaletteEvent.RunBuiltIn] hands it to the chat.
  *
  * Nothing runs in the constructor: work starts in [scope] after a `yield()`. Nothing here logs; the
  * draft, the query and file paths are user data and print masked.
@@ -93,8 +110,6 @@ class DefaultPalettePresenter(
     /** What the lists must show; null [folder] while the session is not loaded. */
     private data class Request(val word: Word, val folder: Folder?, val attempt: Int)
 
-    private data class SlashLists(val commands: List<PaletteItem.Command>, val skills: List<PaletteItem.Skill>)
-
     private data class FoundFiles(val folder: Folder, val query: String, val files: List<PaletteItem.File>) {
         override fun toString(): String = "FoundFiles(files=${files.size})"
     }
@@ -124,8 +139,15 @@ class DefaultPalettePresenter(
     /** The folder the items shown were made for; null while closed or not loaded. */
     private var shownFolder: Folder? = null
 
+    // Kept apart, so one list that failed never drops the other. Written by the load collector and
+    // by a sent slash word: both store the same lists.
+    private val commandLists = ConcurrentHashMap<Folder, List<PaletteItem.Command>>()
+    private val skillLists = ConcurrentHashMap<Folder, List<PaletteItem.Skill>>()
+
+    // The request for a folder's commands on its way, shared by all who need it meanwhile.
+    private val commandFetches = ConcurrentHashMap<Folder, CompletableDeferred<Result<List<PaletteItem.Command>>>>()
+
     // Read and written only by the load collector, which runs one request at a time.
-    private val slashLists = HashMap<Folder, SlashLists>()
     private val agentLists = HashMap<Folder, List<PaletteItem.Agent>>()
     private var lastFiles: FoundFiles? = null
 
@@ -141,10 +163,13 @@ class DefaultPalettePresenter(
 
     override fun onIntent(intent: PaletteIntent) {
         when (intent) {
-            is PaletteIntent.QueryChanged -> input.update { typed ->
-                // A dismissed word stays closed only while it is the word typed.
-                val dismissed = typed.dismissed?.takeIf { it == wordOf(intent.draft) }
-                typed.copy(draft = intent.draft, dismissed = dismissed)
+            is PaletteIntent.QueryChanged -> {
+                val previous = input.getAndUpdate { typed ->
+                    // A dismissed word stays closed only while it is the word typed.
+                    val dismissed = typed.dismissed?.takeIf { it == wordOf(intent.draft) }
+                    typed.copy(draft = intent.draft, dismissed = dismissed)
+                }
+                if (previous.draft != intent.draft) mutableState.update { it.copy(notice = null) }
             }
             is PaletteIntent.Pick -> pick(intent.item)
             PaletteIntent.Dismiss -> input.update { it.copy(dismissed = wordOf(it.draft)) }
@@ -152,6 +177,9 @@ class DefaultPalettePresenter(
                 input.update { it.copy(attempt = it.attempt + 1) }
             }
             PaletteIntent.DismissError -> mutableState.update { it.copy(error = null) }
+            is PaletteIntent.Submit -> submit(intent.draft)
+            is PaletteIntent.ShowNotice -> mutableState.update { it.copy(notice = intent.notice) }
+            PaletteIntent.DismissNotice -> mutableState.update { it.copy(notice = null) }
         }
     }
 
@@ -176,27 +204,77 @@ class DefaultPalettePresenter(
 
     private suspend fun loadSlash(word: Word, folder: Folder) {
         val query = word.query
-        val known = slashLists[folder]
-        if (known != null) {
-            publish(word, folder, slashItems(known, query), loading = false, failure = null)
+        val commands = commandLists[folder]
+        val skills = skillLists[folder]
+        if (commands != null && skills != null) {
+            publish(word, folder, slashItems(commands, skills, query), loading = false, failure = null)
             return
         }
-        publish(word, folder, emptyList(), loading = true, failure = null)
+        // What is known shows at once, the built-ins always; none is known to be overridden while
+        // the commands are not.
+        publish(word, folder, slashItems(commands.orEmpty(), skills.orEmpty(), query), loading = true, failure = null)
         delay(DEBOUNCE_MS)
-        val lists = try {
-            session.call { client ->
-                val location = folder.location
-                SlashLists(
-                    commands = client.catalog.commands(location).map { PaletteItem.Command(it.name, it.description) },
-                    skills = client.catalog.skills(location).map { PaletteItem.Skill(it.name, it.description) },
-                )
-            }
+        // Each list on its own: one that fails keeps the other, and only the first failure shows.
+        var failure: ChatFailure? = null
+        val loadedCommands = commands ?: try {
+            fetchCommands(folder)
         } catch (e: ApiException) {
-            publish(word, folder, emptyList(), loading = false, failure = ChatFailure.of(e.error))
-            return
+            failure = ChatFailure.of(e.error)
+            null
         }
-        slashLists[folder] = lists
-        publish(word, folder, slashItems(lists, query), loading = false, failure = null)
+        val loadedSkills = skills ?: try {
+            fetchSkills(folder)
+        } catch (e: ApiException) {
+            failure = failure ?: ChatFailure.of(e.error)
+            null
+        }
+        publish(word, folder, slashItems(loadedCommands.orEmpty(), loadedSkills.orEmpty(), query), loading = false, failure = failure)
+    }
+
+    /**
+     * The commands of [folder]: the kept ones, else those of the request already on its way, else
+     * asked for and kept. The request runs in [scope], so a caller that stops waiting, as the list
+     * does when the word changes, does not stop it for the others; one that failed is dropped, so
+     * the next caller asks again.
+     *
+     * @throws ApiException The request failed.
+     */
+    private suspend fun fetchCommands(folder: Folder): List<PaletteItem.Command> {
+        commandLists[folder]?.let { return it }
+        val mine = CompletableDeferred<Result<List<PaletteItem.Command>>>()
+        val pending = commandFetches.putIfAbsent(folder, mine)
+        if (pending != null) return pending.await().getOrThrow()
+        val request = scope.launch {
+            val result = try {
+                Result.success(
+                    session.call { client ->
+                        client.catalog.commands(folder.location).map { PaletteItem.Command(it.name, it.description) }
+                    },
+                )
+            } catch (e: ApiException) {
+                Result.failure(e)
+            }
+            result.onSuccess { commandLists[folder] = it }
+            commandFetches.remove(folder, mine)
+            mine.complete(result)
+        }
+        // A request cut short, or never started, ends as a failed one: dropped, so the next caller
+        // asks again, and its waiters freed. Completing again after an answer does nothing.
+        request.invokeOnCompletion {
+            commandFetches.remove(folder, mine)
+            mine.complete(Result.failure(ApiException(ApiError.Unexpected())))
+        }
+        // Waiting stops only this caller if it is cancelled; the request goes on for the others.
+        return mine.await().getOrThrow()
+    }
+
+    /** Asks for the skills of [folder], and keeps them. */
+    private suspend fun fetchSkills(folder: Folder): List<PaletteItem.Skill> {
+        val skills = session.call { client ->
+            client.catalog.skills(folder.location).map { PaletteItem.Skill(it.name, it.description) }
+        }
+        skillLists[folder] = skills
+        return skills
     }
 
     private suspend fun loadAt(word: Word, folder: Folder) {
@@ -278,6 +356,11 @@ class DefaultPalettePresenter(
             is PaletteItem.Skill -> attach(draft, word, PromptAttachment.Skill(item.name))
             is PaletteItem.Agent -> attach(draft, word, PromptAttachment.Agent(item.id))
             is PaletteItem.File -> attach(draft, word, PromptAttachment.File(item.path))
+            // The same precedence as a send: a server command of the built-in's name wins.
+            is PaletteItem.BuiltIn -> {
+                if (!claim()) return
+                dispatch(item.command.primary, item.command, SlashWord.of(draft)?.rest.orEmpty(), draft)
+            }
         }
     }
 
@@ -288,28 +371,106 @@ class DefaultPalettePresenter(
     }
 
     private fun run(command: PaletteItem.Command, draft: String, word: Word) {
+        if (!claim()) return
+        val text = draft.substring(word.start + word.text.length).trim()
+        scope.launch { execute(command.name, text, draft) }
+    }
+
+    /** Claims the one command that may be on its way; false when one already is. */
+    private fun claim(): Boolean {
         synchronized(lock) {
-            if (running) return
+            if (running) return false
             running = true
         }
-        mutableState.update { it.copy(running = true, error = it.error?.takeIf { error -> error.action == PaletteAction.Load }) }
-        val text = draft.substring(word.start + word.text.length).trim()
-        scope.launch {
-            val failure = try {
-                session.call { client -> client.messages.command(session.sessionId, command.name, text) }
-                null
-            } catch (e: ApiException) {
-                ChatFailure.of(e.error)
-            } finally {
-                synchronized(lock) { running = false }
+        mutableState.update {
+            it.copy(running = true, notice = null, error = it.error?.takeIf { error -> error.action == PaletteAction.Load })
+        }
+        return true
+    }
+
+    /** Frees the claim, setting [failure] as the command's error if there is one. */
+    private fun release(failure: ChatFailure? = null) {
+        synchronized(lock) { running = false }
+        mutableState.update {
+            it.copy(running = false, error = failure?.let { reason -> PaletteError(PaletteAction.RunCommand, reason) } ?: it.error)
+        }
+    }
+
+    /** Runs the server command [name] with [text], sent from [draft]; the claim is held. */
+    private suspend fun execute(name: String, text: String, draft: String) {
+        val failure = try {
+            session.call { client -> client.messages.command(session.sessionId, name, text) }
+            null
+        } catch (e: ApiException) {
+            ChatFailure.of(e.error)
+        } catch (e: CancellationException) {
+            // Only this presenter's scope ending stops here; a call cut short is a failed run.
+            if (!currentCoroutineContext().isActive) {
+                release()
+                throw e
             }
-            if (failure == null) {
-                // Text typed while the command ran stays; only the draft it was sent from empties.
-                val next = input.updateAndGet { if (it.draft == draft) it.copy(draft = "", dismissed = null) else it }.draft
-                mutableState.update { it.copy(running = false) }
-                eventChannel.trySend(PaletteEvent.CommandSent(next))
-            } else {
-                mutableState.update { it.copy(running = false, error = PaletteError(PaletteAction.RunCommand, failure)) }
+            ChatFailure.Unknown
+        }
+        if (failure == null) {
+            // The kept copy empties only if it is the draft sent; the chat checks its own the same way.
+            input.update { if (it.draft == draft) it.copy(draft = "", dismissed = null) else it }
+            release()
+            eventChannel.trySend(PaletteEvent.CommandSent(from = draft))
+        } else {
+            release(failure)
+        }
+    }
+
+    // Sending
+
+    /**
+     * Works out what the sent [draft] is: a server command of the slash word's exact name runs, else
+     * a built-in of that name or alias goes to the chat, else the draft goes back as a prompt. See
+     * [PaletteState] for the rules.
+     */
+    private fun submit(draft: String) {
+        val slash = SlashWord.of(draft)
+        if (slash == null) {
+            eventChannel.trySend(PaletteEvent.SendPrompt(draft))
+            return
+        }
+        if (!claim()) return
+        dispatch(slash.name, BuiltInCommand.named(slash.name), slash.rest, draft)
+    }
+
+    /**
+     * Runs the server command [name] if the session folder's commands hold it, waiting for them if
+     * they are not known yet; else [builtIn], through [PaletteEvent.RunBuiltIn]; else hands [draft]
+     * back as a prompt. When the commands cannot be had, [builtIn] still runs, and with none the
+     * failure shows. [rest] is the command's text, or the draft the built-in leaves. The claim is
+     * held, and freed here.
+     */
+    private fun dispatch(name: String, builtIn: BuiltInCommand?, rest: String, draft: String) {
+        scope.launch {
+            val folder = folderOf(session.state.value)
+            var failure: ChatFailure? = null
+            val commands: Set<String>? = when {
+                // Not loaded yet: no server command is known, and none can run.
+                folder == null -> emptySet()
+                else -> try {
+                    // Only the commands decide; the skills play no part, failed or not.
+                    fetchCommands(folder).mapTo(HashSet()) { it.name }
+                } catch (e: ApiException) {
+                    failure = ChatFailure.of(e.error)
+                    null
+                }
+            }
+            when {
+                commands != null && name in commands -> execute(name, rest, draft)
+                builtIn != null -> {
+                    release()
+                    eventChannel.trySend(PaletteEvent.RunBuiltIn(builtIn, from = draft, draft = rest))
+                }
+                failure != null -> release(failure)
+                else -> {
+                    release()
+                    eventChannel.trySend(PaletteEvent.SendPrompt(draft))
+                }
             }
         }
     }
@@ -341,8 +502,20 @@ class DefaultPalettePresenter(
 
         fun fileItem(entry: FileEntry) = PaletteItem.File(entry.path, directory = entry.type == FileEntryType.Directory)
 
-        fun slashItems(lists: SlashLists, query: String): List<PaletteItem> =
-            lists.commands.matching(query) { listOf(it.name) } + lists.skills.matching(query) { listOf(it.name) }
+        fun slashItems(commands: List<PaletteItem.Command>, skills: List<PaletteItem.Skill>, query: String): List<PaletteItem> =
+            commands.matching(query) { listOf(it.name) } +
+                builtInItems(query, overridden = commands.mapTo(HashSet()) { it.name }) +
+                skills.matching(query) { listOf(it.name) }
+
+        /**
+         * The built-ins with a name or alias that starts with [query], ignoring case, in their
+         * order; none whose name is in [overridden], the server's commands.
+         */
+        fun builtInItems(query: String, overridden: Set<String>): List<PaletteItem.BuiltIn> =
+            BuiltInCommand.entries
+                .filter { it.primary !in overridden }
+                .filter { command -> command.names.any { it.startsWith(query, ignoreCase = true) } }
+                .map { PaletteItem.BuiltIn(it) }
 
         fun atItems(agents: List<PaletteItem.Agent>, files: List<PaletteItem.File>, query: String): List<PaletteItem> =
             agents.matching(query) { listOf(it.id, it.name) } +

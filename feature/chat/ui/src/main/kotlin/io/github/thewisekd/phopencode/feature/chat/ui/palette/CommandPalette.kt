@@ -27,14 +27,18 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.thewisekd.phopencode.core.ui.component.ErrorBanner
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatFailure
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.BuiltInCommand
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.BuiltInNotice
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteAction
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteError
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteIntent
@@ -58,16 +62,23 @@ private const val DESCRIPTION_LINES = 2
 /**
  * The command palette over the composer, open while a `/` or `@` word is typed: a title for the
  * trigger with a close button that sends [PaletteIntent.Dismiss], then the matching items, each
- * with its kind in words (command, skill, agent, file or folder) so they are told apart without
- * color. A tap on a row sends [PaletteIntent.Pick]; rows are disabled while a command runs.
+ * with its kind in words (command, built-in, skill, agent, file or folder) so they are told apart
+ * without color. A built-in's row also names its aliases. A tap on a row sends
+ * [PaletteIntent.Pick]; rows are disabled while a command runs.
+ *
+ * Why the last built-in did not run ([PaletteState.notice]) shows as a note under the title, read
+ * out when it appears, with a button that sends [PaletteIntent.DismissNotice]. While the palette
+ * is closed, as after sending a command with text, the notice and a failure still show, on their
+ * own.
  *
  * A failed list shows its reason with a retry ([PaletteIntent.Retry]); a failed command its reason
  * only. Both can be dismissed ([PaletteIntent.DismissError]). Loading and running are lines of
  * text, never a spinner, so the screen comes to rest.
  *
  * The rows scroll inside a bounded height of their own; the chat's column around them does not
- * scroll. Names, descriptions and paths are drawn, never logged. Draws nothing while closed: only
- * an empty box for [modifier], so the chat's slot stays in place.
+ * scroll. Names, descriptions and paths are drawn, never logged. Draws nothing while closed but
+ * the notice and the failure, if any: only an empty box for [modifier], so the chat's slot stays
+ * in place.
  */
 @Composable
 fun CommandPalette(
@@ -76,11 +87,21 @@ fun CommandPalette(
     modifier: Modifier = Modifier,
 ) {
     val trigger = state.trigger
+    val notice = state.notice
     if (trigger == null) {
-        Box(modifier)
+        if (notice == null && state.error == null) {
+            Box(modifier)
+        } else {
+            Surface(modifier = modifier, color = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 2.dp) {
+                Column {
+                    HorizontalDivider()
+                    notice?.let { NoticeRow(it, onDismiss = { onIntent(PaletteIntent.DismissNotice) }) }
+                    state.error?.let { Failure(it, onIntent) }
+                }
+            }
+        }
         return
     }
-    val spacing = PhopencodeTheme.spacing
     Surface(
         modifier = modifier,
         color = MaterialTheme.colorScheme.surfaceContainer,
@@ -89,14 +110,8 @@ fun CommandPalette(
         Column {
             HorizontalDivider()
             Header(trigger, onClose = { onIntent(PaletteIntent.Dismiss) })
-            state.error?.let { error ->
-                ErrorBanner(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.sm, vertical = spacing.xs),
-                    message = errorText(error),
-                    onRetry = if (error.action == PaletteAction.Load) ({ onIntent(PaletteIntent.Retry) }) else null,
-                    onDismiss = { onIntent(PaletteIntent.DismissError) },
-                )
-            }
+            notice?.let { NoticeRow(it, onDismiss = { onIntent(PaletteIntent.DismissNotice) }) }
+            state.error?.let { Failure(it, onIntent) }
             if (state.running) Note(stringResource(R.string.chat_palette_running))
             Column(
                 // The scroll comes last: padding after it would make scrolling a row into view loop.
@@ -143,7 +158,8 @@ private fun Header(trigger: PaletteTrigger, onClose: () -> Unit) {
 @Composable
 private fun PaletteRow(item: PaletteItem, enabled: Boolean, onPick: () -> Unit) {
     val spacing = PhopencodeTheme.spacing
-    val clickLabel = stringResource(if (item is PaletteItem.Command) R.string.chat_palette_run else R.string.chat_palette_attach)
+    val runs = item is PaletteItem.Command || item is PaletteItem.BuiltIn
+    val clickLabel = stringResource(if (runs) R.string.chat_palette_run else R.string.chat_palette_attach)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -171,6 +187,18 @@ private fun PaletteRow(item: PaletteItem, enabled: Boolean, onPick: () -> Unit) 
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            if (item is PaletteItem.BuiltIn && item.command.aliases.isNotEmpty()) {
+                Text(
+                    text = stringResource(
+                        R.string.chat_palette_builtin_aliases,
+                        item.command.aliases.joinToString(", ") { "/$it" },
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         KindLabel(stringResource(item.kindRes()))
     }
@@ -194,6 +222,46 @@ internal fun KindLabel(text: String, modifier: Modifier = Modifier) {
     }
 }
 
+/** A failed list, with its retry, or a failed command; either can be dismissed. */
+@Composable
+private fun Failure(error: PaletteError, onIntent: (PaletteIntent) -> Unit) {
+    val spacing = PhopencodeTheme.spacing
+    ErrorBanner(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.sm, vertical = spacing.xs),
+        message = errorText(error),
+        onRetry = if (error.action == PaletteAction.Load) ({ onIntent(PaletteIntent.Retry) }) else null,
+        onDismiss = { onIntent(PaletteIntent.DismissError) },
+    )
+}
+
+/** Why a built-in did not run, read out as it appears, with a button that dismisses it. */
+@Composable
+private fun NoticeRow(notice: BuiltInNotice, onDismiss: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = PhopencodeTheme.spacing.lg),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(notice.textRes()),
+            modifier = Modifier
+                .weight(1f)
+                .testTag(PaletteTags.NOTICE)
+                .semantics { liveRegion = LiveRegionMode.Polite },
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        IconButton(onClick = onDismiss, modifier = Modifier.testTag(PaletteTags.NOTICE_DISMISS)) {
+            Icon(imageVector = PaletteIcons.Close, contentDescription = stringResource(R.string.chat_palette_notice_dismiss))
+        }
+    }
+}
+
+@StringRes
+private fun BuiltInNotice.textRes(): Int = when (this) {
+    BuiltInNotice.Unavailable -> R.string.chat_palette_notice_unavailable
+    BuiltInNotice.NothingToUndo -> R.string.chat_palette_notice_nothing_to_undo
+    BuiltInNotice.NothingToRedo -> R.string.chat_palette_notice_nothing_to_redo
+}
+
 @Composable
 private fun Note(text: String) {
     Text(
@@ -206,21 +274,37 @@ private fun Note(text: String) {
 
 private fun PaletteItem.displayName(): String = when (this) {
     is PaletteItem.Command -> "/$name"
+    is PaletteItem.BuiltIn -> "/${command.primary}"
     is PaletteItem.Skill -> name
     is PaletteItem.Agent -> name
     is PaletteItem.File -> path
 }
 
+@Composable
 private fun PaletteItem.description(): String? = when (this) {
     is PaletteItem.Command -> description
     is PaletteItem.Skill -> description
     is PaletteItem.Agent -> description
     is PaletteItem.File -> null
+    is PaletteItem.BuiltIn -> stringResource(command.descriptionRes())
 }?.takeIf { it.isNotBlank() }
+
+@StringRes
+private fun BuiltInCommand.descriptionRes(): Int = when (this) {
+    BuiltInCommand.New -> R.string.chat_palette_builtin_new
+    BuiltInCommand.Compact -> R.string.chat_palette_builtin_compact
+    BuiltInCommand.Fork -> R.string.chat_palette_builtin_fork
+    BuiltInCommand.Undo -> R.string.chat_palette_builtin_undo
+    BuiltInCommand.Redo -> R.string.chat_palette_builtin_redo
+    BuiltInCommand.Models -> R.string.chat_palette_builtin_models
+    BuiltInCommand.Agents -> R.string.chat_palette_builtin_agents
+    BuiltInCommand.Sessions -> R.string.chat_palette_builtin_sessions
+}
 
 @StringRes
 private fun PaletteItem.kindRes(): Int = when (this) {
     is PaletteItem.Command -> R.string.chat_palette_kind_command
+    is PaletteItem.BuiltIn -> R.string.chat_palette_kind_builtin
     is PaletteItem.Skill -> R.string.chat_palette_kind_skill
     is PaletteItem.Agent -> R.string.chat_palette_kind_agent
     is PaletteItem.File -> if (directory) R.string.chat_palette_kind_folder else R.string.chat_palette_kind_file

@@ -10,12 +10,15 @@ import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.Pr
 internal object PaletteTags {
     const val TITLE: String = "palette:title"
     const val CLOSE: String = "palette:close"
+    const val NOTICE: String = "palette:notice"
+    const val NOTICE_DISMISS: String = "palette:notice-dismiss"
 
     fun item(item: PaletteItem): String = "palette:item:" + when (item) {
         is PaletteItem.Command -> "command:${item.name}"
         is PaletteItem.Skill -> "skill:${item.name}"
         is PaletteItem.Agent -> "agent:${item.id}"
         is PaletteItem.File -> "file:${item.path}"
+        is PaletteItem.BuiltIn -> "builtin:${item.command.primary}"
     }
 
     fun chip(attachment: PromptAttachment): String = "palette:chip:${attachment.key()}"

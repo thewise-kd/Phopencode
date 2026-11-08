@@ -3,6 +3,7 @@ package io.github.thewisekd.phopencode.feature.chat.ui.palette
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -13,6 +14,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatFailure
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.BuiltInNotice
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteAction
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteError
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteIntent
@@ -69,6 +71,58 @@ class PaletteBehaviorTest {
             ),
             harness.intents,
         )
+    }
+
+    @Test
+    fun `tapping a built-in's row sends Pick with it`() {
+        val harness = compose.setPalette(SLASH)
+
+        compose.onNodeWithTag(PaletteTags.item(NEW)).performScrollTo().performClick()
+        compose.onNodeWithTag(PaletteTags.item(UNDO)).performScrollTo().performClick()
+
+        assertEquals(listOf<PaletteIntent>(PaletteIntent.Pick(NEW), PaletteIntent.Pick(UNDO)), harness.intents)
+    }
+
+    @Test
+    fun `a notice shows while closed too, and its button sends DismissNotice`() {
+        val harness = compose.setPalette(PaletteState(notice = BuiltInNotice.NothingToRedo))
+
+        compose.onNodeWithTag(PaletteTags.TITLE).assertDoesNotExist()
+        compose.onNodeWithTag(PaletteTags.NOTICE).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(PaletteTags.NOTICE_DISMISS).performScrollTo().assertTouchSizeIsAtLeast(48.dp).performClick()
+
+        assertEquals(listOf<PaletteIntent>(PaletteIntent.DismissNotice), harness.intents)
+
+        harness.state.value = PaletteState()
+        assertEmptySlot(PALETTE_TAG)
+    }
+
+    @Test
+    fun `a failed command shows while closed too, with a dismiss and no retry`() {
+        val harness = compose.setPalette(PaletteState(error = PaletteError(PaletteAction.RunCommand, ChatFailure.ServerFailed)))
+
+        compose.onNodeWithTag(PaletteTags.TITLE).assertDoesNotExist()
+        compose.onNodeWithText("The command could not be run. The server ran into an error.").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Try again").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Dismiss error").performScrollTo().performClick()
+
+        assertEquals(listOf<PaletteIntent>(PaletteIntent.DismissError), harness.intents)
+
+        harness.state.value = PaletteState()
+        assertEmptySlot(PALETTE_TAG)
+    }
+
+    @Test
+    fun `a closed palette shows both a notice and a failure`() {
+        compose.setPalette(
+            PaletteState(
+                notice = BuiltInNotice.Unavailable,
+                error = PaletteError(PaletteAction.RunCommand, ChatFailure.Rejected),
+            ),
+        )
+
+        compose.onNodeWithTag(PaletteTags.NOTICE).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("The command could not be run. The server refused the request.").performScrollTo().assertIsDisplayed()
     }
 
     @Test

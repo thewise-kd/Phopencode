@@ -37,4 +37,23 @@
     <string name="chat_palette_remove_agent">Ajanı kaldır: %1$s</string>
     <!-- Read for a chip's remove button. %1$s: the skill's name. -->
     <string name="chat_palette_remove_skill">Beceriyi kaldır: %1$s</string>
+    <!-- The kind of a row for one of the app's own commands, told apart from the server's. -->
+    <string name="chat_palette_kind_builtin">Yerleşik</string>
+    <!-- What each built-in command does, under its name. -->
+    <string name="chat_palette_builtin_new">Bu klasörde yeni oturum başlat</string>
+    <string name="chat_palette_builtin_compact">Bağlamı boşaltmak için oturumu özetle</string>
+    <string name="chat_palette_builtin_fork">Oturumu yeni bir oturuma kopyala</string>
+    <string name="chat_palette_builtin_undo">Son turu geri al</string>
+    <string name="chat_palette_builtin_redo">Bekleyen geri almayı iptal et</string>
+    <string name="chat_palette_builtin_models">Modeli değiştir</string>
+    <string name="chat_palette_builtin_agents">Ajanı değiştir</string>
+    <string name="chat_palette_builtin_sessions">Oturum listesine dön</string>
+    <!-- %1$s: a built-in command's other names, such as "/clear". -->
+    <string name="chat_palette_builtin_aliases">Diğer adları: %1$s</string>
+    <!-- Why a built-in command did not run. -->
+    <string name="chat_palette_notice_unavailable">Bu komut şu anda kullanılamıyor.</string>
+    <string name="chat_palette_notice_nothing_to_undo">Geri alınacak tur yok.</string>
+    <string name="chat_palette_notice_nothing_to_redo">İptal edilecek bekleyen geri alma yok.</string>
+    <!-- Read for the button that closes such a note. -->
+    <string name="chat_palette_notice_dismiss">Kapat</string>
 </resources>

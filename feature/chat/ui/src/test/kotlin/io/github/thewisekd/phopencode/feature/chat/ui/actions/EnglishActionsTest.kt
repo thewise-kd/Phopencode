@@ -31,10 +31,12 @@ class EnglishActionsTest : ActionsLanguageContract() {
         cancel = "Cancel",
         compacting = "Compacting…",
         forking = "Forking…",
+        creating = "Starting a new session…",
         error = { action, reason ->
             when (action) {
                 SessionAction.Compact -> "The session could not be compacted. $reason"
                 is SessionAction.Fork -> "The session could not be forked. $reason"
+                SessionAction.NewSession -> "A new session could not be started. $reason"
             }
         },
         reasons = mapOf(

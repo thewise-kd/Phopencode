@@ -27,10 +27,13 @@
     <!-- Next to the menu button while an action runs. -->
     <string name="chat_actions_status_compacting">Compacting…</string>
     <string name="chat_actions_status_forking">Forking…</string>
+    <string name="chat_actions_status_creating">Starting a new session…</string>
     <!-- %1$s: why, one of the chat_actions_reason_ strings. -->
     <string name="chat_actions_error_compact">The session could not be compacted. %1$s</string>
     <!-- %1$s: why, one of the chat_actions_reason_ strings. -->
     <string name="chat_actions_error_fork">The session could not be forked. %1$s</string>
+    <!-- %1$s: why, one of the chat_actions_reason_ strings. -->
+    <string name="chat_actions_error_new_session">A new session could not be started. %1$s</string>
     <string name="chat_actions_reason_not_connected">There is no connection to the server.</string>
     <string name="chat_actions_reason_unreachable">The server could not be reached.</string>
     <string name="chat_actions_reason_unauthorized">The server refused the credentials.</string>

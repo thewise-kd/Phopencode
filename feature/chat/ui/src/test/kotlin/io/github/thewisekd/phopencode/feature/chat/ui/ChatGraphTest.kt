@@ -26,6 +26,7 @@ import io.github.thewisekd.phopencode.core.navigation.ConnectRoute
 import io.github.thewisekd.phopencode.core.navigation.FilesRoute
 import io.github.thewisekd.phopencode.core.navigation.GitRoute
 import io.github.thewisekd.phopencode.core.navigation.Route
+import io.github.thewisekd.phopencode.core.navigation.SessionsRoute
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatSession
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatSessionState
@@ -56,6 +57,8 @@ import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.Ac
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.ActionsIntent
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.ActionsPresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.ActionsState
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.BuiltInCommand
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.BuiltInNotice
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.FormEvent
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.FormIntent
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.FormPresenter
@@ -72,6 +75,7 @@ import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.Re
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.RevertIntent
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.RevertPresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.RevertState
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SessionAction
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SubagentEvent
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SubagentIntent
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SubagentPresenter
@@ -79,6 +83,7 @@ import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.Su
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SwitcherIntent
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SwitcherPresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SwitcherState
+import io.github.thewisekd.phopencode.feature.chat.ui.composer.COMPOSER_ACTION_TAG
 import java.util.Collections
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
@@ -302,6 +307,7 @@ class ChatGraphTest {
                         // Stand-ins for the files and git features' graphs, which this module cannot see.
                         composable<FilesRoute.Tree> { Box(Modifier.fillMaxSize().testTag("files")) }
                         composable<GitRoute.Status> { Box(Modifier.fillMaxSize().testTag("git")) }
+                        composable<SessionsRoute.SessionList> { Box(Modifier.fillMaxSize().testTag("sessions")) }
                         chatGraph(navController)
                     }
                 }
@@ -325,6 +331,7 @@ class ChatGraphTest {
             destination.hasRoute<ChatRoute.TurnDiff>() -> entry.toRoute<ChatRoute.TurnDiff>()
             destination.hasRoute<FilesRoute.Tree>() -> entry.toRoute<FilesRoute.Tree>()
             destination.hasRoute<GitRoute.Status>() -> entry.toRoute<GitRoute.Status>()
+            destination.hasRoute<SessionsRoute.SessionList>() -> entry.toRoute<SessionsRoute.SessionList>()
             else -> null // The graph itself.
         }
     }
@@ -529,16 +536,197 @@ class ChatGraphTest {
     }
 
     @Test
-    fun `a command the server accepted clears the draft and brings the timeline back`() {
+    fun `a command the server accepted clears the draft it was sent from and brings the timeline back`() {
         setNavHost()
         val chat = ChatRoute.Chat(SESSION)
         open(chat)
+        composerState.value = ComposerState(draft = "/review now")
 
-        palettes.getValue(chat).eventChannel.trySend(PaletteEvent.CommandSent(""))
+        palettes.getValue(chat).eventChannel.trySend(PaletteEvent.CommandSent(from = "/review now"))
         compose.waitForIdle()
 
         assertEquals(listOf<ComposerIntent>(ComposerIntent.DraftChanged("")), composerIntents.toList())
         assertEquals(listOf<TimelineIntent>(TimelineIntent.JumpToLatest), timelineIntents.toList())
+    }
+
+    @Test
+    fun `a command the server accepted leaves a draft typed since, or any other, alone`() {
+        setNavHost()
+        val chat = ChatRoute.Chat(SESSION)
+        open(chat)
+        composerState.value = ComposerState(draft = "/review now and more")
+
+        palettes.getValue(chat).eventChannel.trySend(PaletteEvent.CommandSent(from = "/review now"))
+        compose.waitForIdle()
+
+        assertTrue(composerIntents.isEmpty())
+        assertEquals(listOf<TimelineIntent>(TimelineIntent.JumpToLatest), timelineIntents.toList())
+    }
+
+    // Slash words and built-ins
+
+    /** A loaded, live chat whose composer holds [draft]. */
+    private fun openReadyChat(draft: String): ChatRoute.Chat {
+        setNavHost()
+        val chat = ChatRoute.Chat(SESSION)
+        open(chat)
+        statusState.value = StatusState(ChatStatus.Idle)
+        composerState.value = ComposerState(draft = draft, enabled = true)
+        compose.waitForIdle()
+        return chat
+    }
+
+    private fun runBuiltIn(chat: ChatRoute.Chat, command: BuiltInCommand, from: String, draft: String = "") {
+        palettes.getValue(chat).eventChannel.trySend(PaletteEvent.RunBuiltIn(command, from, draft))
+        compose.waitForIdle()
+    }
+
+    @Test
+    fun `sending a draft that starts with a slash word hands it to the palette, not the composer`() {
+        val chat = openReadyChat("/clear")
+
+        compose.onNodeWithTag(COMPOSER_ACTION_TAG).performClick()
+        compose.waitForIdle()
+
+        assertTrue(PaletteIntent.Submit("/clear") in palettes.getValue(chat).intents)
+        assertTrue(ComposerIntent.Send !in composerIntents)
+    }
+
+    @Test
+    fun `sending any other draft goes to the composer`() {
+        val chat = openReadyChat("say /clear")
+
+        compose.onNodeWithTag(COMPOSER_ACTION_TAG).performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf<ComposerIntent>(ComposerIntent.Send), composerIntents.toList())
+        assertTrue(palettes.getValue(chat).intents.none { it is PaletteIntent.Submit })
+    }
+
+    @Test
+    fun `a slash word that is no command is sent as a prompt, only while the composer holds it`() {
+        val chat = openReadyChat("/hello")
+
+        palettes.getValue(chat).eventChannel.trySend(PaletteEvent.SendPrompt("/hello"))
+        compose.waitForIdle()
+        assertEquals(listOf<ComposerIntent>(ComposerIntent.Send), composerIntents.toList())
+
+        composerState.value = ComposerState(draft = "/hello again", enabled = true)
+        palettes.getValue(chat).eventChannel.trySend(PaletteEvent.SendPrompt("/hello"))
+        compose.waitForIdle()
+        assertEquals(listOf<ComposerIntent>(ComposerIntent.Send), composerIntents.toList())
+    }
+
+    @Test
+    fun `compact and fork ask the actions for their confirmation and clear the draft`() {
+        val chat = openReadyChat("/compact")
+        val fake = actions.getValue(chat)
+        fake.mutableState.value = ActionsState(enabled = true, directory = FOLDER)
+
+        runBuiltIn(chat, BuiltInCommand.Compact, from = "/compact")
+        composerState.value = ComposerState(draft = "/fork", enabled = true)
+        runBuiltIn(chat, BuiltInCommand.Fork, from = "/fork")
+
+        assertEquals(
+            listOf<ActionsIntent>(
+                ActionsIntent.Request(SessionAction.Compact),
+                ActionsIntent.Request(SessionAction.Fork(null)),
+            ),
+            fake.intents.toList(),
+        )
+        assertEquals(
+            listOf<ComposerIntent>(ComposerIntent.DraftChanged(""), ComposerIntent.DraftChanged("")),
+            composerIntents.toList(),
+        )
+    }
+
+    @Test
+    fun `new creates a session and the chat switches to it`() {
+        val chat = openReadyChat("/clear")
+        val fake = actions.getValue(chat)
+        fake.mutableState.value = ActionsState(enabled = true, directory = FOLDER)
+
+        runBuiltIn(chat, BuiltInCommand.New, from = "/clear")
+
+        assertEquals(listOf<ActionsIntent>(ActionsIntent.NewSession), fake.intents.toList())
+        fake.eventChannel.trySend(ActionsEvent.OpenSession(SessionId("ses_new")))
+        compose.waitForIdle()
+        assertEquals(listOf(ConnectRoute.ServerList, ChatRoute.Chat("ses_new")), backStack())
+    }
+
+    @Test
+    fun `a built-in that cannot run shows why and keeps the draft`() {
+        val chat = openReadyChat("/compact")
+        val fake = actions.getValue(chat)
+        fake.mutableState.value = ActionsState(enabled = true, compacting = true)
+
+        runBuiltIn(chat, BuiltInCommand.Compact, from = "/compact")
+        runBuiltIn(chat, BuiltInCommand.Undo, from = "/compact")
+
+        assertTrue(fake.intents.isEmpty())
+        assertTrue(composerIntents.isEmpty())
+        assertEquals(
+            listOf<PaletteIntent>(
+                PaletteIntent.ShowNotice(BuiltInNotice.Unavailable),
+                PaletteIntent.ShowNotice(BuiltInNotice.NothingToUndo),
+            ),
+            palettes.getValue(chat).intents.filterIsInstance<PaletteIntent.ShowNotice>(),
+        )
+    }
+
+    @Test
+    fun `undo and redo open the turn's page`() {
+        val chat = openReadyChat("/undo")
+        val fake = actions.getValue(chat)
+        fake.mutableState.value = ActionsState(enabled = true, undoTurn = MessageId("msg_2"), redoTurn = MessageId("msg_3"))
+
+        runBuiltIn(chat, BuiltInCommand.Undo, from = "/undo")
+        runBuiltIn(chat, BuiltInCommand.Redo, from = "/redo")
+
+        assertEquals(
+            listOf<ActionsIntent>(
+                ActionsIntent.ShowTurnChanges(MessageId("msg_2")),
+                ActionsIntent.ShowTurnChanges(MessageId("msg_3")),
+            ),
+            fake.intents.toList(),
+        )
+        // Only the first draft was still in the composer.
+        assertEquals(listOf<ComposerIntent>(ComposerIntent.DraftChanged("")), composerIntents.toList())
+    }
+
+    @Test
+    fun `models and agents open the switcher`() {
+        val chat = openReadyChat("/models")
+        switchers.getValue(chat).mutableState.value = SwitcherState(enabled = true)
+
+        runBuiltIn(chat, BuiltInCommand.Models, from = "/models")
+        runBuiltIn(chat, BuiltInCommand.Agents, from = "/agents")
+
+        assertEquals(listOf<SwitcherIntent>(SwitcherIntent.Open, SwitcherIntent.Open), switchers.getValue(chat).intents.toList())
+    }
+
+    @Test
+    fun `sessions goes back to the session list on the back stack`() {
+        setNavHost()
+        val list = SessionsRoute.SessionList(directory = FOLDER)
+        open(list)
+        val chat = ChatRoute.Chat(SESSION)
+        open(chat)
+
+        runBuiltIn(chat, BuiltInCommand.Sessions, from = "/sessions")
+
+        assertEquals(listOf(ConnectRoute.ServerList, list), backStack())
+        compose.onNodeWithTag("sessions").assertIsDisplayed()
+    }
+
+    @Test
+    fun `sessions opens the folder's session list in place of the chat when none is on the back stack`() {
+        val chat = openReadyChat("/resume")
+        actions.getValue(chat).mutableState.value = ActionsState(directory = FOLDER)
+
+        runBuiltIn(chat, BuiltInCommand.Sessions, from = "/resume")
+
+        assertEquals(listOf(ConnectRoute.ServerList, SessionsRoute.SessionList(directory = FOLDER)), backStack())
     }
 
     @Test

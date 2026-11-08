@@ -1,6 +1,8 @@
 package io.github.thewisekd.phopencode.feature.chat.logic.actions
 
 import io.github.thewisekd.phopencode.core.api.ApiException
+import io.github.thewisekd.phopencode.core.api.CreateSessionRequest
+import io.github.thewisekd.phopencode.core.api.Location
 import io.github.thewisekd.phopencode.core.model.Message
 import io.github.thewisekd.phopencode.core.model.MessageId
 import io.github.thewisekd.phopencode.core.model.SessionStatus
@@ -42,6 +44,12 @@ import kotlinx.coroutines.yield
  *   status is idle (see [tracked]), so it never outlives the session's work. No second
  *   compaction is asked for meanwhile.
  * - A fork emits [ActionsEvent.OpenSession] only with the session the server returned.
+ * - [ActionsIntent.NewSession] asks nothing first: while an action could start and the folder is
+ *   known, it claims [ActionsState.running] and creates a session there through [ChatSession.call],
+ *   with the folder as its only setting; then [ActionsEvent.OpenSession] with the new session.
+ * - [ActionsState.undoTurn] and [ActionsState.redoTurn] follow the loaded session's messages and
+ *   staged revert (`Session.revert`). A staged revert of a message not among those held offers no
+ *   turn to undo: it may already cover all of them.
  * - [ActionsState.directory] is the loaded session's folder, kept as long as the session is kept
  *   (through a reconnect too); a blank one counts as none. [ActionsIntent.OpenFiles] and
  *   [ActionsIntent.OpenGit] emit their event for it, and nothing while it is null.
@@ -104,7 +112,7 @@ class DefaultActionsPresenter(
             ActionsIntent.OpenMenu -> change { if (it.state.enabled) it.withState { copy(menuOpen = true) } else it }
             ActionsIntent.CloseMenu -> change { it.withState { copy(menuOpen = false) } }
             is ActionsIntent.Request -> change { current ->
-                if (allowed(current.state, intent.action)) {
+                if (intent.action != SessionAction.NewSession && allowed(current.state, intent.action)) {
                     current.withState { copy(menuOpen = false, confirming = intent.action) }
                 } else {
                     current.withState { copy(menuOpen = false) }
@@ -116,6 +124,7 @@ class DefaultActionsPresenter(
             ActionsIntent.DismissError -> change { it.withState { copy(error = null) } }
             ActionsIntent.OpenFiles -> state.value.directory?.let { eventChannel.trySend(ActionsEvent.OpenFiles(it)) }
             ActionsIntent.OpenGit -> state.value.directory?.let { eventChannel.trySend(ActionsEvent.OpenGit(it)) }
+            ActionsIntent.NewSession -> newSession()
         }
     }
 
@@ -130,9 +139,25 @@ class DefaultActionsPresenter(
     private fun follow(chat: ChatSessionState) {
         val enabled = chat.session != null && chat.availability == ChatAvailability.Live
         val directory = chat.session?.session?.directory?.takeIf { it.isNotBlank() }
+        val staged = chat.session?.session?.revert?.messageId
+        val messages = chat.session?.messages.orEmpty()
+        // The prompts still shown: those before the staged revert's, all of them without one. A
+        // revert whose message is not among those held may reach back past all of them, so none is
+        // known to be safe to undo: nothing is offered, and /redo still opens the staged revert.
+        val prompts = when {
+            staged != null && messages.none { it.id == staged } -> emptyList()
+            else -> messages.filterIsInstance<Message.User>().takeWhile { it.id != staged }
+        }
         change { current ->
-            current.withState { copy(enabled = enabled, menuOpen = menuOpen && enabled, directory = directory) }
-                .tracked(chat)
+            current.withState {
+                copy(
+                    enabled = enabled,
+                    menuOpen = menuOpen && enabled,
+                    directory = directory,
+                    undoTurn = prompts.lastOrNull()?.id,
+                    redoTurn = staged,
+                )
+            }.tracked(chat)
         }
     }
 
@@ -170,7 +195,19 @@ class DefaultActionsPresenter(
         scope.launch { run(action) }
     }
 
-    private suspend fun run(action: SessionAction) {
+    private fun newSession() {
+        if (!acts) return
+        val directory = synchronized(lock) {
+            val directory = model.state.directory
+            if (!model.state.canAct || directory == null) return
+            commit(model.withState { copy(running = SessionAction.NewSession, error = null, menuOpen = false) })
+            directory
+        }
+        scope.launch { run(SessionAction.NewSession, directory) }
+    }
+
+    /** Runs a claimed [action]; [directory] is where a new session goes. */
+    private suspend fun run(action: SessionAction, directory: String? = null) {
         val id = session.sessionId
         try {
             when (action) {
@@ -187,6 +224,12 @@ class DefaultActionsPresenter(
                     val forked = session.call { it.sessions.fork(id, before = action.messageId) }
                     change { it.withState { copy(running = null) } }
                     eventChannel.send(ActionsEvent.OpenSession(forked.id))
+                }
+                SessionAction.NewSession -> {
+                    val request = CreateSessionRequest(location = directory?.let(::Location))
+                    val created = session.call { it.sessions.create(request) }
+                    change { it.withState { copy(running = null) } }
+                    eventChannel.send(ActionsEvent.OpenSession(created.id))
                 }
             }
         } catch (e: ApiException) {

@@ -2,9 +2,11 @@ package io.github.thewisekd.phopencode.feature.chat.logic.palette
 
 import io.github.thewisekd.phopencode.core.api.ApiError
 import io.github.thewisekd.phopencode.core.api.ApiException
+import io.github.thewisekd.phopencode.core.api.CatalogApi
 import io.github.thewisekd.phopencode.core.api.FileSearchType
 import io.github.thewisekd.phopencode.core.api.FsApi
 import io.github.thewisekd.phopencode.core.api.Location
+import io.github.thewisekd.phopencode.core.api.MessageApi
 import io.github.thewisekd.phopencode.core.api.OpencodeClient
 import io.github.thewisekd.phopencode.core.model.Agent
 import io.github.thewisekd.phopencode.core.model.AgentMode
@@ -23,6 +25,8 @@ import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatAvailabili
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatFailure
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatSession
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatSessionState
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.BuiltInCommand
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.BuiltInNotice
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteAction
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteError
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteEvent
@@ -36,6 +40,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,6 +61,12 @@ private val MAIN = SessionId("ses_main")
 /** Longer than any wait the presenter makes, shorter than the slow search below. */
 private const val SETTLE_MS = 1_000L
 
+/** Every built-in, as [DefaultPalettePresenterTest.names] prints them, in the order they list. */
+private val ALL_BUILT_INS = listOf(
+    "builtin:new", "builtin:compact", "builtin:fork", "builtin:undo", "builtin:redo",
+    "builtin:models", "builtin:agents", "builtin:sessions",
+)
+
 /** A file search as the presenter asked for it. */
 private data class Find(val location: Location, val query: String)
 
@@ -73,12 +84,48 @@ private class FakeChatSession(override val sessionId: SessionId) : ChatSession {
     @Volatile
     var connected = true
 
+    /** When set, every skills list fails with it; the other catalog calls still work. */
+    @Volatile
+    var skillsFailure: ApiError? = null
+
+    /** While set, every command run is cancelled, as a call cut short would be. */
+    @Volatile
+    var runsCancelled = false
+
+    /** While set, every commands list is cancelled, as a call cut short would be. */
+    @Volatile
+    var commandsCancelled = false
+
+    /** When set, every commands list fails with it; the other catalog calls still work. */
+    @Volatile
+    var commandsFailure: ApiError? = null
+
     /** How long a file search takes, by query; none by default. */
     val findDelays = mutableMapOf<String, Long>()
 
     val finds = mutableListOf<Find>()
 
     private val recording = object : OpencodeClient by client {
+        override val messages: MessageApi = object : MessageApi by client.messages {
+            override suspend fun command(sessionId: SessionId, name: String, text: String) {
+                if (runsCancelled) throw CancellationException("The call was cut short.")
+                client.messages.command(sessionId, name, text)
+            }
+        }
+
+        override val catalog: CatalogApi = object : CatalogApi by client.catalog {
+            override suspend fun skills(location: Location?): List<Skill> {
+                skillsFailure?.let { throw ApiException(it) }
+                return client.catalog.skills(location)
+            }
+
+            override suspend fun commands(location: Location?): List<Command> {
+                if (commandsCancelled) throw CancellationException("The call was cut short.")
+                commandsFailure?.let { throw ApiException(it) }
+                return client.catalog.commands(location)
+            }
+        }
+
         override val fs: FsApi = object : FsApi {
             override suspend fun find(location: Location, query: String, type: FileSearchType?, limit: Int?): List<FileEntry> {
                 finds += Find(location, query)
@@ -165,6 +212,7 @@ class DefaultPalettePresenterTest {
             is PaletteItem.Skill -> "skill:${it.name}"
             is PaletteItem.Agent -> "@${it.id}"
             is PaletteItem.File -> "file:${it.path}"
+            is PaletteItem.BuiltIn -> "builtin:${it.command.primary}"
         }
     }
 
@@ -187,7 +235,7 @@ class DefaultPalettePresenterTest {
     }
 
     @Test
-    fun `a slash as the first word lists commands then skills for the session's folder`() = runTest {
+    fun `a slash as the first word lists commands, built-ins, then skills for the session's folder`() = runTest {
         val (chat, presenter) = setup()
 
         type(presenter, "/")
@@ -197,9 +245,10 @@ class DefaultPalettePresenterTest {
         assertEquals("", state.query)
         assertFalse(state.loading)
         assertNull(state.error)
-        assertEquals(listOf("/review", "/init", "/preview", "skill:release", "skill:Refactor"), state.names())
+        assertEquals(listOf("/review", "/init", "/preview") + ALL_BUILT_INS + listOf("skill:release", "skill:Refactor"), state.names())
         assertEquals(PaletteItem.Command("review", "Review changes"), state.items.first())
-        assertEquals(PaletteItem.Skill("release", "Cut a release"), state.items[3])
+        assertEquals(PaletteItem.BuiltIn(BuiltInCommand.New), state.items[3])
+        assertEquals(PaletteItem.Skill("release", "Cut a release"), state.items[3 + ALL_BUILT_INS.size])
         assertEquals(setOf("catalog.commands", "catalog.skills"), chat.catalogCalls().toSet())
         assertTrue(chat.finds.isEmpty())
     }
@@ -231,8 +280,12 @@ class DefaultPalettePresenterTest {
         type(presenter, "/RE")
 
         assertEquals("RE", presenter.state.value.query)
-        // Commands then skills; within each kind, prefix matches lead.
-        assertEquals(listOf("/review", "/preview", "skill:release", "skill:Refactor"), presenter.state.value.names())
+        // Commands, built-ins (by a name or an alias that starts with it), then skills; within each
+        // kind, prefix matches lead.
+        assertEquals(
+            listOf("/review", "/preview", "builtin:redo", "builtin:sessions", "skill:release", "skill:Refactor"),
+            presenter.state.value.names(),
+        )
     }
 
     @Test
@@ -258,7 +311,7 @@ class DefaultPalettePresenterTest {
         chat.live(OTHER_DIR)
         settle()
 
-        assertEquals(listOf("/deploy"), presenter.state.value.names())
+        assertEquals(listOf("/deploy") + ALL_BUILT_INS, presenter.state.value.names())
         assertEquals(4, chat.catalogCalls().size)
     }
 
@@ -404,7 +457,7 @@ class DefaultPalettePresenterTest {
         settle()
 
         assertNull(presenter.state.value.error)
-        assertEquals(5, presenter.state.value.items.size)
+        assertEquals(5 + ALL_BUILT_INS.size, presenter.state.value.items.size)
         assertTrue(chat.catalogCalls().size >= 3)
     }
 
@@ -483,7 +536,7 @@ class DefaultPalettePresenterTest {
     fun `a pick right after the draft lost its trigger word runs nothing`() = runTest {
         val (chat, presenter, events) = setup { it.client.catalog.setCommands(listOf(Command("format")), Location(DIR)) }
         type(presenter, "/fo")
-        assertEquals(listOf("/format"), presenter.state.value.names())
+        assertEquals(listOf("/format", "builtin:fork"), presenter.state.value.names())
 
         // The items still shown belong to `/fo`; the pick comes before the palette catches up.
         presenter.onIntent(PaletteIntent.QueryChanged("hello"))
@@ -559,7 +612,7 @@ class DefaultPalettePresenterTest {
         settle()
 
         assertEquals(listOf(CommandRun(MAIN, "review", "")), chat.client.messages.commandsRun)
-        assertEquals(listOf<PaletteEvent>(PaletteEvent.CommandSent("/rev and more")), events)
+        assertEquals(listOf<PaletteEvent>(PaletteEvent.CommandSent(from = "/rev")), events)
         assertFalse(presenter.state.value.running)
     }
 
@@ -581,7 +634,7 @@ class DefaultPalettePresenterTest {
         settle()
 
         assertEquals(listOf(CommandRun(MAIN, "review", "")), chat.client.messages.commandsRun)
-        assertEquals(listOf<PaletteEvent>(PaletteEvent.CommandSent("")), events)
+        assertEquals(listOf<PaletteEvent>(PaletteEvent.CommandSent(from = "/rev")), events)
         assertFalse(presenter.state.value.running)
         assertFalse(presenter.state.value.open)
     }
@@ -614,6 +667,538 @@ class DefaultPalettePresenterTest {
         assertTrue(events.isEmpty())
         assertTrue(chat.client.messages.commandsRun.isEmpty())
         assertEquals(PaletteError(PaletteAction.RunCommand, ChatFailure.NotConnected), presenter.state.value.error)
+    }
+
+
+    // Built-ins
+
+    @Test
+    fun `a built-in matches by an alias that starts with the query`() = runTest {
+        val (_, presenter) = setup()
+
+        type(presenter, "/cle")
+        assertEquals(listOf("builtin:new"), presenter.state.value.names())
+
+        type(presenter, "/SUM")
+        assertEquals(listOf("builtin:compact"), presenter.state.value.names())
+
+        type(presenter, "/con")
+        assertEquals(listOf("builtin:sessions"), presenter.state.value.names())
+
+        // Only from the start: "continue" holds "in", but /in is the server's /init alone.
+        type(presenter, "/in")
+        assertEquals(listOf("/init"), presenter.state.value.names())
+    }
+
+    @Test
+    fun `built-ins show while the server's lists load, and after they failed`() = runTest {
+        val (chat, presenter) = setup()
+        chat.client.control.stall()
+
+        type(presenter, "/u")
+
+        assertTrue(presenter.state.value.loading)
+        assertEquals(listOf("builtin:undo"), presenter.state.value.names())
+
+        chat.client.control.failNext(ApiError.Network)
+        chat.client.control.resume()
+        settle()
+
+        assertEquals(PaletteError(PaletteAction.Load, ChatFailure.Unreachable), presenter.state.value.error)
+        assertEquals(listOf("builtin:undo"), presenter.state.value.names())
+    }
+
+    @Test
+    fun `a server command of a built-in's name hides that built-in`() = runTest {
+        val (_, presenter) = setup {
+            it.client.catalog.setCommands(listOf(Command("new", "The server's new"), Command("clear")), Location(DIR))
+        }
+
+        type(presenter, "/")
+
+        assertEquals(
+            listOf("/new", "/clear") + ALL_BUILT_INS.drop(1) + listOf("skill:release", "skill:Refactor"),
+            presenter.state.value.names(),
+        )
+    }
+
+    @Test
+    fun `a built-in pick asks the chat to run it, with the draft it leaves`() = runTest {
+        val (chat, presenter, events) = setup()
+        type(presenter, "/cle")
+
+        presenter.onIntent(PaletteIntent.Pick(PaletteItem.BuiltIn(BuiltInCommand.New)))
+        settle()
+
+        assertEquals(listOf<PaletteEvent>(PaletteEvent.RunBuiltIn(BuiltInCommand.New, from = "/cle", draft = "")), events)
+        assertTrue(chat.client.messages.commandsRun.isEmpty())
+        assertEquals(listOf("catalog.commands", "catalog.skills"), chat.catalogCalls().sorted())
+    }
+
+    @Test
+    fun `a built-in not shown is not picked`() = runTest {
+        val (_, presenter, events) = setup()
+        type(presenter, "/cle")
+
+        presenter.onIntent(PaletteIntent.Pick(PaletteItem.BuiltIn(BuiltInCommand.Undo)))
+        settle()
+
+        assertTrue(events.isEmpty())
+    }
+
+    // A cancelled commands request
+
+    @Test
+    fun `a cancelled commands request fails the list, and the next one asks again and completes`() = runTest {
+        val (chat, presenter) = setup { it.commandsCancelled = true }
+
+        // Virtual time: a list that waited on the cut-short request forever would still be loading.
+        type(presenter, "/")
+
+        assertFalse(presenter.state.value.loading)
+        assertEquals(PaletteError(PaletteAction.Load, ChatFailure.Unknown), presenter.state.value.error)
+        assertEquals(ALL_BUILT_INS + listOf("skill:release", "skill:Refactor"), presenter.state.value.names())
+
+        chat.commandsCancelled = false
+        presenter.onIntent(PaletteIntent.Retry)
+        settle()
+
+        assertNull(presenter.state.value.error)
+        assertEquals(5 + ALL_BUILT_INS.size, presenter.state.value.items.size)
+    }
+
+    @Test
+    fun `a send waiting on a cancelled commands request does not hang`() = runTest {
+        val (chat, presenter, events) = setup { it.commandsCancelled = true }
+
+        presenter.onIntent(PaletteIntent.Submit("/review now"))
+        settle()
+
+        // Like a failed fetch: no built-in of that name, so the draft stays and the failure shows.
+        assertFalse(presenter.state.value.running)
+        assertTrue(events.isEmpty())
+        assertEquals(PaletteError(PaletteAction.RunCommand, ChatFailure.Unknown), presenter.state.value.error)
+
+        // A built-in still runs.
+        presenter.onIntent(PaletteIntent.Submit("/clear"))
+        settle()
+        assertEquals(listOf<PaletteEvent>(PaletteEvent.RunBuiltIn(BuiltInCommand.New, from = "/clear", draft = "")), events)
+
+        // The next send asks again, and the server's command runs.
+        chat.commandsCancelled = false
+        presenter.onIntent(PaletteIntent.Submit("/review now"))
+        settle()
+        assertEquals(listOf(CommandRun(MAIN, "review", "now")), chat.client.messages.commandsRun)
+        assertFalse(presenter.state.value.running)
+    }
+
+    @Test
+    fun `a waiter that stops waiting leaves the shared request to the others`() = runTest {
+        val (chat, presenter, events) = setup()
+        chat.client.control.stall()
+        type(presenter, "/re")
+        // The list stops waiting: the word is gone.
+        type(presenter, "hello")
+
+        presenter.onIntent(PaletteIntent.Submit("/review now"))
+        runCurrent()
+        chat.client.control.resume()
+        settle()
+
+        assertEquals(listOf(CommandRun(MAIN, "review", "now")), chat.client.messages.commandsRun)
+        assertEquals(1, chat.catalogCalls().count { it == "catalog.commands" })
+        assertEquals(1, events.size)
+    }
+
+    // Picking a built-in while the commands load
+
+    @Test
+    fun `a built-in picked while the commands load waits for them, and the server's command of its name wins`() = runTest {
+        val (chat, presenter, events) = setup {
+            it.client.catalog.setCommands(listOf(Command("new", "The server's new")), Location(DIR))
+        }
+        chat.client.control.stall()
+        type(presenter, "/ne")
+        assertTrue(presenter.state.value.loading)
+        assertEquals(listOf("builtin:new"), presenter.state.value.names())
+
+        presenter.onIntent(PaletteIntent.Pick(PaletteItem.BuiltIn(BuiltInCommand.New)))
+        runCurrent()
+        assertTrue(presenter.state.value.running)
+        assertTrue(events.isEmpty())
+
+        chat.client.control.resume()
+        settle()
+
+        assertEquals(listOf(CommandRun(MAIN, "new", "")), chat.client.messages.commandsRun)
+        assertEquals(listOf<PaletteEvent>(PaletteEvent.CommandSent(from = "/ne")), events)
+        // The pick shares the palette's own request for the commands.
+        assertEquals(1, chat.catalogCalls().count { it == "catalog.commands" })
+        assertFalse(presenter.state.value.running)
+    }
+
+    @Test
+    fun `a built-in picked while the commands load runs once they hold no command of its name`() = runTest {
+        val (chat, presenter, events) = setup()
+        chat.client.control.stall()
+        type(presenter, "/ne")
+
+        presenter.onIntent(PaletteIntent.Pick(PaletteItem.BuiltIn(BuiltInCommand.New)))
+        runCurrent()
+        assertTrue(events.isEmpty())
+
+        chat.client.control.resume()
+        settle()
+
+        assertEquals(listOf<PaletteEvent>(PaletteEvent.RunBuiltIn(BuiltInCommand.New, from = "/ne", draft = "")), events)
+        assertTrue(chat.client.messages.commandsRun.isEmpty())
+        assertEquals(1, chat.catalogCalls().count { it == "catalog.commands" })
+        assertFalse(presenter.state.value.running)
+    }
+
+    @Test
+    fun `a built-in picked while the commands load still runs when they fail`() = runTest {
+        val (chat, presenter, events) = setup {
+            it.client.catalog.setCommands(listOf(Command("new", "The server's new")), Location(DIR))
+        }
+        chat.client.control.stall()
+        type(presenter, "/ne")
+
+        presenter.onIntent(PaletteIntent.Pick(PaletteItem.BuiltIn(BuiltInCommand.New)))
+        runCurrent()
+        chat.client.control.failNext(ApiError.Network)
+        chat.client.control.resume()
+        settle()
+
+        assertEquals(listOf<PaletteEvent>(PaletteEvent.RunBuiltIn(BuiltInCommand.New, from = "/ne", draft = "")), events)
+        assertTrue(chat.client.messages.commandsRun.isEmpty())
+        assertFalse(presenter.state.value.running)
+        // The list's failure shows as the list's, not as a failed command.
+        assertEquals(PaletteError(PaletteAction.Load, ChatFailure.Unreachable), presenter.state.value.error)
+    }
+
+    // Sending a slash word
+
+    @Test
+    fun `sending a built-in's name or alias runs it, in any case, with the rest of the draft left`() = runTest {
+        val (chat, presenter, events) = setup()
+
+        presenter.onIntent(PaletteIntent.Submit("/clear"))
+        settle()
+        presenter.onIntent(PaletteIntent.Submit("  /Compact  "))
+        settle()
+        presenter.onIntent(PaletteIntent.Submit("/RESUME later on"))
+        settle()
+
+        assertEquals(
+            listOf<PaletteEvent>(
+                PaletteEvent.RunBuiltIn(BuiltInCommand.New, from = "/clear", draft = ""),
+                PaletteEvent.RunBuiltIn(BuiltInCommand.Compact, from = "  /Compact  ", draft = ""),
+                PaletteEvent.RunBuiltIn(BuiltInCommand.Sessions, from = "/RESUME later on", draft = "later on"),
+            ),
+            events,
+        )
+        assertTrue(chat.client.messages.commandsRun.isEmpty())
+        assertFalse(presenter.state.value.running)
+    }
+
+    @Test
+    fun `sending a server command's exact name runs it with the rest as its text`() = runTest {
+        val (chat, presenter, events) = setup()
+        type(presenter, "/review the last commit")
+
+        presenter.onIntent(PaletteIntent.Submit("/review the last commit"))
+        settle()
+
+        assertEquals(listOf(CommandRun(MAIN, "review", "the last commit")), chat.client.messages.commandsRun)
+        assertEquals(listOf<PaletteEvent>(PaletteEvent.CommandSent(from = "/review the last commit")), events)
+    }
+
+    @Test
+    fun `a server command wins over a built-in of the same name, the built-in keeps its other names`() = runTest {
+        val (chat, presenter, events) = setup {
+            it.client.catalog.setCommands(listOf(Command("clear", "The server's clear")), Location(DIR))
+        }
+
+        presenter.onIntent(PaletteIntent.Submit("/clear"))
+        settle()
+
+        assertEquals(listOf(CommandRun(MAIN, "clear", "")), chat.client.messages.commandsRun)
+        assertEquals(listOf<PaletteEvent>(PaletteEvent.CommandSent(from = "/clear")), events)
+
+        events.clear()
+        presenter.onIntent(PaletteIntent.Submit("/new"))
+        settle()
+
+        assertEquals(listOf<PaletteEvent>(PaletteEvent.RunBuiltIn(BuiltInCommand.New, from = "/new", draft = "")), events)
+        assertEquals(1, chat.client.messages.commandsRun.size)
+    }
+
+    @Test
+    fun `any other slash word goes back to be sent as a prompt`() = runTest {
+        val (chat, presenter, events) = setup()
+
+        presenter.onIntent(PaletteIntent.Submit("/hello there"))
+        settle()
+        // A server command matches only exactly.
+        presenter.onIntent(PaletteIntent.Submit("/Review"))
+        settle()
+        presenter.onIntent(PaletteIntent.Submit("/cle"))
+        settle()
+
+        assertEquals(
+            listOf<PaletteEvent>(
+                PaletteEvent.SendPrompt("/hello there"),
+                PaletteEvent.SendPrompt("/Review"),
+                PaletteEvent.SendPrompt("/cle"),
+            ),
+            events,
+        )
+        assertTrue(chat.client.messages.commandsRun.isEmpty())
+    }
+
+    @Test
+    fun `a draft without a slash word goes back at once`() = runTest {
+        val (chat, presenter, events) = setup()
+
+        presenter.onIntent(PaletteIntent.Submit("hello /clear"))
+        settle()
+
+        assertEquals(listOf<PaletteEvent>(PaletteEvent.SendPrompt("hello /clear")), events)
+        assertTrue(chat.catalogCalls().isEmpty())
+    }
+
+    @Test
+    fun `sending before the lists are known asks for them first, once`() = runTest {
+        val (chat, presenter, events) = setup()
+        chat.client.control.stall()
+
+        presenter.onIntent(PaletteIntent.Submit("/clear"))
+        runCurrent()
+
+        assertTrue(presenter.state.value.running)
+        assertTrue(events.isEmpty())
+        // One at a time: a second send while the first is worked out is ignored.
+        presenter.onIntent(PaletteIntent.Submit("/undo"))
+
+        chat.client.control.resume()
+        settle()
+
+        assertEquals(listOf<PaletteEvent>(PaletteEvent.RunBuiltIn(BuiltInCommand.New, from = "/clear", draft = "")), events)
+        assertFalse(presenter.state.value.running)
+
+        presenter.onIntent(PaletteIntent.Submit("/undo"))
+        settle()
+        assertEquals(PaletteEvent.RunBuiltIn(BuiltInCommand.Undo, from = "/undo", draft = ""), events.last())
+        // A send needs the commands only, asked once and kept.
+        assertEquals(listOf("catalog.commands"), chat.catalogCalls())
+    }
+
+    @Test
+    fun `when the lists cannot be asked a built-in still runs, and anything else keeps the draft`() = runTest {
+        val (chat, presenter, events) = setup { it.connected = false }
+
+        presenter.onIntent(PaletteIntent.Submit("/sessions"))
+        settle()
+
+        assertEquals(
+            listOf<PaletteEvent>(PaletteEvent.RunBuiltIn(BuiltInCommand.Sessions, from = "/sessions", draft = "")),
+            events,
+        )
+        assertNull(presenter.state.value.error)
+
+        presenter.onIntent(PaletteIntent.Submit("/review now"))
+        settle()
+
+        assertEquals(1, events.size)
+        assertEquals(PaletteError(PaletteAction.RunCommand, ChatFailure.NotConnected), presenter.state.value.error)
+        assertFalse(presenter.state.value.running)
+    }
+
+    @Test
+    fun `a send is ignored while a command runs`() = runTest {
+        val (chat, presenter, events) = setup()
+        type(presenter, "/rev")
+        chat.client.control.stall()
+        presenter.onIntent(PaletteIntent.Pick(PaletteItem.Command("review", "Review changes")))
+        runCurrent()
+
+        presenter.onIntent(PaletteIntent.Submit("/clear"))
+        chat.client.control.resume()
+        settle()
+
+        assertEquals(listOf<PaletteEvent>(PaletteEvent.CommandSent(from = "/rev")), events)
+    }
+
+
+    // Commands and skills load apart
+
+    @Test
+    fun `a failed skills list keeps the commands that loaded`() = runTest {
+        val (_, presenter) = setup { it.skillsFailure = ApiError.Server(500) }
+
+        type(presenter, "/")
+
+        assertEquals(PaletteError(PaletteAction.Load, ChatFailure.ServerFailed), presenter.state.value.error)
+        assertEquals(listOf("/review", "/init", "/preview") + ALL_BUILT_INS, presenter.state.value.names())
+    }
+
+    @Test
+    fun `a failed commands list keeps the skills that loaded`() = runTest {
+        val (_, presenter) = setup { it.commandsFailure = ApiError.Server(500) }
+
+        type(presenter, "/rel")
+
+        assertEquals(PaletteError(PaletteAction.Load, ChatFailure.ServerFailed), presenter.state.value.error)
+        assertEquals(listOf("skill:release"), presenter.state.value.names())
+    }
+
+    @Test
+    fun `after a failed skills list, retry asks for the skills only`() = runTest {
+        val (chat, presenter) = setup { it.skillsFailure = ApiError.Server(500) }
+        type(presenter, "/")
+        chat.skillsFailure = null
+
+        presenter.onIntent(PaletteIntent.Retry)
+        settle()
+
+        assertNull(presenter.state.value.error)
+        assertEquals(5 + ALL_BUILT_INS.size, presenter.state.value.items.size)
+        assertEquals(1, chat.catalogCalls().count { it == "catalog.commands" })
+    }
+
+    @Test
+    fun `a sent built-in name that a loaded server command overrides runs the server command, even when skills failed`() =
+        runTest {
+            val (chat, presenter, events) = setup {
+                it.client.catalog.setCommands(listOf(Command("new", "The server's new")), Location(DIR))
+                it.skillsFailure = ApiError.Server(500)
+            }
+
+            presenter.onIntent(PaletteIntent.Submit("/new"))
+            settle()
+
+            assertEquals(listOf(CommandRun(MAIN, "new", "")), chat.client.messages.commandsRun)
+            assertEquals(listOf<PaletteEvent>(PaletteEvent.CommandSent(from = "/new")), events)
+            assertNull(presenter.state.value.error)
+        }
+
+    @Test
+    fun `a sent built-in name uses the commands the palette loaded although its skills failed`() = runTest {
+        val (chat, presenter, events) = setup {
+            it.client.catalog.setCommands(listOf(Command("new", "The server's new")), Location(DIR))
+            it.skillsFailure = ApiError.Server(500)
+        }
+        type(presenter, "/ne")
+        val asked = chat.catalogCalls().count { it == "catalog.commands" }
+
+        presenter.onIntent(PaletteIntent.Submit("/new"))
+        settle()
+
+        assertEquals(listOf(CommandRun(MAIN, "new", "")), chat.client.messages.commandsRun)
+        assertTrue(events.none { it is PaletteEvent.RunBuiltIn })
+        assertEquals(asked, chat.catalogCalls().count { it == "catalog.commands" })
+    }
+
+    // Failures of a sent command stay after the palette closed
+
+    @Test
+    fun `a sent command with text that fails keeps its error while the palette is closed`() = runTest {
+        val (chat, presenter, events) = setup()
+        type(presenter, "/review branch")
+        assertFalse(presenter.state.value.open)
+        chat.client.control.failNext(ApiError.Server(500))
+
+        presenter.onIntent(PaletteIntent.Submit("/review branch"))
+        settle()
+
+        assertTrue(events.isEmpty())
+        assertFalse(presenter.state.value.open)
+        assertEquals(PaletteError(PaletteAction.RunCommand, ChatFailure.ServerFailed), presenter.state.value.error)
+    }
+
+    @Test
+    fun `a sent command whose commands list fails keeps that error while the palette is closed`() = runTest {
+        val (chat, presenter, events) = setup { it.commandsFailure = ApiError.Network }
+        type(presenter, "/review branch")
+
+        presenter.onIntent(PaletteIntent.Submit("/review branch"))
+        settle()
+
+        assertTrue(events.isEmpty())
+        assertFalse(presenter.state.value.open)
+        assertEquals(PaletteError(PaletteAction.RunCommand, ChatFailure.Unreachable), presenter.state.value.error)
+        assertTrue(chat.client.messages.commandsRun.isEmpty())
+    }
+
+    // A command run cut short, and a send ahead of the stored draft
+
+    @Test
+    fun `a command run cut short frees the slot, keeps the draft and shows the error`() = runTest {
+        val (chat, presenter, events) = setup { it.runsCancelled = true }
+
+        presenter.onIntent(PaletteIntent.Submit("/review now"))
+        settle()
+
+        assertFalse(presenter.state.value.running)
+        assertTrue(events.isEmpty())
+        assertEquals(PaletteError(PaletteAction.RunCommand, ChatFailure.Unknown), presenter.state.value.error)
+
+        chat.runsCancelled = false
+        presenter.onIntent(PaletteIntent.Submit("/review again"))
+        settle()
+
+        assertEquals(listOf(CommandRun(MAIN, "review", "again")), chat.client.messages.commandsRun)
+        assertEquals(listOf<PaletteEvent>(PaletteEvent.CommandSent(from = "/review again")), events)
+    }
+
+    @Test
+    fun `a send ahead of the stored draft runs the sent text and names only that draft`() = runTest {
+        val (chat, presenter, events) = setup()
+        // The palette last saw an older draft; the composer already holds the newer one it sends.
+        type(presenter, "/rev")
+
+        presenter.onIntent(PaletteIntent.Submit("/review the newest text"))
+        settle()
+
+        assertEquals(listOf(CommandRun(MAIN, "review", "the newest text")), chat.client.messages.commandsRun)
+        assertEquals(listOf<PaletteEvent>(PaletteEvent.CommandSent(from = "/review the newest text")), events)
+        assertTrue(events.none { it.toString().contains("/rev") })
+    }
+
+    // Notices
+
+    @Test
+    fun `a notice shows until the draft changes or it is dismissed`() = runTest {
+        val (_, presenter) = setup()
+        type(presenter, "/undo")
+
+        presenter.onIntent(PaletteIntent.ShowNotice(BuiltInNotice.NothingToUndo))
+        runCurrent()
+        assertEquals(BuiltInNotice.NothingToUndo, presenter.state.value.notice)
+
+        // The same draft handed over again is no change.
+        type(presenter, "/undo")
+        assertEquals(BuiltInNotice.NothingToUndo, presenter.state.value.notice)
+
+        type(presenter, "/und")
+        assertNull(presenter.state.value.notice)
+
+        presenter.onIntent(PaletteIntent.ShowNotice(BuiltInNotice.Unavailable))
+        presenter.onIntent(PaletteIntent.DismissNotice)
+        runCurrent()
+        assertNull(presenter.state.value.notice)
+    }
+
+    @Test
+    fun `sent drafts stay out of what prints`() {
+        val printed = listOf(
+            PaletteIntent.Submit("/review secret plan"),
+            PaletteEvent.RunBuiltIn(BuiltInCommand.New, from = "/new secret plan", draft = "secret plan"),
+            PaletteEvent.SendPrompt("/hello secret plan"),
+        ).joinToString()
+
+        assertFalse("secret" in printed)
     }
 
     // Privacy

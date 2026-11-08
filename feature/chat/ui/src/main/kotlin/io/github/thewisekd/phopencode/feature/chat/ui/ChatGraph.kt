@@ -21,6 +21,7 @@ import androidx.navigation.toRoute
 import io.github.thewisekd.phopencode.core.navigation.ChatRoute
 import io.github.thewisekd.phopencode.core.navigation.FilesRoute
 import io.github.thewisekd.phopencode.core.navigation.GitRoute
+import io.github.thewisekd.phopencode.core.navigation.SessionsRoute
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatSession
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerEvent
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerIntent
@@ -36,6 +37,7 @@ import io.github.thewisekd.phopencode.feature.chat.logic.contract.UsageEvent
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.UsagePresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.ActionsEvent
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.ActionsPresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.BuiltInRun
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.FormEvent
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.FormPresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteEvent
@@ -44,6 +46,7 @@ import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.Pa
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PermissionPresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.RevertEvent
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.RevertPresenter
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SlashWord
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SubagentEvent
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SubagentPresenter
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SwitcherPresenter
@@ -68,6 +71,9 @@ import org.koin.mp.KoinPlatform
  *   query; a palette pick comes back to the composer as its new draft and an attachment. Session
  *   actions open a turn's diff or switch to a fork; subagents open their list. The session's
  *   folder opens the files ([FilesRoute.Tree]) and git ([GitRoute.Status]) screens on top.
+ *   Sending a draft that starts with a slash word goes to the palette ([PaletteIntent.Submit]), not
+ *   the composer; the palette hands back a prompt to send, or a built-in, which runs here: see
+ *   [runBuiltIn].
  * - [ChatRoute.Subagents]: the subagent list; a subagent opens its [ChatRoute.ChildSession].
  * - [ChatRoute.ChildSession]: a subagent's timeline, read only, with its way back to the parent.
  * - [ChatRoute.TurnDiff]: one turn's changes and their revert.
@@ -116,8 +122,14 @@ fun NavGraphBuilder.chatGraph(navController: NavController) {
                     composer.onIntent(ComposerIntent.Attach(event.attachment))
                 }
                 is PaletteEvent.CommandSent -> {
-                    composer.onIntent(ComposerIntent.DraftChanged(event.draft))
+                    // Only the draft the command was sent from empties; newer text stays.
+                    if (composer.state.value.draft == event.from) composer.onIntent(ComposerIntent.DraftChanged(""))
                     timeline.onIntent(TimelineIntent.JumpToLatest)
+                }
+                is PaletteEvent.RunBuiltIn -> navController.runBuiltIn(event, route, composer, palette, actions, switcher)
+                // Sent only if the composer still holds what was handed over.
+                is PaletteEvent.SendPrompt -> if (composer.state.value.draft == event.draft) {
+                    composer.onIntent(ComposerIntent.Send)
                 }
             }
         }
@@ -159,7 +171,7 @@ fun NavGraphBuilder.chatGraph(navController: NavController) {
             tool = toolState,
             onToolIntent = tool::onIntent,
             composer = composerState,
-            onComposerIntent = composer::onIntent,
+            onComposerIntent = { intent -> sendThroughPalette(intent, composer, palette) },
             forms = formsState,
             onFormIntent = forms::onIntent,
             permissions = permissionsState,
@@ -296,6 +308,61 @@ private fun CollectFormEvents(forms: FormPresenter) {
 private fun String.isWebUrl(): Boolean {
     val scheme = substringBefore(':', missingDelimiterValue = "").lowercase()
     return (scheme == "https" || scheme == "http") && startsWith("$scheme://", ignoreCase = true)
+}
+
+/**
+ * Hands [intent] to [composer], except a send of a draft that starts with a slash word
+ * ([SlashWord]): that goes to [palette] as [PaletteIntent.Submit], which tells a server command, a
+ * built-in and a prompt apart.
+ */
+private fun sendThroughPalette(intent: ComposerIntent, composer: ComposerPresenter, palette: PalettePresenter) {
+    val draft = composer.state.value.draft
+    if (intent == ComposerIntent.Send && SlashWord.of(draft) != null) {
+        palette.onIntent(PaletteIntent.Submit(draft))
+    } else {
+        composer.onIntent(intent)
+    }
+}
+
+/**
+ * Runs the built-in of [event] from the chat showing [current], as [BuiltInRun] says for the
+ * current states of [actions] and [switcher]. When it runs, the composer's draft becomes the one the
+ * event leaves, if the composer still holds the one it came from; when it does not, [palette] shows
+ * why and the draft stays. The session list is the one on the back stack, else the session folder's
+ * list in place of the chat.
+ */
+private fun NavController.runBuiltIn(
+    event: PaletteEvent.RunBuiltIn,
+    current: ChatRoute,
+    composer: ComposerPresenter,
+    palette: PalettePresenter,
+    actions: ActionsPresenter,
+    switcher: SwitcherPresenter,
+) {
+    val run = event.command.resolve(actions.state.value, switcher.state.value)
+    if (run is BuiltInRun.Refused) {
+        palette.onIntent(PaletteIntent.ShowNotice(run.notice))
+        return
+    }
+    if (composer.state.value.draft == event.from) composer.onIntent(ComposerIntent.DraftChanged(event.draft))
+    when (run) {
+        is BuiltInRun.Actions -> actions.onIntent(run.intent)
+        is BuiltInRun.Switcher -> switcher.onIntent(run.intent)
+        is BuiltInRun.OpenSessions -> if (hasSessionList()) {
+            popBackStack<SessionsRoute.SessionList>(inclusive = false)
+        } else {
+            navigate(SessionsRoute.SessionList(directory = run.directory)) { popUpTo(current) { inclusive = true } }
+        }
+        is BuiltInRun.Refused -> Unit
+    }
+}
+
+/** Whether a session list is on the back stack; the lookup throws when there is none. */
+private fun NavController.hasSessionList(): Boolean = try {
+    getBackStackEntry<SessionsRoute.SessionList>()
+    true
+} catch (_: IllegalArgumentException) {
+    false
 }
 
 /** Hands every draft of [composer] to [palette], which opens on a `/` or `@` word. */

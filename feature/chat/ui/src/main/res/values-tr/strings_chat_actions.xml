@@ -27,10 +27,13 @@
     <!-- Next to the menu button while an action runs. -->
     <string name="chat_actions_status_compacting">Sıkıştırılıyor…</string>
     <string name="chat_actions_status_forking">Çatallanıyor…</string>
+    <string name="chat_actions_status_creating">Yeni oturum başlatılıyor…</string>
     <!-- %1$s: why, one of the chat_actions_reason_ strings. -->
     <string name="chat_actions_error_compact">Oturum sıkıştırılamadı. %1$s</string>
     <!-- %1$s: why, one of the chat_actions_reason_ strings. -->
     <string name="chat_actions_error_fork">Oturum çatallanamadı. %1$s</string>
+    <!-- %1$s: why, one of the chat_actions_reason_ strings. -->
+    <string name="chat_actions_error_new_session">Yeni oturum başlatılamadı. %1$s</string>
     <string name="chat_actions_reason_not_connected">Sunucuyla bağlantı yok.</string>
     <string name="chat_actions_reason_unreachable">Sunucuya ulaşılamadı.</string>
     <string name="chat_actions_reason_unauthorized">Sunucu kimlik bilgilerini reddetti.</string>

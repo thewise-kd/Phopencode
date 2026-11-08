@@ -11,6 +11,7 @@ import io.github.thewisekd.phopencode.core.model.MessageId
 import io.github.thewisekd.phopencode.core.model.Session
 import io.github.thewisekd.phopencode.core.model.SessionFork
 import io.github.thewisekd.phopencode.core.model.SessionId
+import io.github.thewisekd.phopencode.core.model.SessionRevert
 import io.github.thewisekd.phopencode.core.model.SessionStatus
 import io.github.thewisekd.phopencode.core.navigation.ChatRoute
 import io.github.thewisekd.phopencode.core.session.reducer.SessionState
@@ -78,11 +79,12 @@ private class FakeChatSession(override val sessionId: SessionId) : ChatSession {
         inbox: List<InboxItem> = emptyList(),
         status: SessionStatus = SessionStatus.Idle,
         directory: String? = null,
+        revert: MessageId? = null,
     ) {
         mutableState.value = ChatSessionState(
             availability = ChatAvailability.Live,
             session = SessionState(
-                Session(id = sessionId, directory = directory),
+                Session(id = sessionId, directory = directory, revert = revert?.let { SessionRevert(it) }),
                 status = status,
                 messages = messages,
                 inbox = inbox,
@@ -487,6 +489,166 @@ class DefaultActionsPresenterTest {
         runCurrent()
         assertNull(presenter.state.value.error)
         assertEquals(1, events.size)
+    }
+
+
+    // New session
+
+    @Test
+    fun `NewSession creates a session in the folder and switches to it, without asking first`() = runTest {
+        val (chat, presenter, events) = setup(live = false)
+        chat.live(history, directory = FOLDER)
+        runCurrent()
+        chat.client.control.stall()
+
+        presenter.onIntent(ActionsIntent.NewSession)
+        runCurrent()
+        assertNull(presenter.state.value.confirming)
+        assertEquals(SessionAction.NewSession, presenter.state.value.running)
+        assertEquals(emptyList(), events)
+
+        // One action at a time.
+        presenter.onIntent(ActionsIntent.NewSession)
+        presenter.onIntent(ActionsIntent.Request(SessionAction.Compact))
+        runCurrent()
+        assertNull(presenter.state.value.confirming)
+
+        chat.client.control.resume()
+        runCurrent()
+
+        assertEquals(listOf("sessions.create"), chat.calls)
+        val created = chat.lastResult as Session
+        assertEquals(FOLDER, created.directory)
+        assertNull(created.agent)
+        assertNull(created.model)
+        assertNull(created.title)
+        assertEquals(listOf<ActionsEvent>(ActionsEvent.OpenSession(created.id)), events)
+        assertNull(presenter.state.value.running)
+    }
+
+    @Test
+    fun `NewSession does nothing without a folder, while disabled, or while an action runs`() = runTest {
+        val (chat, presenter, events) = setup()
+
+        presenter.onIntent(ActionsIntent.NewSession)
+        runCurrent()
+        assertEquals(emptyList(), chat.calls)
+
+        // Disabled: the folder is known, the connection is not live.
+        chat.live(history, directory = FOLDER)
+        chat.mutableState.value = chat.mutableState.value.copy(availability = ChatAvailability.Reconnecting)
+        runCurrent()
+        presenter.onIntent(ActionsIntent.NewSession)
+        runCurrent()
+        assertEquals(emptyList(), chat.calls)
+
+        chat.live(history, directory = FOLDER)
+        runCurrent()
+        chat.client.control.stall()
+        presenter.onIntent(ActionsIntent.Request(SessionAction.Fork(null)))
+        presenter.onIntent(ActionsIntent.Confirm)
+        runCurrent()
+        presenter.onIntent(ActionsIntent.NewSession)
+        runCurrent()
+        assertEquals(listOf("sessions.fork"), chat.calls)
+        assertEquals(emptyList(), events)
+    }
+
+    @Test
+    fun `a failed new session shows the error and stays on this session`() = runTest {
+        val (chat, presenter, events) = setup(live = false)
+        chat.live(history, directory = FOLDER)
+        runCurrent()
+        chat.client.control.failNext(ApiError.Network)
+
+        presenter.onIntent(ActionsIntent.NewSession)
+        runCurrent()
+
+        assertEquals(ActionError(SessionAction.NewSession, ChatFailure.Unreachable), presenter.state.value.error)
+        assertNull(presenter.state.value.running)
+        assertEquals(emptyList(), events)
+    }
+
+    @Test
+    fun `a new session is never asked for, a request only closes the menu`() = runTest {
+        val (chat, presenter) = setup(live = false)
+        chat.live(history, directory = FOLDER)
+        runCurrent()
+        presenter.onIntent(ActionsIntent.OpenMenu)
+
+        presenter.onIntent(ActionsIntent.Request(SessionAction.NewSession))
+        runCurrent()
+
+        assertNull(presenter.state.value.confirming)
+        assertFalse(presenter.state.value.menuOpen)
+        assertEquals(emptyList(), chat.calls)
+    }
+
+    @Test
+    fun `a route other than the chat makes no new session`() = runTest {
+        val (chat, presenter) = setup(live = false, route = ChatRoute.Subagents(MAIN.value))
+        chat.live(history, directory = FOLDER)
+        runCurrent()
+
+        presenter.onIntent(ActionsIntent.NewSession)
+        runCurrent()
+
+        assertEquals(emptyList(), chat.calls)
+    }
+
+    // Undo and redo turns
+
+    @Test
+    fun `the turn to undo is the latest prompt, and none is staged to redo`() = runTest {
+        val (chat, presenter) = setup(live = false)
+        chat.live(history + Message.Assistant(MessageId("msg_reply"), MAIN))
+        runCurrent()
+
+        assertEquals(SECOND, presenter.state.value.undoTurn)
+        assertNull(presenter.state.value.redoTurn)
+    }
+
+    @Test
+    fun `with a revert staged, undo goes to the prompt before it and redo to the staged one`() = runTest {
+        val (chat, presenter) = setup(live = false)
+
+        chat.live(history, revert = SECOND)
+        runCurrent()
+        assertEquals(FIRST, presenter.state.value.undoTurn)
+        assertEquals(SECOND, presenter.state.value.redoTurn)
+
+        chat.live(history, revert = FIRST)
+        runCurrent()
+        assertNull(presenter.state.value.undoTurn)
+        assertEquals(FIRST, presenter.state.value.redoTurn)
+
+        chat.live(history)
+        runCurrent()
+        assertEquals(SECOND, presenter.state.value.undoTurn)
+        assertNull(presenter.state.value.redoTurn)
+    }
+
+    @Test
+    fun `with a staged revert outside the loaded messages, no turn is offered to undo`() = runTest {
+        val (chat, presenter) = setup(live = false)
+
+        // The revert's boundary is older than the page held: every prompt held may be reverted.
+        chat.live(history, revert = MessageId("msg_older_than_the_page"))
+        runCurrent()
+
+        assertNull(presenter.state.value.undoTurn)
+        assertEquals(MessageId("msg_older_than_the_page"), presenter.state.value.redoTurn)
+    }
+
+    @Test
+    fun `a session without prompts has nothing to undo`() = runTest {
+        val (chat, presenter) = setup(live = false)
+
+        chat.live(emptyList())
+        runCurrent()
+
+        assertNull(presenter.state.value.undoTurn)
+        assertFalse(presenter.state.value.toString().contains(SECOND.value))
     }
 
     // A turn's changes

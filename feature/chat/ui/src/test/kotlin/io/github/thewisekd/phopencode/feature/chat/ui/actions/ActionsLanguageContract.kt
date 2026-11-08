@@ -36,6 +36,7 @@ internal data class ExpectedActionsStrings(
     val cancel: String,
     val compacting: String,
     val forking: String,
+    val creating: String,
     val error: (SessionAction, reason: String) -> String,
     val reasons: Map<ChatFailure, String>,
     val turnChanges: String,
@@ -103,12 +104,16 @@ abstract class ActionsLanguageContract {
 
         show(READY.copy(running = SessionAction.Fork(null)))
         assertEquals(strings.forking, node(ActionsTags.STATUS).text())
+
+        show(READY.copy(running = SessionAction.NewSession))
+        assertEquals(strings.creating, node(ActionsTags.STATUS).text())
     }
 
     @Test
     fun `a failure says what failed and why`() {
         assertTrue(strings.reasons.keys == ChatFailure.entries.toSet())
-        for (action in listOf(SessionAction.Compact, SessionAction.Fork(null), SessionAction.Fork(PROMPT))) {
+        val actions = listOf(SessionAction.Compact, SessionAction.Fork(null), SessionAction.Fork(PROMPT), SessionAction.NewSession)
+        for (action in actions) {
             for ((reason, text) in strings.reasons) {
                 show(READY.copy(error = ActionError(action, reason)))
                 assertEquals(strings.error(action, text), merged(ActionsTags.ERROR).text(), "$action $reason")

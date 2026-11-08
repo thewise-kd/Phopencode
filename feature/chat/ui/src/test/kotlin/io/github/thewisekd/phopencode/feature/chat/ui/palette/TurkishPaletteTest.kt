@@ -1,6 +1,8 @@
 package io.github.thewisekd.phopencode.feature.chat.ui.palette
 
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatFailure
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.BuiltInCommand
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.BuiltInNotice
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -32,6 +34,24 @@ class TurkishPaletteTest : PaletteLanguageContract() {
             SOURCE to listOf("src/çekirdek/Main.kt", "Dosya"),
             FOLDER to listOf("src/çekirdek", "Klasör"),
         ),
+        builtIns = mapOf(
+            BuiltInCommand.New to listOf("/new", "Bu klasörde yeni oturum başlat", "Diğer adları: /clear", "Yerleşik"),
+            BuiltInCommand.Compact to
+                listOf("/compact", "Bağlamı boşaltmak için oturumu özetle", "Diğer adları: /summarize", "Yerleşik"),
+            BuiltInCommand.Fork to listOf("/fork", "Oturumu yeni bir oturuma kopyala", "Yerleşik"),
+            BuiltInCommand.Undo to listOf("/undo", "Son turu geri al", "Yerleşik"),
+            BuiltInCommand.Redo to listOf("/redo", "Bekleyen geri almayı iptal et", "Yerleşik"),
+            BuiltInCommand.Models to listOf("/models", "Modeli değiştir", "Yerleşik"),
+            BuiltInCommand.Agents to listOf("/agents", "Ajanı değiştir", "Yerleşik"),
+            BuiltInCommand.Sessions to
+                listOf("/sessions", "Oturum listesine dön", "Diğer adları: /resume, /continue", "Yerleşik"),
+        ),
+        notices = mapOf(
+            BuiltInNotice.Unavailable to "Bu komut şu anda kullanılamıyor.",
+            BuiltInNotice.NothingToUndo to "Geri alınacak tur yok.",
+            BuiltInNotice.NothingToRedo to "İptal edilecek bekleyen geri alma yok.",
+        ),
+        noticeDismiss = "Kapat",
         run = "Çalıştır",
         attach = "Ekle",
         loading = "Yükleniyor…",

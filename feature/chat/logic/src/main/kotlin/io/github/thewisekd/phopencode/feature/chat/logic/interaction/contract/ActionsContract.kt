@@ -20,6 +20,14 @@ import io.github.thewisekd.phopencode.feature.chat.logic.contract.Presenter
  *   [ActionsEvent.OpenGit], only while [ActionsState.directory] is known. They ask the server
  *   nothing here, so they do not wait for [ActionsState.enabled].
  *
+ * - **New session** (the `/new` built-in): `SessionApi.create` with the session's folder as its
+ *   location, nothing else, as the session list's creation leaves the rest to the server; through
+ *   `ChatSession.call`, only while [ActionsState.canAct] and [ActionsState.directory] is known. It
+ *   does not ask first. Once the server made it, [ActionsEvent.OpenSession] switches the chat to it.
+ * - **Undo and redo** (the `/undo` and `/redo` built-ins): [ActionsState.undoTurn] and
+ *   [ActionsState.redoTurn] name the turn whose page ([ActionsIntent.ShowTurnChanges]) stages or
+ *   drops a revert, with the page's own confirmation.
+ *
  * Compact and fork ask first: [ActionsIntent.Request] sets [ActionsState.confirming], and only
  * [ActionsIntent.Confirm] sends. One action at a time; a failed one sets [ActionsState.error].
  *
@@ -31,6 +39,11 @@ import io.github.thewisekd.phopencode.feature.chat.logic.contract.Presenter
  * @property error The last action failed.
  * @property directory The loaded session's folder, which files and git open; null until the
  *   session is loaded, when it has none, and on any route but `ChatRoute.Chat`. Prints masked.
+ * @property undoTurn The latest user message of the loaded session before the staged revert's
+ *   (of all of them when none is staged): what `/undo` opens. None when the staged revert's message
+ *   is not among those held, as it may already cover them all. Prints as a flag.
+ * @property redoTurn The user message of the staged revert, if any: what `/redo` opens. Prints as
+ *   a flag.
  */
 data class ActionsState(
     val enabled: Boolean = false,
@@ -40,6 +53,8 @@ data class ActionsState(
     val compacting: Boolean = false,
     val error: ActionError? = null,
     val directory: String? = null,
+    val undoTurn: MessageId? = null,
+    val redoTurn: MessageId? = null,
 ) {
     /** Whether an action could start: none runs. */
     val canAct: Boolean
@@ -47,7 +62,8 @@ data class ActionsState(
 
     override fun toString(): String =
         "ActionsState(enabled=$enabled, menuOpen=$menuOpen, confirming=$confirming, running=$running, " +
-            "compacting=$compacting, error=$error, directory=${if (directory == null) "null" else "***"})"
+            "compacting=$compacting, error=$error, directory=${if (directory == null) "null" else "***"}, " +
+            "undoTurn=${undoTurn != null}, redoTurn=${redoTurn != null})"
 }
 
 sealed interface SessionAction {
@@ -55,6 +71,9 @@ sealed interface SessionAction {
 
     /** @property messageId The copy ends before this message; null copies the whole history. */
     data class Fork(val messageId: MessageId?) : SessionAction
+
+    /** A new session in the session's folder; sent by [ActionsIntent.NewSession], never asked first. */
+    data object NewSession : SessionAction
 }
 
 data class ActionError(val action: SessionAction, val reason: ChatFailure)
@@ -64,7 +83,10 @@ sealed interface ActionsIntent {
 
     data object CloseMenu : ActionsIntent
 
-    /** Asks to run [action]: closes the menu and sets [ActionsState.confirming]. */
+    /**
+     * Asks to run [action]: closes the menu and sets [ActionsState.confirming].
+     * [SessionAction.NewSession] is not asked for; it only closes the menu.
+     */
     data class Request(val action: SessionAction) : ActionsIntent
 
     /** Runs [ActionsState.confirming]. */
@@ -83,10 +105,13 @@ sealed interface ActionsIntent {
 
     /** Opens git for [ActionsState.directory]; nothing while it is not known. */
     data object OpenGit : ActionsIntent
+
+    /** Creates a session in [ActionsState.directory] and switches to it; nothing while it is not known. */
+    data object NewSession : ActionsIntent
 }
 
 sealed interface ActionsEvent {
-    /** The fork [sessionId] was made; the chat switches to it, in place of this one. */
+    /** The fork or new session [sessionId] was made; the chat switches to it, in place of this one. */
     data class OpenSession(val sessionId: SessionId) : ActionsEvent
 
     /** Opens `ChatRoute.TurnDiff` for this session and [messageId]. */

@@ -30,10 +30,12 @@ class TurkishActionsTest : ActionsLanguageContract() {
         cancel = "İptal",
         compacting = "Sıkıştırılıyor…",
         forking = "Çatallanıyor…",
+        creating = "Yeni oturum başlatılıyor…",
         error = { action, reason ->
             when (action) {
                 SessionAction.Compact -> "Oturum sıkıştırılamadı. $reason"
                 is SessionAction.Fork -> "Oturum çatallanamadı. $reason"
+                SessionAction.NewSession -> "Yeni oturum başlatılamadı. $reason"
             }
         },
         reasons = mapOf(

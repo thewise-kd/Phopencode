@@ -16,6 +16,7 @@ import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
+import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.BuiltInCommand
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteIntent
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteItem
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PaletteState
@@ -31,12 +32,21 @@ internal const val REVIEW_DESCRIPTION = "Değişiklikleri gözden geçir"
 internal val INIT = PaletteItem.Command("init", "Create AGENTS.md")
 internal val REVIEW = PaletteItem.Command("review", REVIEW_DESCRIPTION)
 internal val PDF = PaletteItem.Skill("pdf-özet")
+internal val NEW = PaletteItem.BuiltIn(BuiltInCommand.New)
+internal val UNDO = PaletteItem.BuiltIn(BuiltInCommand.Undo)
 internal val EXPLORE = PaletteItem.Agent(id = "explore", name = "Explore", description = "Searches the code")
 internal val SOURCE = PaletteItem.File("src/çekirdek/Main.kt")
 internal val FOLDER = PaletteItem.File("src/çekirdek", directory = true)
 
-/** An open `/` palette with commands then a skill. */
-internal val SLASH = PaletteState(trigger = PaletteTrigger.Slash, query = "", items = listOf(INIT, REVIEW, PDF))
+/** An open `/` palette with commands, built-ins (one with an alias, one without) then a skill. */
+internal val SLASH = PaletteState(trigger = PaletteTrigger.Slash, query = "", items = listOf(INIT, REVIEW, NEW, UNDO, PDF))
+
+/** An open `/` palette with every built-in. */
+internal val BUILT_INS = PaletteState(
+    trigger = PaletteTrigger.Slash,
+    query = "",
+    items = BuiltInCommand.entries.map { PaletteItem.BuiltIn(it) },
+)
 
 /** An open `@` palette with an agent then files. */
 internal val AT = PaletteState(trigger = PaletteTrigger.At, query = "src", items = listOf(EXPLORE, SOURCE, FOLDER))
