@@ -1,3 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="catalog_skills_title">Beceriler</string>
+    <string name="catalog_skills_search">Becerilerde ara</string>
+    <!-- Read for the top bar's reload button. -->
+    <string name="catalog_skills_reload">Becerileri yeniden yükle</string>
+    <string name="catalog_skills_loading">Beceriler yükleniyor…</string>
+    <string name="catalog_skills_refreshing">Beceriler yenileniyor…</string>
+    <string name="catalog_skills_empty_title">Henüz beceri yok</string>
+    <string name="catalog_skills_empty_message">opencode\'un sunucuda bulduğu beceriler burada görünür.</string>
+    <string name="catalog_skills_no_match_title">Eşleşen beceri yok</string>
+    <string name="catalog_skills_no_match_message">Aramanızla eşleşen bir beceri yok.</string>
+    <!-- Click label read for a skill's card: what a tap does. -->
+    <string name="catalog_skills_open">Beceriyi aç</string>
+    <!-- A chip on a skill that opencode loads on its own when a prompt calls for it. -->
+    <string name="catalog_skills_auto">Otomatik kullanılır</string>
+    <string name="catalog_skills_error_not_connected">Bir sunucuya bağlı değilsiniz. Geri dönüp yeniden bağlanın.</string>
+    <string name="catalog_skills_error_unreachable">Sunucuya ulaşılamadı. Bağlantıyı denetleyip yeniden deneyin.</string>
+    <string name="catalog_skills_error_unauthorized">Sunucu kimlik bilgilerini reddetti.</string>
+    <string name="catalog_skills_error_not_found">Sunucu becerilerini bulamadı.</string>
+    <string name="catalog_skills_error_rejected">Sunucu isteği reddetti.</string>
+    <string name="catalog_skills_error_server">Sunucuda bir hata oluştu. Daha sonra yeniden deneyin.</string>
+    <string name="catalog_skills_error_unknown">Beceriler okunurken bir sorun oluştu.</string>
+    <string name="catalog_skills_detail_loading">Beceri yükleniyor…</string>
+    <string name="catalog_skills_detail_error_not_found">Bu beceri artık sunucuda yok.</string>
+    <!-- The label over the path of the skill's file. -->
+    <string name="catalog_skills_detail_source">Kaynak</string>
+    <string name="catalog_skills_detail_use">Yeni oturumda kullan</string>
+    <string name="catalog_skills_detail_no_content">Bu becerinin metni yok.</string>
 </resources>

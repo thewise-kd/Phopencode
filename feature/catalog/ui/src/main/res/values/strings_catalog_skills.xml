@@ -1,3 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="catalog_skills_title">Skills</string>
+    <string name="catalog_skills_search">Search skills</string>
+    <!-- Read for the top bar's reload button. -->
+    <string name="catalog_skills_reload">Reload skills</string>
+    <string name="catalog_skills_loading">Loading skills…</string>
+    <string name="catalog_skills_refreshing">Refreshing skills…</string>
+    <string name="catalog_skills_empty_title">No skills yet</string>
+    <string name="catalog_skills_empty_message">Skills that opencode finds on the server show up here.</string>
+    <string name="catalog_skills_no_match_title">No matching skills</string>
+    <string name="catalog_skills_no_match_message">No skill matches your search.</string>
+    <!-- Click label read for a skill's card: what a tap does. -->
+    <string name="catalog_skills_open">Open skill</string>
+    <!-- A chip on a skill that opencode loads on its own when a prompt calls for it. -->
+    <string name="catalog_skills_auto">Used automatically</string>
+    <string name="catalog_skills_error_not_connected">Not connected to a server. Go back and connect again.</string>
+    <string name="catalog_skills_error_unreachable">The server could not be reached. Check the connection and try again.</string>
+    <string name="catalog_skills_error_unauthorized">The server refused the credentials.</string>
+    <string name="catalog_skills_error_not_found">The server did not find its skills.</string>
+    <string name="catalog_skills_error_rejected">The server refused the request.</string>
+    <string name="catalog_skills_error_server">The server ran into an error. Try again later.</string>
+    <string name="catalog_skills_error_unknown">Something went wrong while reading the skills.</string>
+    <string name="catalog_skills_detail_loading">Loading the skill…</string>
+    <string name="catalog_skills_detail_error_not_found">This skill is no longer on the server.</string>
+    <!-- The label over the path of the skill's file. -->
+    <string name="catalog_skills_detail_source">Source</string>
+    <string name="catalog_skills_detail_use">Use in a new session</string>
+    <string name="catalog_skills_detail_no_content">This skill has no text.</string>
 </resources>
