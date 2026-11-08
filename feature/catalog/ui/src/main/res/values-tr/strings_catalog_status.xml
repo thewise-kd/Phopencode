@@ -1,3 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="catalog_status_title">MCP ve eklentiler</string>
+    <string name="catalog_status_refresh">Yenile</string>
+    <string name="catalog_status_updating">Güncelleniyor…</string>
+    <string name="catalog_status_loading">MCP sunucuları ve eklentiler yükleniyor…</string>
+    <string name="catalog_status_empty_title">MCP sunucusu ya da eklenti yok</string>
+    <string name="catalog_status_empty_message">Bu sunucuda yapılandırılmış MCP sunucusu ve yüklü eklenti yok.</string>
+
+    <string name="catalog_status_mcp_heading">MCP sunucuları</string>
+    <string name="catalog_status_mcp_loading">MCP sunucuları yükleniyor…</string>
+    <string name="catalog_status_mcp_empty">Bu sunucuda yapılandırılmış MCP sunucusu yok.</string>
+    <string name="catalog_status_mcp_error">MCP sunucuları okunamadı. %1$s</string>
+
+    <string name="catalog_status_plugins_heading">Eklentiler</string>
+    <string name="catalog_status_plugins_loading">Eklentiler yükleniyor…</string>
+    <string name="catalog_status_plugins_empty">Bu sunucuda yüklü eklenti yok.</string>
+    <string name="catalog_status_plugins_error">Eklentiler okunamadı. %1$s</string>
+    <string name="catalog_status_plugin_unnamed">Adsız eklenti</string>
+
+    <string name="catalog_status_badge_connected">Bağlı</string>
+    <string name="catalog_status_badge_pending">Bağlanıyor</string>
+    <string name="catalog_status_badge_disabled">Devre dışı</string>
+    <string name="catalog_status_badge_failed">Başarısız</string>
+    <string name="catalog_status_badge_needs_auth">Yetkilendirme gerekiyor</string>
+    <string name="catalog_status_badge_active">Etkin</string>
+    <string name="catalog_status_badge_unknown">Bilinmiyor (%1$s)</string>
+
+    <string name="catalog_status_entry_error">Hata: %1$s</string>
+
+    <string name="catalog_status_failure_not_connected">Bir sunucuya bağlı değil.</string>
+    <string name="catalog_status_failure_unreachable">Sunucuya ulaşılamadı.</string>
+    <string name="catalog_status_failure_unauthorized">Sunucu kimlik bilgilerini reddetti.</string>
+    <string name="catalog_status_failure_not_found">Sunucu bu listeyi sunmuyor.</string>
+    <string name="catalog_status_failure_rejected">Sunucu isteği reddetti.</string>
+    <string name="catalog_status_failure_server_failed">Sunucu yanıt veremedi.</string>
+    <string name="catalog_status_failure_unknown">Bir şeyler ters gitti.</string>
 </resources>

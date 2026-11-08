@@ -1,3 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="catalog_status_title">MCP and plugins</string>
+    <string name="catalog_status_refresh">Refresh</string>
+    <string name="catalog_status_updating">Updating…</string>
+    <string name="catalog_status_loading">Loading MCP servers and plugins…</string>
+    <string name="catalog_status_empty_title">No MCP servers or plugins</string>
+    <string name="catalog_status_empty_message">This server has no MCP servers configured and no plugins loaded.</string>
+
+    <string name="catalog_status_mcp_heading">MCP servers</string>
+    <string name="catalog_status_mcp_loading">Loading MCP servers…</string>
+    <string name="catalog_status_mcp_empty">No MCP servers are configured on this server.</string>
+    <string name="catalog_status_mcp_error">Could not read the MCP servers. %1$s</string>
+
+    <string name="catalog_status_plugins_heading">Plugins</string>
+    <string name="catalog_status_plugins_loading">Loading plugins…</string>
+    <string name="catalog_status_plugins_empty">No plugins are loaded on this server.</string>
+    <string name="catalog_status_plugins_error">Could not read the plugins. %1$s</string>
+    <string name="catalog_status_plugin_unnamed">Unnamed plugin</string>
+
+    <string name="catalog_status_badge_connected">Connected</string>
+    <string name="catalog_status_badge_pending">Connecting</string>
+    <string name="catalog_status_badge_disabled">Disabled</string>
+    <string name="catalog_status_badge_failed">Failed</string>
+    <string name="catalog_status_badge_needs_auth">Needs authorization</string>
+    <string name="catalog_status_badge_active">Active</string>
+    <string name="catalog_status_badge_unknown">Unknown (%1$s)</string>
+
+    <string name="catalog_status_entry_error">Error: %1$s</string>
+
+    <string name="catalog_status_failure_not_connected">Not connected to a server.</string>
+    <string name="catalog_status_failure_unreachable">The server could not be reached.</string>
+    <string name="catalog_status_failure_unauthorized">The server refused the credentials.</string>
+    <string name="catalog_status_failure_not_found">The server does not offer this list.</string>
+    <string name="catalog_status_failure_rejected">The server refused the request.</string>
+    <string name="catalog_status_failure_server_failed">The server failed to answer.</string>
+    <string name="catalog_status_failure_unknown">Something went wrong.</string>
 </resources>
