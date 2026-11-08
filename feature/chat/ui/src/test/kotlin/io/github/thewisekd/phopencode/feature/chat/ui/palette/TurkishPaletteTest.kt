@@ -47,6 +47,13 @@ class TurkishPaletteTest : PaletteLanguageContract() {
             BuiltInCommand.Sessions to
                 listOf("/sessions", "Oturum listesine dön", "Diğer adları: /resume, /continue", "Yerleşik"),
         ),
+        sections = mapOf(
+            PaletteSection.Commands to "Komutlar",
+            PaletteSection.BuiltIns to "Yerleşik komutlar",
+            PaletteSection.Skills to "Beceriler",
+            PaletteSection.Agents to "Ajanlar",
+            PaletteSection.Files to "Dosyalar",
+        ),
         notices = mapOf(
             BuiltInNotice.Unavailable to "Bu komut şu anda kullanılamıyor.",
             BuiltInNotice.NothingToUndo to "Geri alınacak tur yok.",

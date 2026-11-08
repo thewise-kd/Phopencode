@@ -44,7 +44,7 @@ import kotlin.test.assertTrue
 /**
  * On a window as short as a landscape phone or a chat with the keyboard open, the pending cards
  * give way to the timeline: it keeps its minimum height, the cards scroll in their own area, and
- * the switcher and the composer stay on screen. A tall window keeps the layout it always had.
+ * the composer, with the switcher in it, stays on screen. A tall window keeps the layout it always had.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [26, 36], qualifiers = "en-w320dp-h320dp")
@@ -147,13 +147,15 @@ class ChatShortWindowTest {
         val usage = bounds(ChatSlotTags.USAGE)
         val timeline = bounds(ChatSlotTags.TIMELINE)
         val area = bounds(ChatSlotTags.INTERACTIONS)
-        val switcher = bounds(ChatSlotTags.SWITCHER)
+        val composer = bounds(ChatSlotTags.COMPOSER)
 
         assertTrue(abs(area.height - window.height / 2) <= 1f, "cards take ${area.height}px, not half of $window")
         assertTrue(abs(timeline.top - usage.bottom) <= 1f, "timeline at $timeline does not start under the usage bar $usage")
         assertTrue(abs(timeline.bottom - area.top) <= 1f, "timeline at $timeline does not reach the cards at $area")
-        assertTrue(abs(area.bottom - switcher.top) <= 1f, "cards at $area do not sit on the switcher at $switcher")
+        // The switcher's chips sit inside the composer's card.
+        assertTrue(abs(area.bottom - composer.top) <= 1f, "cards at $area do not sit on the composer at $composer")
         assertFullyInside(ChatSlotTags.COMPOSER, window)
+        assertFullyInside(ChatSlotTags.SWITCHER, window)
         compose.onNodeWithTag(timelineItemTag(latest.key)).assertIsDisplayed()
     }
 }

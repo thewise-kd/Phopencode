@@ -15,6 +15,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.dp
 import io.github.thewisekd.phopencode.core.model.ModelRef
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatFailure
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.AgentOption
@@ -65,11 +66,12 @@ class SwitcherBehaviorTest {
     }
 
     @Test
-    fun `a current choice the lists do not name is shown as the server gives it`() {
+    fun `a current choice the lists do not name is shown by its ID, the model's provider named only for a screen reader`() {
         compose.setSwitcher(SwitcherState(enabled = true, agent = "gizli-ajan", model = UNLISTED))
 
         assertEquals("gizli-ajan", node(SWITCHER_AGENT_TAG).text())
-        assertEquals("openai/gpt-x", node(SWITCHER_MODEL_TAG).text())
+        assertEquals("gpt-x", node(SWITCHER_MODEL_TAG).text())
+        assertEquals("Model: openai/gpt-x", node(SWITCHER_MODEL_TAG).description())
         absent(SWITCHER_VARIANT_TAG)
     }
 
@@ -107,6 +109,30 @@ class SwitcherBehaviorTest {
         click(SWITCHER_CONTROL_TAG)
 
         assertEquals(listOf<SwitcherIntent>(SwitcherIntent.Open), harness.intents)
+    }
+
+    @Test
+    fun `tapping the agent chip or the model chip opens the sheet`() {
+        val harness = compose.setSwitcher(loaded(open = false))
+
+        node(SWITCHER_AGENT_TAG).performClick()
+        compose.waitForIdle()
+        node(SWITCHER_MODEL_TAG).performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf<SwitcherIntent>(SwitcherIntent.Open, SwitcherIntent.Open), harness.intents)
+    }
+
+    @Test
+    fun `the chips are compact, side by side, and one target big enough to tap`() {
+        compose.setSwitcher(loaded(open = false))
+
+        val agent = node(SWITCHER_AGENT_TAG).fetchSemanticsNode().boundsInRoot
+        val model = node(SWITCHER_MODEL_TAG).fetchSemanticsNode().boundsInRoot
+        assertTrue(model.left >= agent.right, "the model chip at $model is not after the agent chip at $agent")
+        val control = merged(SWITCHER_CONTROL_TAG).fetchSemanticsNode()
+        val height = with(control.layoutInfo.density) { control.touchBoundsInRoot.height.toDp() }
+        assertTrue(height >= 47.5.dp, "the control's touch height is $height")
     }
 
     @Test

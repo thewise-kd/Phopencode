@@ -13,16 +13,16 @@ import org.junit.Test
 import kotlin.test.assertEquals
 
 /**
- * The texts of the composer in one language. An error reads as the sentence of what failed
- * ([failed]) followed by the sentence of why ([reasons]), with one space.
+ * The texts of the composer in one language. [fieldHint] is the empty field's placeholder; [send]
+ * and [stop] name the round icon button for a screen reader. An error reads as the sentence of what
+ * failed ([failed]) followed by the sentence of why ([reasons]), with one space.
  */
 internal data class ExpectedComposerStrings(
-    val fieldLabel: String,
+    val fieldHint: String,
     val send: String,
     val stop: String,
     val sending: String,
     val stopping: String,
-    val deliveryLabel: String,
     val steer: String,
     val queue: String,
     val failed: Map<ComposerAction, String>,
@@ -38,25 +38,26 @@ abstract class ComposerLanguageContract {
 
     private fun shows(text: String) = compose.onNodeWithText(text).performScrollTo().assertIsDisplayed()
 
+    private fun named(name: String) = compose.onNodeWithContentDescription(name).performScrollTo().assertIsDisplayed()
+
     @Test
-    fun `an idle composer shows its field and Send`() {
+    fun `an idle composer shows its field with the hint, and Send`() {
         compose.setComposer(ready())
 
-        shows(strings.fieldLabel)
-        shows(strings.send)
-        compose.onNodeWithText(strings.stop).assertDoesNotExist()
-        compose.onNodeWithText(strings.deliveryLabel).assertDoesNotExist()
+        shows(strings.fieldHint)
+        named(strings.send)
+        compose.onNodeWithContentDescription(strings.stop).assertDoesNotExist()
+        compose.onNodeWithText(strings.steer).assertDoesNotExist()
     }
 
     @Test
     fun `running work offers Stop and the delivery choice`() {
         compose.setComposer(running())
 
-        shows(strings.stop)
-        shows(strings.deliveryLabel)
+        named(strings.stop)
         shows(strings.steer)
         shows(strings.queue)
-        compose.onNodeWithText(strings.send).assertDoesNotExist()
+        compose.onNodeWithContentDescription(strings.send).assertDoesNotExist()
     }
 
     @Test

@@ -56,4 +56,10 @@
     <string name="chat_palette_notice_nothing_to_redo">İptal edilecek bekleyen geri alma yok.</string>
     <!-- Read for the button that closes such a note. -->
     <string name="chat_palette_notice_dismiss">Kapat</string>
+    <!-- Headers over each kind of item in the list. -->
+    <string name="chat_palette_section_commands">Komutlar</string>
+    <string name="chat_palette_section_builtins">Yerleşik komutlar</string>
+    <string name="chat_palette_section_skills">Beceriler</string>
+    <string name="chat_palette_section_agents">Ajanlar</string>
+    <string name="chat_palette_section_files">Dosyalar</string>
 </resources>

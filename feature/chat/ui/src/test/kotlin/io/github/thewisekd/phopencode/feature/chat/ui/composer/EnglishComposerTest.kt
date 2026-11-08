@@ -11,12 +11,11 @@ import org.robolectric.annotation.Config
 @Config(sdk = [26, 36], qualifiers = "en")
 class EnglishComposerTest : ComposerLanguageContract() {
     override val strings = ExpectedComposerStrings(
-        fieldLabel = "Message",
+        fieldHint = "Message… / for commands, @ for files",
         send = "Send",
         stop = "Stop",
         sending = "Sending the message…",
         stopping = "Stopping the work…",
-        deliveryLabel = "Send while it works:",
         steer = "Steer now",
         queue = "Queue",
         failed = mapOf(

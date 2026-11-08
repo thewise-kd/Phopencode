@@ -1,15 +1,31 @@
 package io.github.thewisekd.phopencode.feature.chat.ui.composer
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onParent
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
@@ -27,6 +43,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 private const val SEND = "Send"
@@ -34,6 +51,7 @@ private const val STOP = "Stop"
 private const val STEER = "Steer now"
 private const val QUEUE = "Queue"
 private const val DISMISS = "Dismiss error"
+private const val CONTROLS = "test:controls"
 
 /** What the composer sends, in English: the texts of both languages are in `ComposerLanguageContract`. */
 @RunWith(RobolectricTestRunner::class)
@@ -44,6 +62,9 @@ class ComposerBehaviorTest {
 
     /** Scrolled into view first: at API 35+ the insets push the content down. */
     private fun button(text: String): SemanticsNodeInteraction = compose.onNodeWithText(text).performScrollTo()
+
+    /** The round icon button, found by the name a screen reader gives it. */
+    private fun named(name: String): SemanticsNodeInteraction = compose.onNodeWithContentDescription(name).performScrollTo()
 
     private fun field(): SemanticsNodeInteraction = compose.onNodeWithTag(COMPOSER_FIELD_TAG).performScrollTo()
 
@@ -85,7 +106,7 @@ class ComposerBehaviorTest {
     fun `Send sends Send when there is something to send`() {
         val harness = compose.setComposer(ready(DRAFT))
 
-        button(SEND).assertIsEnabled().performClick()
+        named(SEND).assertIsEnabled().performClick()
 
         assertEquals(listOf<ComposerIntent>(ComposerIntent.Send), harness.intents)
     }
@@ -103,7 +124,7 @@ class ComposerBehaviorTest {
         for (state in cases) {
             harness.state.value = state
             assertTrue(!state.canSend)
-            button(SEND).assertIsNotEnabled().performClick()
+            named(SEND).assertIsNotEnabled().performClick()
         }
 
         assertTrue(harness.intents.isEmpty())
@@ -113,22 +134,22 @@ class ComposerBehaviorTest {
     fun `a skill attached with nothing typed can be sent, other attachments alone cannot`() {
         val skill = PromptAttachment.Skill("granny-workflow")
         val harness = compose.setComposer(ready("  ").copy(attachments = listOf(PromptAttachment.Agent("explore"))))
-        button(SEND).assertIsNotEnabled()
+        named(SEND).assertIsNotEnabled()
 
         harness.state.value = ready("  ").copy(attachments = listOf(PromptAttachment.Agent("explore"), skill))
-        button(SEND).assertIsEnabled().performClick()
+        named(SEND).assertIsEnabled().performClick()
         assertEquals(listOf<ComposerIntent>(ComposerIntent.Send), harness.intents)
 
         harness.state.value = ready().copy(attachments = listOf(skill), enabled = false)
-        button(SEND).assertIsNotEnabled()
+        named(SEND).assertIsNotEnabled()
     }
 
     @Test
     fun `while running, an attached skill is sent instead of stopping`() {
         val harness = compose.setComposer(running().copy(attachments = listOf(PromptAttachment.Skill("granny-workflow"))))
 
-        compose.onNodeWithText(STOP).assertDoesNotExist()
-        button(SEND).assertIsEnabled().performClick()
+        compose.onNodeWithContentDescription(STOP).assertDoesNotExist()
+        named(SEND).assertIsEnabled().performClick()
 
         assertEquals(listOf<ComposerIntent>(ComposerIntent.Send), harness.intents)
     }
@@ -136,13 +157,13 @@ class ComposerBehaviorTest {
     @Test
     fun `the button keeps one place whether it sends or stops`() {
         val harness = compose.setComposer(ready(DRAFT))
-        action().assertTextContains(SEND)
+        action().assert(hasContentDescription(SEND))
 
         harness.state.value = running()
-        action().assertTextContains(STOP)
+        action().assert(hasContentDescription(STOP))
 
         harness.state.value = running(DRAFT)
-        action().assertTextContains(SEND)
+        action().assert(hasContentDescription(SEND))
     }
 
     // Stop
@@ -151,8 +172,8 @@ class ComposerBehaviorTest {
     fun `with nothing typed, running work offers Stop, which sends Stop`() {
         val harness = compose.setComposer(running())
 
-        compose.onNodeWithText(SEND).assertDoesNotExist()
-        button(STOP).assertIsEnabled().performClick()
+        compose.onNodeWithContentDescription(SEND).assertDoesNotExist()
+        named(STOP).assertIsEnabled().performClick()
 
         assertEquals(listOf<ComposerIntent>(ComposerIntent.Stop), harness.intents)
     }
@@ -160,10 +181,10 @@ class ComposerBehaviorTest {
     @Test
     fun `Stop follows canStop`() {
         val harness = compose.setComposer(running().copy(stopping = true))
-        button(STOP).assertIsNotEnabled().performClick()
+        named(STOP).assertIsNotEnabled().performClick()
 
         harness.state.value = running().copy(enabled = false)
-        button(STOP).assertIsNotEnabled().performClick()
+        named(STOP).assertIsNotEnabled().performClick()
 
         assertTrue(harness.intents.isEmpty())
     }
@@ -172,8 +193,8 @@ class ComposerBehaviorTest {
     fun `while running, a typed prompt is sent instead of stopping`() {
         val harness = compose.setComposer(running(DRAFT))
 
-        compose.onNodeWithText(STOP).assertDoesNotExist()
-        button(SEND).assertIsEnabled().performClick()
+        compose.onNodeWithContentDescription(STOP).assertDoesNotExist()
+        named(SEND).assertIsEnabled().performClick()
 
         assertEquals(listOf<ComposerIntent>(ComposerIntent.Send), harness.intents)
     }
@@ -182,7 +203,7 @@ class ComposerBehaviorTest {
     fun `nothing is offered to stop when nothing runs`() {
         compose.setComposer(ready())
 
-        compose.onNodeWithText(STOP).assertDoesNotExist()
+        compose.onNodeWithContentDescription(STOP).assertDoesNotExist()
     }
 
     // Delivery
@@ -243,7 +264,7 @@ class ComposerBehaviorTest {
         compose.setComposer(ready(DRAFT).copy(error = ComposerError(ComposerAction.Send, ChatFailure.ServerFailed)))
 
         field().assertTextContains(DRAFT)
-        button(SEND).assertIsEnabled()
+        named(SEND).assertIsEnabled()
     }
 
     @Test
@@ -251,6 +272,45 @@ class ComposerBehaviorTest {
         compose.setComposer(ready(DRAFT))
 
         compose.onNodeWithContentDescription(DISMISS).assertDoesNotExist()
+    }
+
+    // The design
+
+    @Test
+    fun `the button is a round icon named Send or Stop, with no text`() {
+        val harness = compose.setComposer(ready(DRAFT))
+        assertNull(action().fetchSemanticsNode().config.getOrNull(SemanticsProperties.Text))
+
+        harness.state.value = running()
+        action().assert(hasContentDescription(STOP))
+        assertNull(action().fetchSemanticsNode().config.getOrNull(SemanticsProperties.Text))
+    }
+
+    @Test
+    fun `the delivery choice is a single-choice group of two chips with no heading`() {
+        compose.setComposer(running(DRAFT))
+
+        for (choice in listOf(STEER, QUEUE)) {
+            button(choice).assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
+            compose.onNodeWithText(choice).onParent().assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.SelectableGroup))
+        }
+        compose.onAllNodes(isHeading()).assertCountEquals(0)
+    }
+
+    @Test
+    fun `the controls sit in the card under the field, and an error above the card`() {
+        compose.setComposer(
+            ready(DRAFT).copy(error = ComposerError(ComposerAction.Send, ChatFailure.Unreachable)),
+            controls = { Box(Modifier.size(24.dp).testTag(CONTROLS)) },
+        )
+
+        compose.onNode(hasTestTag(CONTROLS) and hasAnyAncestor(hasTestTag(COMPOSER_CARD_TAG))).assertExists()
+        val card = compose.onNodeWithTag(COMPOSER_CARD_TAG).getBoundsInRoot()
+        val field = field().getBoundsInRoot()
+        val controls = compose.onNodeWithTag(CONTROLS).getBoundsInRoot()
+        val error = compose.onNodeWithContentDescription(DISMISS).getBoundsInRoot()
+        assertTrue(controls.top >= field.bottom, "controls at $controls are not under the field at $field")
+        assertTrue(error.bottom <= card.top, "the error at $error is not above the card at $card")
     }
 
     // Touch targets

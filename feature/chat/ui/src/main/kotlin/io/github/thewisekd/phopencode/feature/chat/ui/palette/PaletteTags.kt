@@ -21,6 +21,8 @@ internal object PaletteTags {
         is PaletteItem.BuiltIn -> "builtin:${item.command.primary}"
     }
 
+    fun section(section: PaletteSection): String = "palette:section:${section.name}"
+
     fun chip(attachment: PromptAttachment): String = "palette:chip:${attachment.key()}"
 
     fun chipRemove(attachment: PromptAttachment): String = "palette:chip-remove:${attachment.key()}"

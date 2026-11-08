@@ -56,4 +56,10 @@
     <string name="chat_palette_notice_nothing_to_redo">There is no pending undo to cancel.</string>
     <!-- Read for the button that closes such a note. -->
     <string name="chat_palette_notice_dismiss">Dismiss</string>
+    <!-- Headers over each kind of item in the list. -->
+    <string name="chat_palette_section_commands">Commands</string>
+    <string name="chat_palette_section_builtins">Built-in commands</string>
+    <string name="chat_palette_section_skills">Skills</string>
+    <string name="chat_palette_section_agents">Agents</string>
+    <string name="chat_palette_section_files">Files</string>
 </resources>

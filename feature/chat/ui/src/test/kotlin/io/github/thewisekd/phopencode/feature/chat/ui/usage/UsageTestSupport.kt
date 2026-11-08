@@ -56,8 +56,11 @@ internal val LOADED = UsageState(
 internal fun costing(cost: String?, missing: Boolean = false): UsageState =
     LOADED.copy(usage = USAGE.copy(cost = cost?.let { Cost.parse(it) }, hasMissingCost = missing))
 
-/** The bar in the app theme, with [state] changeable by the test and every intent recorded. */
-internal class UsageBarHarness(initial: UsageState) {
+/**
+ * The bar in the app theme, with [state] changeable by the test and every intent recorded; with a
+ * [title], as the chat's top bar draws it.
+ */
+internal class UsageBarHarness(initial: UsageState, private val title: String?) {
     val state: MutableState<UsageState> = mutableStateOf(initial)
     val intents = mutableListOf<UsageIntent>()
 
@@ -71,6 +74,7 @@ internal class UsageBarHarness(initial: UsageState) {
                         state = state.value,
                         onIntent = { intents += it },
                         modifier = Modifier.fillMaxWidth().testTag(BAR_TAG),
+                        title = title,
                     )
                 }
             }
@@ -91,8 +95,8 @@ internal class UsageDetailHarness(initial: UsageState) {
     }
 }
 
-internal fun ComposeContentTestRule.setUsageBar(state: UsageState): UsageBarHarness {
-    val harness = UsageBarHarness(state)
+internal fun ComposeContentTestRule.setUsageBar(state: UsageState, title: String? = null): UsageBarHarness {
+    val harness = UsageBarHarness(state, title)
     setContent { harness.Content() }
     return harness
 }

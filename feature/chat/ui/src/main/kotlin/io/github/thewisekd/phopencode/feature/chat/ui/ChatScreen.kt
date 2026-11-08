@@ -2,22 +2,26 @@ package io.github.thewisekd.phopencode.feature.chat.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.platform.testTag
@@ -29,6 +33,9 @@ import androidx.compose.ui.unit.min
 import io.github.thewisekd.phopencode.core.model.FormId
 import io.github.thewisekd.phopencode.core.model.PermissionRequestId
 import io.github.thewisekd.phopencode.core.navigation.ChatRoute
+import io.github.thewisekd.phopencode.core.ui.R as UiR
+import io.github.thewisekd.phopencode.core.ui.icon.PhopencodeIcons
+import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerIntent
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerState
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ReasoningIntent
@@ -76,6 +83,7 @@ import io.github.thewisekd.phopencode.feature.chat.ui.usage.UsageBar
 
 /** The tags of the chat's slots, for tests: each part's root carries its slot's tag. */
 object ChatSlotTags {
+    const val BACK: String = "chat:slot:back"
     const val USAGE: String = "chat:slot:usage"
     const val STATUS: String = "chat:slot:status"
     const val TIMELINE: String = "chat:slot:timeline"
@@ -109,17 +117,18 @@ object ChatSlotTags {
  *
  * From top to bottom, all inside the screen's insets, keyboard included, so the composer stays
  * above it:
- * - the usage bar, with the subagent badge, the buttons to the session's files and git (see
- *   [FolderButtons]) and the session's action menu at its end;
+ * - the top bar ([TopBar]): the way back when [onBack] is given, the session's title over its usage
+ *   line, which opens the usage page, the subagent badge, the buttons to the session's files and git
+ *   (see [FolderButtons]) and the session's action menu at its end;
  * - the status banner;
  * - the timeline, where a long press on a prompt opens its actions;
  * - the pending permission requests, then the pending forms, of this session and its subagents, at
  *   most half the screen and scrolling beyond that;
- * - the command palette, the attachment chips and the agent and model switcher;
- * - the composer.
+ * - the command palette and the attachment chips;
+ * - the composer, with the agent and model switcher's chips in its card.
  *
  * On a short window, as in landscape or with the keyboard open, the pending cards give way first,
- * so the timeline keeps [timelineMinHeight] and the composer and switcher stay whole: see
+ * so the timeline keeps [timelineMinHeight] and the composer stays whole: see
  * [ChatColumn].
  *
  * When [StatusState.blocksChat] holds, as for a session the active server does not have, the
@@ -159,6 +168,7 @@ fun ChatScreen(
     actions: ActionsState,
     onActionsIntent: (ActionsIntent) -> Unit,
     modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
 ) {
     Box(modifier.fillMaxSize().safeDrawingPadding().testTag("placeholder:$route")) {
         if (status.blocksChat) {
@@ -166,12 +176,16 @@ fun ChatScreen(
         } else {
             ChatColumn(
                 top = {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        UsageBar(usage, onUsageIntent, Modifier.weight(1f).testTag(ChatSlotTags.USAGE))
-                        SubagentBadge(subagents, onSubagentIntent, Modifier.testTag(ChatSlotTags.SUBAGENTS))
-                        FolderButtons(actions, onActionsIntent)
-                        SessionActionsMenu(actions, onActionsIntent, Modifier.testTag(ChatSlotTags.ACTIONS))
-                    }
+                    TopBar(
+                        onBack = onBack,
+                        title = subagents.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.chat_usage_title_fallback),
+                        usage = usage,
+                        onUsageIntent = onUsageIntent,
+                        subagents = subagents,
+                        onSubagentIntent = onSubagentIntent,
+                        actions = actions,
+                        onActionsIntent = onActionsIntent,
+                    )
                     StatusBanner(status, onStatusIntent, Modifier.fillMaxWidth().testTag(ChatSlotTags.STATUS))
                 },
                 timeline = {
@@ -201,13 +215,74 @@ fun ChatScreen(
                         onDetach = { onComposerIntent(ComposerIntent.Detach(it)) },
                         modifier = Modifier.fillMaxWidth().testTag(ChatSlotTags.ATTACHMENTS),
                     )
-                    AgentModelSwitcher(
-                        switcher,
-                        onSwitcherIntent,
-                        Modifier.fillMaxWidth().testTag(ChatSlotTags.SWITCHER),
+                    Composer(
+                        state = composer,
+                        onIntent = onComposerIntent,
+                        modifier = Modifier.fillMaxWidth().testTag(ChatSlotTags.COMPOSER),
+                        controls = {
+                            AgentModelSwitcher(switcher, onSwitcherIntent, Modifier.testTag(ChatSlotTags.SWITCHER))
+                        },
                     )
-                    Composer(composer, onComposerIntent, Modifier.fillMaxWidth().testTag(ChatSlotTags.COMPOSER))
                 },
+            )
+        }
+    }
+}
+
+/** The top bar's least height, room for the title over its usage line. */
+private val TOP_BAR_HEIGHT: Dp = 56.dp
+
+/** How wide each top bar button is in the layout; its tap target is still 48 dp. */
+private val TOP_BAR_BUTTON_WIDTH: Dp = 36.dp
+
+/**
+ * The chat's top bar, at least [TOP_BAR_HEIGHT] and as tall as its tallest part: the back arrow when [onBack] is given, then
+ * [title], the session's, as the screen's heading over the usage line, the two one button that
+ * opens the usage page; then the compact subagent badge, the files and git buttons and the action
+ * menu. The title takes all the width they leave: the buttons are narrow in the layout, and every
+ * one keeps a full 48 dp touch target.
+ */
+@Composable
+private fun TopBar(
+    onBack: (() -> Unit)?,
+    title: String,
+    usage: UsageState,
+    onUsageIntent: (UsageIntent) -> Unit,
+    subagents: SubagentState,
+    onSubagentIntent: (SubagentIntent) -> Unit,
+    actions: ActionsState,
+    onActionsIntent: (ActionsIntent) -> Unit,
+) {
+    val spacing = PhopencodeTheme.spacing
+    // The buttons are only as wide as [TOP_BAR_BUTTON_WIDTH] in the layout, so the title gets most
+    // of the bar; Compose still extends each tap to the full 48 dp target.
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = TOP_BAR_HEIGHT)
+                .height(IntrinsicSize.Min)
+                .padding(start = if (onBack == null) spacing.xs else 0.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (onBack != null) {
+                IconButton(onClick = onBack, modifier = Modifier.width(TOP_BAR_BUTTON_WIDTH).testTag(ChatSlotTags.BACK)) {
+                    Icon(imageVector = PhopencodeIcons.Back, contentDescription = stringResource(UiR.string.ui_common_navigate_back))
+                }
+            }
+            UsageBar(
+                state = usage,
+                onIntent = onUsageIntent,
+                modifier = Modifier.weight(1f).fillMaxHeight().testTag(ChatSlotTags.USAGE),
+                title = title,
+            )
+            SubagentBadge(subagents, onSubagentIntent, Modifier.testTag(ChatSlotTags.SUBAGENTS), compact = true)
+            FolderButtons(actions, onActionsIntent)
+            SessionActionsMenu(
+                actions,
+                onActionsIntent,
+                Modifier.testTag(ChatSlotTags.ACTIONS),
+                buttonModifier = Modifier.width(TOP_BAR_BUTTON_WIDTH),
             )
         }
     }
@@ -225,39 +300,17 @@ private fun FolderButtons(actions: ActionsState, onActionsIntent: (ActionsIntent
     IconButton(
         onClick = { onActionsIntent(ActionsIntent.OpenFiles) },
         enabled = known,
-        modifier = Modifier.testTag(ChatSlotTags.OPEN_FILES),
+        modifier = Modifier.width(TOP_BAR_BUTTON_WIDTH).testTag(ChatSlotTags.OPEN_FILES),
     ) {
-        Icon(imageVector = FolderIcons.Files, contentDescription = stringResource(R.string.chat_actions_open_files))
+        Icon(imageVector = PhopencodeIcons.Folder, contentDescription = stringResource(R.string.chat_actions_open_files))
     }
     IconButton(
         onClick = { onActionsIntent(ActionsIntent.OpenGit) },
         enabled = known,
-        modifier = Modifier.testTag(ChatSlotTags.OPEN_GIT),
+        modifier = Modifier.width(TOP_BAR_BUTTON_WIDTH).testTag(ChatSlotTags.OPEN_GIT),
     ) {
-        Icon(imageVector = FolderIcons.Git, contentDescription = stringResource(R.string.chat_actions_open_git))
+        Icon(imageVector = PhopencodeIcons.Git, contentDescription = stringResource(R.string.chat_actions_open_git))
     }
-}
-
-/**
- * The icons of [FolderButtons]: the 24 dp Material symbols "folder" and "account tree", kept here
- * as the module does not depend on the icon library.
- */
-private object FolderIcons {
-    val Files: ImageVector = icon(
-        "Files",
-        "M10,4H4c-1.1,0 -1.99,0.9 -1.99,2L2,18c0,1.1 0.9,2 2,2h16c1.1,0 2,-0.9 2,-2V8c0,-1.1 -0.9,-2 -2,-2h-8l-2,-2z",
-    )
-
-    val Git: ImageVector = icon("Git", "M22,11V3h-7v3H9V3H2v8h7V8h2v10h4v3h7v-8h-7v3h-2V8h2v3z")
-
-    private fun icon(name: String, pathData: String): ImageVector =
-        ImageVector.Builder(
-            name = "ChatFolder.$name",
-            defaultWidth = 24.dp,
-            defaultHeight = 24.dp,
-            viewportWidth = 24f,
-            viewportHeight = 24f,
-        ).addPath(pathData = addPathNodes(pathData), fill = SolidColor(Color.Black)).build()
 }
 
 /**
@@ -333,8 +386,8 @@ private val TIMELINE_MIN_HEIGHT: Dp = 120.dp
  * The chat's column: [top], [timeline], [interactions] and [bottom], stacked in that order, each
  * child of [top] and [bottom] at its own height and the timeline filling what is left.
  *
- * Height goes first to [bottom], from its last child up, so the composer and the switcher stay
- * whole; then to [top]. The interactions get at most half the window, and never so much that the
+ * Height goes first to [bottom], from its last child up, so the composer stays whole; then to
+ * [top]. The interactions get at most half the window, and never so much that the
  * timeline falls under [timelineMinHeight]; beyond that they scroll in their own area. On a tall
  * window that floor never binds, so this is a plain column with the interactions capped at half.
  */

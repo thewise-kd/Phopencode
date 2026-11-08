@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- The chat's title while the session's own title is not known. -->
+    <string name="chat_usage_title_fallback">Sohbet</string>
     <!-- Bar at the top of the chat. -->
     <string name="chat_usage_bar_loading">Token sayılıyor…</string>
     <string name="chat_usage_bar_empty">Henüz token kullanılmadı</string>

@@ -11,12 +11,11 @@ import org.robolectric.annotation.Config
 @Config(sdk = [26, 36], qualifiers = "tr")
 class TurkishComposerTest : ComposerLanguageContract() {
     override val strings = ExpectedComposerStrings(
-        fieldLabel = "Mesaj",
+        fieldHint = "Mesaj yaz… komutlar için /, dosyalar için @",
         send = "Gönder",
         stop = "Durdur",
         sending = "Mesaj gönderiliyor…",
         stopping = "Çalışma durduruluyor…",
-        deliveryLabel = "Çalışırken gönderim:",
         steer = "Hemen yönlendir",
         queue = "Sıraya koy",
         failed = mapOf(

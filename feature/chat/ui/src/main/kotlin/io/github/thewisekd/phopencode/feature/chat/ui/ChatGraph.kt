@@ -67,8 +67,8 @@ import org.koin.mp.KoinPlatform
  * the screen its presenter's state and intents, and turns the presenters' one-time events into
  * navigation, or into an intent of another part. The screens never see [navController].
  *
- * - [ChatRoute.Chat]: every part of the chat. The composer's draft goes to the palette as its
- *   query; a palette pick comes back to the composer as its new draft and an attachment. Session
+ * - [ChatRoute.Chat]: every part of the chat, with a back arrow when a screen is under it. The
+ *   composer's draft goes to the palette as its query; a palette pick comes back to the composer as its new draft and an attachment. Session
  *   actions open a turn's diff or switch to a fork; subagents open their list. The session's
  *   folder opens the files ([FilesRoute.Tree]) and git ([GitRoute.Status]) screens on top.
  *   Sending a draft that starts with a slash word goes to the palette ([PaletteIntent.Submit]), not
@@ -187,6 +187,8 @@ fun NavGraphBuilder.chatGraph(navController: NavController) {
             onSwitcherIntent = switcher::onIntent,
             actions = actionsState,
             onActionsIntent = actions::onIntent,
+            // A chat opened with nothing under it has nowhere to go back to.
+            onBack = if (navController.previousBackStackEntry != null) ({ navController.popBackStack() }) else null,
         )
     }
     composable<ChatRoute.TokenUsage> { entry ->

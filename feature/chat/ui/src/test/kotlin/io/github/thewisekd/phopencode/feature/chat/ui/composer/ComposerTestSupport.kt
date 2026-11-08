@@ -1,6 +1,7 @@
 package io.github.thewisekd.phopencode.feature.chat.ui.composer
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
@@ -28,8 +29,15 @@ internal fun ready(draft: String = "") = ComposerState(draft = draft, enabled = 
 /** A connected session whose work runs, with [draft] typed. */
 internal fun running(draft: String = "") = ComposerState(draft = draft, enabled = true, running = true)
 
-/** The composer in the app theme, [height] tall if given, with [state] changeable by the test and every intent recorded. */
-internal class ComposerHarness(initial: ComposerState, private val height: Dp?) {
+/**
+ * The composer in the app theme, [height] tall if given, with [state] changeable by the test and
+ * every intent recorded; [controls] go in its controls slot, as the chat puts the switcher there.
+ */
+internal class ComposerHarness(
+    initial: ComposerState,
+    private val height: Dp?,
+    private val controls: @Composable RowScope.() -> Unit,
+) {
     val state: MutableState<ComposerState> = mutableStateOf(initial)
     val intents = mutableListOf<ComposerIntent>()
 
@@ -39,15 +47,24 @@ internal class ComposerHarness(initial: ComposerState, private val height: Dp?) 
             Surface(modifier = if (height != null) Modifier.height(height) else Modifier) {
                 // Scrollable so tests can scroll a node into view first: at API 35+ the insets push content down.
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    Composer(state = state.value, onIntent = { intents += it }, modifier = Modifier.fillMaxWidth())
+                    Composer(
+                        state = state.value,
+                        onIntent = { intents += it },
+                        modifier = Modifier.fillMaxWidth(),
+                        controls = controls,
+                    )
                 }
             }
         }
     }
 }
 
-internal fun ComposeContentTestRule.setComposer(state: ComposerState, height: Dp? = null): ComposerHarness {
-    val harness = ComposerHarness(state, height)
+internal fun ComposeContentTestRule.setComposer(
+    state: ComposerState,
+    height: Dp? = null,
+    controls: @Composable RowScope.() -> Unit = {},
+): ComposerHarness {
+    val harness = ComposerHarness(state, height, controls)
     setContent { harness.Content() }
     return harness
 }

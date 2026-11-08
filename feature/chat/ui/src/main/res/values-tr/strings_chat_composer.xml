@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="chat_composer_field_label">Mesaj</string>
+    <!-- Placeholder of the empty message field: what to type, and the "/" and "@" shortcuts. -->
+    <string name="chat_composer_field_hint">Mesaj yaz… komutlar için /, dosyalar için @</string>
     <string name="chat_composer_send">Gönder</string>
     <string name="chat_composer_stop">Durdur</string>
     <string name="chat_composer_sending">Mesaj gönderiliyor…</string>
     <string name="chat_composer_stopping">Çalışma durduruluyor…</string>
-    <string name="chat_composer_delivery_label">Çalışırken gönderim:</string>
     <string name="chat_composer_delivery_steer">Hemen yönlendir</string>
     <string name="chat_composer_delivery_queue">Sıraya koy</string>
     <string name="chat_composer_error">%1$s %2$s</string>

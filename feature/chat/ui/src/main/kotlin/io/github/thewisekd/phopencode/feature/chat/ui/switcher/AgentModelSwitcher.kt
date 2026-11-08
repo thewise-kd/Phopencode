@@ -2,7 +2,7 @@ package io.github.thewisekd.phopencode.feature.chat.ui.switcher
 
 import android.view.Gravity
 import androidx.annotation.StringRes
-import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -23,6 +24,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
@@ -32,8 +34,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
@@ -51,6 +53,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import io.github.thewisekd.phopencode.core.model.ModelRef
 import io.github.thewisekd.phopencode.core.ui.component.ErrorBanner
+import io.github.thewisekd.phopencode.core.ui.icon.PhopencodeIcons
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatFailure
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.AgentOption
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.ModelOption
@@ -63,8 +66,12 @@ import io.github.thewisekd.phopencode.feature.chat.ui.R
 /** How faint the control's text is while it cannot be tapped. */
 private const val DISABLED_ALPHA = 0.6f
 
-/** The compact control's least height. */
-private val CONTROL_MIN_HEIGHT = 36.dp
+/** The control's least height: a full touch target, around the smaller chips. */
+private val CONTROL_MIN_HEIGHT = 48.dp
+
+/** The chips' visible height and their icon's size. */
+private val CHIP_HEIGHT = 32.dp
+private val CHIP_ICON_SIZE = 18.dp
 
 /** The most of the control's width the agent's and the variant's names take; the model takes the rest. */
 private const val AGENT_MAX_SHARE = 0.35f
@@ -77,9 +84,11 @@ private const val SHEET_MAX_HEIGHT = 0.85f
  * The session's agent, model and variant (P7.11), drawn from [state]; every tap sends a
  * [SwitcherIntent] to [onIntent], and what shows next comes only from the state.
  *
- * - **The control:** a compact row above the composer with the current agent, model and variant,
- *   by the names the lists give them, or as the server gives them when the lists do not name them.
- *   Tapping it sends [SwitcherIntent.Open]; it cannot be tapped until `SwitcherState.enabled`.
+ * - **The control:** two compact chips, which the chat puts in the composer's card under the field:
+ *   the current agent, with an agent icon, and the model with its variant, by the names the lists
+ *   give them, or as the server gives them when the lists do not name them (a model by its ID, its
+ *   provider said only to a screen reader). The chips are one button: tapping either sends
+ *   [SwitcherIntent.Open]; it cannot be tapped until `SwitcherState.enabled`.
  * - **The sheet:** a modal sheet at the bottom of the screen, drawn while `SwitcherState.open`,
  *   that lists the agents and the models, each a radio choice with the current one selected; a
  *   model with variants offers them, and its default, as chips with the current one selected.
@@ -109,42 +118,81 @@ fun AgentModelSwitcher(
 private fun Control(state: SwitcherState, onIntent: (SwitcherIntent) -> Unit) {
     val agent = state.agent?.let { id -> state.agents.firstOrNull { it.id == id }?.name ?: id }
         ?: stringResource(R.string.chat_switcher_agent_default)
-    val model = state.model?.let { ref -> state.models.firstOrNull { it.isCurrent(ref) }?.name ?: "${ref.providerId}/${ref.modelId}" }
-        ?: stringResource(R.string.chat_switcher_model_default)
+    val listed = state.model?.let { ref -> state.models.firstOrNull { it.isCurrent(ref) } }
+    // The chip shows the model's short name: its listed name, else its ID without the provider,
+    // which a screen reader still hears.
+    val model = listed?.name ?: state.model?.modelId ?: stringResource(R.string.chat_switcher_model_default)
+    val modelInFull = listed?.name ?: state.model?.let { "${it.providerId}/${it.modelId}" } ?: model
     val variant = state.model?.variant
-    val color = MaterialTheme.colorScheme.onSurfaceVariant.let { if (state.enabled) it else it.copy(alpha = DISABLED_ALPHA) }
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
+    BoxWithConstraints {
         // The agent and the variant each get at most a share of the width and the model the rest,
         // so a long name ellipsizes instead of pushing another part out of view.
         val agentMax = maxWidth * AGENT_MAX_SHARE
         val variantMax = maxWidth * VARIANT_MAX_SHARE
         ControlRow(state, onIntent) {
-            Part(agent, stringResource(R.string.chat_switcher_agent_label, agent), color, SWITCHER_AGENT_TAG, Modifier.widthIn(max = agentMax))
-            Part(model, stringResource(R.string.chat_switcher_model_label, model), color, SWITCHER_MODEL_TAG, Modifier.weight(1f, fill = false))
-            variant?.let {
-                Part(it, stringResource(R.string.chat_switcher_variant_label, it), color, SWITCHER_VARIANT_TAG, Modifier.widthIn(max = variantMax))
+            Chip(Modifier.widthIn(max = agentMax)) {
+                Icon(
+                    imageVector = PhopencodeIcons.Agent,
+                    contentDescription = null,
+                    modifier = Modifier.size(CHIP_ICON_SIZE),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Part(agent, stringResource(R.string.chat_switcher_agent_label, agent), SWITCHER_AGENT_TAG, Modifier)
+            }
+            Chip(Modifier.weight(1f, fill = false)) {
+                Part(
+                    model,
+                    stringResource(R.string.chat_switcher_model_label, modelInFull),
+                    SWITCHER_MODEL_TAG,
+                    Modifier.weight(1f, fill = false),
+                )
+                variant?.let {
+                    Part(
+                        it,
+                        stringResource(R.string.chat_switcher_variant_label, it),
+                        SWITCHER_VARIANT_TAG,
+                        Modifier.widthIn(max = variantMax),
+                        muted = true,
+                    )
+                }
             }
         }
     }
 }
 
+/**
+ * The control: one button, as wide as its chips and a full touch target tall, that opens the sheet;
+ * faint while it cannot be tapped.
+ */
 @Composable
 private fun ControlRow(state: SwitcherState, onIntent: (SwitcherIntent) -> Unit, content: @Composable RowScope.() -> Unit) {
     Row(
         modifier = Modifier
-            .fillMaxWidth()
-            // Compact, to leave the timeline its room, but full width, so it is easy to hit.
             .heightIn(min = CONTROL_MIN_HEIGHT)
             .testTag(SWITCHER_CONTROL_TAG)
             .clip(MaterialTheme.shapes.small)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable(
                 enabled = state.enabled,
                 onClickLabel = stringResource(R.string.chat_switcher_change),
                 role = Role.Button,
             ) { onIntent(SwitcherIntent.Open) }
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .alpha(if (state.enabled) 1f else DISABLED_ALPHA),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content,
+    )
+}
+
+/** A compact outlined chip of the control; the control, not the chip, takes the tap. */
+@Composable
+private fun Chip(modifier: Modifier, content: @Composable RowScope.() -> Unit) {
+    val shape = MaterialTheme.shapes.small
+    Row(
+        modifier = modifier
+            .heightIn(min = CHIP_HEIGHT)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+            .padding(horizontal = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
         content = content,
     )
@@ -152,10 +200,10 @@ private fun ControlRow(state: SwitcherState, onIntent: (SwitcherIntent) -> Unit,
 
 /** One part of the control: [text] on screen, [description] for a screen reader. */
 @Composable
-private fun Part(text: String, description: String, color: Color, tag: String, modifier: Modifier) {
+private fun Part(text: String, description: String, tag: String, modifier: Modifier, muted: Boolean = false) {
     Text(
         text = text,
-        color = color,
+        color = if (muted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
         style = MaterialTheme.typography.labelLarge,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,

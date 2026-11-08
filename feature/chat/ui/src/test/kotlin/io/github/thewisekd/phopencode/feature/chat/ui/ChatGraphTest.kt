@@ -377,6 +377,38 @@ class ChatGraphTest {
     }
 
     @Test
+    fun `the chat's back arrow goes back to the screen under it`() {
+        setNavHost()
+        open(ChatRoute.Chat(SESSION))
+        // A loaded chat: the status no longer takes the screen.
+        statusState.value = StatusState(ChatStatus.Idle)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(ChatSlotTags.BACK).performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf<Route>(ConnectRoute.ServerList), backStack())
+        compose.onNodeWithTag("start").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a chat with nothing under it has no back arrow`() {
+        compose.setContent {
+            PhopencodeTheme {
+                navController = rememberNavController()
+                NavHost(navController = navController, startDestination = ChatRoute.Chat(SESSION)) {
+                    chatGraph(navController)
+                }
+            }
+        }
+        statusState.value = StatusState(ChatStatus.Idle)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(ChatSlotTags.USAGE).assertIsDisplayed()
+        compose.onNodeWithTag(ChatSlotTags.BACK).assertDoesNotExist()
+    }
+
+    @Test
     fun `leaving the usage page goes back to the chat`() {
         setNavHost()
         open(ChatRoute.Chat(SESSION))

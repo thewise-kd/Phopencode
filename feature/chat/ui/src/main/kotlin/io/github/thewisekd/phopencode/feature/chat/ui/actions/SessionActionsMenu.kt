@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import io.github.thewisekd.phopencode.core.ui.component.ErrorBanner
+import io.github.thewisekd.phopencode.core.ui.icon.PhopencodeIcons
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatFailure
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.ActionError
@@ -43,17 +44,17 @@ import io.github.thewisekd.phopencode.feature.chat.ui.R
 /** The smallest touch target the platform asks for. */
 private val MIN_TOUCH = 48.dp
 
-/** The most width the status next to the button takes, so the usage bar keeps its room. */
+/** The most width the status next to the button takes, so the title keeps its room. */
 private val STATUS_MAX_WIDTH = 120.dp
 
 /** How faint a menu action's text is while it cannot be tapped. */
 private const val DISABLED_ALPHA = 0.38f
 
 /**
- * The session's action menu (P7.15), next to the usage bar. Draws [state] and sends every tap to
- * [onIntent]; what shows next comes only from the state.
+ * The session's action menu (P7.15), at the end of the chat's top bar. Draws [state] and sends
+ * every tap to [onIntent]; what shows next comes only from the state.
  *
- * - **The button:** a "more" icon button, named for a screen reader, that sends
+ * - **The button:** a "more" icon button, named for a screen reader, sized by [buttonModifier], that sends
  *   [ActionsIntent.OpenMenu]; it cannot be tapped until [ActionsState.enabled], but always keeps
  *   its place in the chat.
  * - **The status:** while a compaction is on its way or on the server, or a fork or a new session
@@ -78,15 +79,16 @@ fun SessionActionsMenu(
     state: ActionsState,
     onIntent: (ActionsIntent) -> Unit,
     modifier: Modifier = Modifier,
+    buttonModifier: Modifier = Modifier,
 ) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         state.statusRes()?.let { Status(it) }
         IconButton(
             onClick = { onIntent(ActionsIntent.OpenMenu) },
             enabled = state.enabled,
-            modifier = Modifier.testTag(ActionsTags.MENU_BUTTON),
+            modifier = buttonModifier.testTag(ActionsTags.MENU_BUTTON),
         ) {
-            Icon(imageVector = ActionsIcons.More, contentDescription = stringResource(R.string.chat_actions_menu_open))
+            Icon(imageVector = PhopencodeIcons.MoreVert, contentDescription = stringResource(R.string.chat_actions_menu_open))
         }
         val confirming = state.confirming
         val error = state.error

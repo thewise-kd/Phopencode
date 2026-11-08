@@ -1,6 +1,7 @@
 package io.github.thewisekd.phopencode.feature.chat.ui.palette
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,9 +10,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -21,10 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -32,9 +30,13 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.thewisekd.phopencode.core.ui.component.ErrorBanner
+import io.github.thewisekd.phopencode.core.ui.icon.PhopencodeIcons
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatFailure
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.BuiltInCommand
@@ -56,15 +58,22 @@ private val MIN_TOUCH = 48.dp
  */
 private val LIST_MAX_HEIGHT = 280.dp
 
+/** The kind icon's square in a row, the icon taking [ICON_SHARE] of it, and the card's lift. */
+private val KIND_BOX = 36.dp
+private const val ICON_SHARE = 0.55f
+private val CARD_ELEVATION = 3.dp
+
 private const val NAME_LINES = 2
 private const val DESCRIPTION_LINES = 2
 
 /**
- * The command palette over the composer, open while a `/` or `@` word is typed: a title for the
- * trigger with a close button that sends [PaletteIntent.Dismiss], then the matching items, each
- * with its kind in words (command, built-in, skill, agent, file or folder) so they are told apart
- * without color. A built-in's row also names its aliases. A tap on a row sends
- * [PaletteIntent.Pick]; rows are disabled while a command runs.
+ * The command palette over the composer, open while a `/` or `@` word is typed: a rounded,
+ * elevated card with a title for the trigger and a close button that sends [PaletteIntent.Dismiss],
+ * then the matching items in the list's order, each kind under its own header ([PaletteSection]).
+ * Each row starts with an icon of its kind (command, built-in, skill, agent, file or folder), which
+ * a screen reader reads as the kind in words before the row's text, so they are told apart without color; then its name
+ * in a title style and its description muted. A built-in's row also names its aliases. A tap on a
+ * row sends [PaletteIntent.Pick]; rows are disabled while a command runs.
  *
  * Why the last built-in did not run ([PaletteState.notice]) shows as a note under the title, read
  * out when it appears, with a button that sends [PaletteIntent.DismissNotice]. While the palette
@@ -92,9 +101,8 @@ fun CommandPalette(
         if (notice == null && state.error == null) {
             Box(modifier)
         } else {
-            Surface(modifier = modifier, color = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 2.dp) {
-                Column {
-                    HorizontalDivider()
+            PaletteCard(modifier) {
+                Column(Modifier.padding(vertical = PhopencodeTheme.spacing.xs)) {
                     notice?.let { NoticeRow(it, onDismiss = { onIntent(PaletteIntent.DismissNotice) }) }
                     state.error?.let { Failure(it, onIntent) }
                 }
@@ -102,13 +110,8 @@ fun CommandPalette(
         }
         return
     }
-    Surface(
-        modifier = modifier,
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        tonalElevation = 2.dp,
-    ) {
-        Column {
-            HorizontalDivider()
+    PaletteCard(modifier) {
+        Column(Modifier.padding(bottom = PhopencodeTheme.spacing.xs)) {
             Header(trigger, onClose = { onIntent(PaletteIntent.Dismiss) })
             notice?.let { NoticeRow(it, onDismiss = { onIntent(PaletteIntent.DismissNotice) }) }
             state.error?.let { Failure(it, onIntent) }
@@ -117,7 +120,11 @@ fun CommandPalette(
                 // The scroll comes last: padding after it would make scrolling a row into view loop.
                 Modifier.fillMaxWidth().heightIn(max = LIST_MAX_HEIGHT).verticalScroll(rememberScrollState()),
             ) {
-                state.items.forEach { item ->
+                state.items.forEachIndexed { index, item ->
+                    val section = item.section()
+                    if (index == 0 || state.items[index - 1].section() != section) {
+                        key(PaletteTags.section(section)) { SectionHeader(section) }
+                    }
                     key(PaletteTags.item(item)) {
                         PaletteRow(item, enabled = !state.running, onPick = { onIntent(PaletteIntent.Pick(item)) })
                     }
@@ -129,6 +136,36 @@ fun CommandPalette(
             }
         }
     }
+}
+
+/** The palette's card: rounded and raised over the timeline, inset from the screen's edges. */
+@Composable
+private fun PaletteCard(modifier: Modifier, content: @Composable () -> Unit) {
+    val spacing = PhopencodeTheme.spacing
+    Surface(
+        modifier = modifier.padding(horizontal = spacing.md, vertical = spacing.xs),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = CARD_ELEVATION,
+        shadowElevation = CARD_ELEVATION,
+        content = content,
+    )
+}
+
+/** The header over one kind of item, read as a heading. */
+@Composable
+private fun SectionHeader(section: PaletteSection) {
+    val spacing = PhopencodeTheme.spacing
+    Text(
+        text = stringResource(section.titleRes()),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = spacing.lg, end = spacing.lg, top = spacing.sm, bottom = spacing.xxs)
+            .testTag(PaletteTags.section(section))
+            .semantics { heading() },
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.primary,
+    )
 }
 
 @Composable
@@ -146,17 +183,17 @@ private fun Header(trigger: PaletteTrigger, onClose: () -> Unit) {
                 },
             ),
             modifier = Modifier.weight(1f).testTag(PaletteTags.TITLE).semantics { heading() },
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.titleMedium,
         )
         IconButton(onClick = onClose, modifier = Modifier.testTag(PaletteTags.CLOSE)) {
-            Icon(imageVector = PaletteIcons.Close, contentDescription = stringResource(R.string.chat_palette_close))
+            Icon(imageVector = PhopencodeIcons.Close, contentDescription = stringResource(R.string.chat_palette_close))
         }
     }
 }
 
 /**
- * One item, read as one: its name, a skill's `/id` when that is not its name (what a sent draft
- * takes), its description, then its kind.
+ * One item, read as one: its kind, the text of its icon, then its name, a skill's `/id` when that is
+ * not its name (what a sent draft takes), and its description.
  */
 @Composable
 private fun PaletteRow(item: PaletteItem, enabled: Boolean, onPick: () -> Unit) {
@@ -172,12 +209,13 @@ private fun PaletteRow(item: PaletteItem, enabled: Boolean, onPick: () -> Unit) 
             .semantics(mergeDescendants = true) {}
             .padding(horizontal = spacing.lg, vertical = spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        horizontalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
+        KindIcon(item.kind(), stringResource(item.kindRes()))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
             Text(
                 text = item.displayName(),
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.titleSmall,
                 maxLines = NAME_LINES,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -212,26 +250,73 @@ private fun PaletteRow(item: PaletteItem, enabled: Boolean, onPick: () -> Unit) 
                 )
             }
         }
-        KindLabel(stringResource(item.kindRes()))
     }
 }
 
-/** A kind in words on a tinted label; the words carry the meaning. */
+/** What an item or a chip is, which picks its icon and its tint. */
+internal enum class ItemKind { Command, BuiltIn, Skill, Agent, File, Folder }
+
+/**
+ * A kind's icon on a tinted rounded square of [size]: terminal for a command, a gear for a built-in,
+ * sparkles for a skill, a robot for an agent, a page or a folder for a file. The icon itself is
+ * decorative: [label], the kind in words, is the square's text for a screen reader, so a row or
+ * chip that merges it reads the kind first and then its own text, never the kind alone.
+ */
 @Composable
-internal fun KindLabel(text: String, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = PhopencodeTheme.spacing.sm, vertical = PhopencodeTheme.spacing.xxs),
-            style = MaterialTheme.typography.labelMedium,
-            maxLines = 1,
-        )
+internal fun KindIcon(kind: ItemKind, label: String, size: Dp = KIND_BOX) {
+    val colors = MaterialTheme.colorScheme
+    val (background, tint) = when (kind) {
+        ItemKind.Command -> colors.primaryContainer to colors.onPrimaryContainer
+        ItemKind.Skill -> colors.tertiaryContainer to colors.onTertiaryContainer
+        ItemKind.Agent -> colors.secondaryContainer to colors.onSecondaryContainer
+        ItemKind.BuiltIn, ItemKind.File, ItemKind.Folder -> colors.surfaceContainerHighest to colors.onSurfaceVariant
     }
+    Box(
+        modifier = Modifier
+            .size(size)
+            .background(background, MaterialTheme.shapes.small)
+            .semantics { text = AnnotatedString(label) },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(imageVector = kind.icon(), contentDescription = null, tint = tint, modifier = Modifier.size(size * ICON_SHARE))
+    }
+}
+
+private fun ItemKind.icon(): ImageVector = when (this) {
+    ItemKind.Command -> PhopencodeIcons.Terminal
+    ItemKind.BuiltIn -> PhopencodeIcons.Settings
+    ItemKind.Skill -> PhopencodeIcons.Sparkle
+    ItemKind.Agent -> PhopencodeIcons.Agent
+    ItemKind.File -> PhopencodeIcons.File
+    ItemKind.Folder -> PhopencodeIcons.Folder
+}
+
+private fun PaletteItem.kind(): ItemKind = when (this) {
+    is PaletteItem.Command -> ItemKind.Command
+    is PaletteItem.BuiltIn -> ItemKind.BuiltIn
+    is PaletteItem.Skill -> ItemKind.Skill
+    is PaletteItem.Agent -> ItemKind.Agent
+    is PaletteItem.File -> if (directory) ItemKind.Folder else ItemKind.File
+}
+
+/** The kinds of item the palette groups under a header each, in the order the list gives them. */
+internal enum class PaletteSection { Commands, BuiltIns, Skills, Agents, Files }
+
+private fun PaletteItem.section(): PaletteSection = when (this) {
+    is PaletteItem.Command -> PaletteSection.Commands
+    is PaletteItem.BuiltIn -> PaletteSection.BuiltIns
+    is PaletteItem.Skill -> PaletteSection.Skills
+    is PaletteItem.Agent -> PaletteSection.Agents
+    is PaletteItem.File -> PaletteSection.Files
+}
+
+@StringRes
+private fun PaletteSection.titleRes(): Int = when (this) {
+    PaletteSection.Commands -> R.string.chat_palette_section_commands
+    PaletteSection.BuiltIns -> R.string.chat_palette_section_builtins
+    PaletteSection.Skills -> R.string.chat_palette_section_skills
+    PaletteSection.Agents -> R.string.chat_palette_section_agents
+    PaletteSection.Files -> R.string.chat_palette_section_files
 }
 
 /** A failed list, with its retry, or a failed command; either can be dismissed. */
@@ -262,7 +347,7 @@ private fun NoticeRow(notice: BuiltInNotice, onDismiss: () -> Unit) {
             style = MaterialTheme.typography.bodyMedium,
         )
         IconButton(onClick = onDismiss, modifier = Modifier.testTag(PaletteTags.NOTICE_DISMISS)) {
-            Icon(imageVector = PaletteIcons.Close, contentDescription = stringResource(R.string.chat_palette_notice_dismiss))
+            Icon(imageVector = PhopencodeIcons.Close, contentDescription = stringResource(R.string.chat_palette_notice_dismiss))
         }
     }
 }
@@ -341,20 +426,4 @@ private fun ChatFailure.reasonRes(): Int = when (this) {
     ChatFailure.Rejected -> R.string.chat_palette_reason_rejected
     ChatFailure.ServerFailed -> R.string.chat_palette_reason_server
     ChatFailure.Unknown -> R.string.chat_palette_reason_unknown
-}
-
-/** The palette's icons, drawn here: the module does not take the icon library. */
-internal object PaletteIcons {
-    val Close: ImageVector = ImageVector.Builder(
-        name = "Palette.Close",
-        defaultWidth = 24.dp,
-        defaultHeight = 24.dp,
-        viewportWidth = 24f,
-        viewportHeight = 24f,
-    ).addPath(
-        pathData = addPathNodes(
-            "M19,6.41L17.59,5 12,10.59 6.41,5 5,6.41 10.59,12 5,17.59 6.41,19 12,13.41 17.59,19 19,17.59 13.41,12z",
-        ),
-        fill = SolidColor(Color.Black),
-    ).build()
 }

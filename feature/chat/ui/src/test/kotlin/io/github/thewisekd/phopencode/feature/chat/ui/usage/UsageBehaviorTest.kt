@@ -2,8 +2,12 @@ package io.github.thewisekd.phopencode.feature.chat.ui.usage
 
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -21,6 +25,13 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
+
+/** A made-up session title, with Turkish letters so a lost character would show. */
+private const val TITLE = "Giriş testini düzelt"
+
+/** The short usage line of [LOADED] under a title, in English. */
+private const val LINE = "Context 7% · \$0.12"
 
 private val COUNT_ROWS = listOf(
     UsageTags.INPUT, UsageTags.OUTPUT, UsageTags.REASONING, UsageTags.CACHE_READ, UsageTags.CACHE_WRITE,
@@ -54,6 +65,32 @@ class UsageBehaviorTest {
         compose.onNodeWithTag(BAR_TAG).performScrollTo().performClick()
 
         assertEquals(listOf<UsageIntent>(UsageIntent.OpenDetail), harness.intents)
+    }
+
+    @Test
+    fun `with a title the bar shows it as a heading above a short usage line, and opens the page`() {
+        val harness = compose.setUsageBar(LOADED, title = TITLE)
+
+        compose.onNodeWithTag(BAR_TAG).performScrollTo().assertTextEquals(TITLE, LINE)
+        compose.onNodeWithText(TITLE, useUnmergedTree = true).assert(isHeading())
+        val title = compose.onNodeWithText(TITLE, useUnmergedTree = true).getBoundsInRoot()
+        val line = compose.onNodeWithText(LINE, useUnmergedTree = true).getBoundsInRoot()
+        assertTrue(line.top >= title.bottom, "the usage line at $line is not under the title at $title")
+
+        compose.onNodeWithTag(BAR_TAG).performClick()
+        assertEquals(listOf<UsageIntent>(UsageIntent.OpenDetail), harness.intents)
+        compose.onNodeWithTag(BAR_TAG).assertTouchSizeIsAtLeast(48.dp)
+
+        // Without a context or a cost, the line falls back to the tokens.
+        harness.state.value = LOADED.copy(contextPercent = null, contextLimit = null, usage = USAGE.copy(cost = null))
+        compose.onNodeWithTag(BAR_TAG).assertTextEquals(TITLE, "14,190 tokens")
+    }
+
+    @Test
+    fun `without a title nothing is a heading`() {
+        compose.setUsageBar(LOADED)
+
+        compose.onAllNodes(isHeading()).assertCountEquals(0)
     }
 
     @Test

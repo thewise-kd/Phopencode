@@ -46,6 +46,13 @@ class EnglishPaletteTest : PaletteLanguageContract() {
             BuiltInCommand.Sessions to
                 listOf("/sessions", "Go back to the session list", "Also: /resume, /continue", "Built-in"),
         ),
+        sections = mapOf(
+            PaletteSection.Commands to "Commands",
+            PaletteSection.BuiltIns to "Built-in commands",
+            PaletteSection.Skills to "Skills",
+            PaletteSection.Agents to "Agents",
+            PaletteSection.Files to "Files",
+        ),
         notices = mapOf(
             BuiltInNotice.Unavailable to "This command is not available right now.",
             BuiltInNotice.NothingToUndo to "There is no turn to undo.",

@@ -1,5 +1,8 @@
 package io.github.thewisekd.phopencode.feature.chat.ui.composer
 
+/** The composer's rounded card, which holds the field, the controls and the button. */
+internal const val COMPOSER_CARD_TAG = "chat_composer:card"
+
 /** The composer's text field. */
 internal const val COMPOSER_FIELD_TAG = "chat_composer:field"
 

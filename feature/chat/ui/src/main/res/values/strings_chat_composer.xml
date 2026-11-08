@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="chat_composer_field_label">Message</string>
+    <!-- Placeholder of the empty message field: what to type, and the "/" and "@" shortcuts. -->
+    <string name="chat_composer_field_hint">Message… / for commands, @ for files</string>
     <string name="chat_composer_send">Send</string>
     <string name="chat_composer_stop">Stop</string>
     <string name="chat_composer_sending">Sending the message…</string>
     <string name="chat_composer_stopping">Stopping the work…</string>
-    <string name="chat_composer_delivery_label">Send while it works:</string>
     <string name="chat_composer_delivery_steer">Steer now</string>
     <string name="chat_composer_delivery_queue">Queue</string>
     <string name="chat_composer_error">%1$s %2$s</string>
