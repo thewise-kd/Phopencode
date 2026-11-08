@@ -18,6 +18,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.ComposeNavigator
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
+import io.github.thewisekd.phopencode.core.navigation.CatalogRoute
 import io.github.thewisekd.phopencode.core.navigation.ChatRoute
 import io.github.thewisekd.phopencode.core.navigation.FilesRoute
 import io.github.thewisekd.phopencode.core.navigation.GitRoute
@@ -30,6 +31,7 @@ import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionLis
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionManageEvent
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionManagePresenter
 import io.github.thewisekd.phopencode.feature.sessions.ui.create.SessionCreateScreen
+import io.github.thewisekd.phopencode.feature.sessions.ui.list.CatalogDestination
 import io.github.thewisekd.phopencode.feature.sessions.ui.list.SessionListScreen
 import io.github.thewisekd.phopencode.feature.sessions.ui.manage.SessionManageScreen
 import kotlinx.coroutines.CoroutineScope
@@ -45,7 +47,8 @@ import org.koin.mp.KoinPlatform
  * [navController].
  *
  * The flow: the list opens a session's chat, the creation screen or a session's management, and a
- * folder's list also that folder's files ([FilesRoute.Tree]) and git ([GitRoute.Status]). A
+ * folder's list also that folder's files ([FilesRoute.Tree]) and git ([GitRoute.Status]). Every
+ * list's menu opens the catalog's skills, registry and status ([CatalogRoute]). A
  * created session's chat replaces the creation screen; a deleted session's screens are left behind.
  */
 fun NavGraphBuilder.sessionsGraph(navController: NavController) {
@@ -62,7 +65,7 @@ fun NavGraphBuilder.sessionsGraph(navController: NavController) {
             }
         }
         val state by presenter.state.collectAsStateWithLifecycle()
-        SessionListScreen(route, state, presenter::onIntent)
+        SessionListScreen(route, state, presenter::onIntent, onOpenCatalog = { navController.navigate(it.route) })
     }
     composable<SessionsRoute.Create> { entry ->
         val route = entry.toRoute<SessionsRoute.Create>()
@@ -93,6 +96,14 @@ fun NavGraphBuilder.sessionsGraph(navController: NavController) {
         SessionManageScreen(route, state, presenter::onIntent)
     }
 }
+
+/** The catalog screen a session list's menu item opens; the catalog feature's graph draws it. */
+private val CatalogDestination.route: CatalogRoute
+    get() = when (this) {
+        CatalogDestination.Skills -> CatalogRoute.Skills
+        CatalogDestination.Registry -> CatalogRoute.Registry
+        CatalogDestination.Status -> CatalogRoute.Status
+    }
 
 /**
  * Leaves the deleted session [sessionId] for a session list, so that back never reaches one of its

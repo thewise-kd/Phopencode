@@ -30,6 +30,12 @@ internal val TURKISH_SESSION_LIST_STRINGS = ExpectedSessionListStrings(
     refresh = "Oturumları yenile",
     openFiles = "Dosyaları aç",
     openGit = "Git'i aç",
+    catalog = "Kataloğu aç",
+    catalogItems = mapOf(
+        CatalogDestination.Skills to "Beceriler",
+        CatalogDestination.Registry to "Komutlar, ajanlar ve modeller",
+        CatalogDestination.Status to "MCP ve eklenti durumu",
+    ),
     search = "Oturum ara",
     showArchived = "Arşivdekileri göster",
     archived = "Arşivde",

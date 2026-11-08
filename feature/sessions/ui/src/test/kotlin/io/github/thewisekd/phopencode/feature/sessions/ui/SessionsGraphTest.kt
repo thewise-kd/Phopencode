@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
@@ -12,6 +15,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import io.github.thewisekd.phopencode.core.navigation.CatalogRoute
 import io.github.thewisekd.phopencode.core.navigation.ChatRoute
 import io.github.thewisekd.phopencode.core.navigation.ConnectRoute
 import io.github.thewisekd.phopencode.core.navigation.FilesRoute
@@ -28,6 +32,8 @@ import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionMan
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionManageIntent
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionManagePresenter
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionManageState
+import io.github.thewisekd.phopencode.feature.sessions.ui.list.CatalogDestination
+import io.github.thewisekd.phopencode.feature.sessions.ui.list.ENGLISH_SESSION_LIST_STRINGS
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -108,6 +114,9 @@ class SessionsGraphTest {
                     composable<ChatRoute.TokenUsage> { Stand("usage") }
                     composable<FilesRoute.Tree> { Stand("files") }
                     composable<GitRoute.Status> { Stand("git") }
+                    composable<CatalogRoute.Skills> { Stand("skills") }
+                    composable<CatalogRoute.Registry> { Stand("registry") }
+                    composable<CatalogRoute.Status> { Stand("status") }
                     sessionsGraph(navController)
                 }
             }
@@ -144,6 +153,9 @@ class SessionsGraphTest {
             destination.hasRoute<SessionsRoute.Manage>() -> entry.toRoute<SessionsRoute.Manage>()
             destination.hasRoute<FilesRoute.Tree>() -> entry.toRoute<FilesRoute.Tree>()
             destination.hasRoute<GitRoute.Status>() -> entry.toRoute<GitRoute.Status>()
+            destination.hasRoute<CatalogRoute.Skills>() -> CatalogRoute.Skills
+            destination.hasRoute<CatalogRoute.Registry>() -> CatalogRoute.Registry
+            destination.hasRoute<CatalogRoute.Status>() -> CatalogRoute.Status
             else -> null // The graph itself.
         }
     }
@@ -176,6 +188,33 @@ class SessionsGraphTest {
 
         assertEquals(
             listOf(ConnectRoute.ServerList, SessionsRoute.SessionList(directory = FOLDER), GitRoute.Status(FOLDER)),
+            backStack(),
+        )
+    }
+
+    @Test
+    fun `the catalog menu's skills item opens the skills on top of the list`() =
+        assertCatalogItemOpens(CatalogDestination.Skills, CatalogRoute.Skills)
+
+    @Test
+    fun `the catalog menu's commands, agents and models item opens the registry on top of the list`() =
+        assertCatalogItemOpens(CatalogDestination.Registry, CatalogRoute.Registry)
+
+    @Test
+    fun `the catalog menu's status item opens the MCP and plugin status on top of the list`() =
+        assertCatalogItemOpens(CatalogDestination.Status, CatalogRoute.Status)
+
+    private fun assertCatalogItemOpens(destination: CatalogDestination, expected: CatalogRoute) {
+        val strings = ENGLISH_SESSION_LIST_STRINGS
+        setNavHost()
+        open(SessionsRoute.SessionList(directory = FOLDER))
+
+        compose.onNodeWithContentDescription(strings.catalog).performClick()
+        compose.onNodeWithText(strings.catalogItems.getValue(destination)).performClick()
+        compose.waitForIdle()
+
+        assertEquals(
+            listOf(ConnectRoute.ServerList, SessionsRoute.SessionList(directory = FOLDER), expected),
             backStack(),
         )
     }

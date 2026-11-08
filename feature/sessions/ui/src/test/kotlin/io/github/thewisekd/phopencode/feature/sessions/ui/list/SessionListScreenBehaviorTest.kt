@@ -251,8 +251,14 @@ class SessionListScreenBehaviorTest {
     @Test
     fun `a long folder keeps its last folders in the top bar`() {
         assertEquals("/work/sample", compactFolder("/work/sample"))
-        assertEquals("…/clients/acme/website-frontend", compactFolder("/home/someone/projects/clients/acme/website-frontend"))
+        assertEquals("…/src/acme/app", compactFolder("/home/someone/src/acme/app"))
+        assertEquals("…/website-frontend", compactFolder("/home/someone/projects/clients/acme/website-frontend"))
         assertEquals("…/a-very-long-folder-name-that-is-too-long", compactFolder("/x/y/a-very-long-folder-name-that-is-too-long"))
+        // A wider limit keeps more of the last folders.
+        assertEquals(
+            "…/clients/acme/website-frontend",
+            compactFolder("/home/someone/projects/clients/acme/website-frontend", max = 32),
+        )
     }
 
     @Test

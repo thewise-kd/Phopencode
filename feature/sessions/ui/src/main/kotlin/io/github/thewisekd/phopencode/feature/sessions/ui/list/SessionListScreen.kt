@@ -25,6 +25,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -42,7 +44,10 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -85,8 +90,11 @@ private val RUNNING_MARK_WIDTH = 4.dp
 
 private val CHIP_ICON_SIZE = 14.dp
 
-/** About what the top bar's subtitle shows on a phone beside three icon buttons. */
-private const val FOLDER_SUBTITLE_MAX = 32
+/**
+ * About what the top bar's subtitle shows on a narrow phone (320 dp) beside four icon buttons:
+ * roughly 112 dp of small text. A longer subtitle would lose its end, where the folder's own name is.
+ */
+internal const val FOLDER_SUBTITLE_MAX = 16
 
 /** What stands for the folders a compacted path leaves out. Not a word: a mark. */
 private const val ELLIPSIS_PREFIX = "…/"
@@ -100,7 +108,8 @@ private const val LOAD_AHEAD = 3
  *
  * When the list is limited to a folder ([SessionListState.hasFolder]), the top bar names that folder
  * under its title and has buttons that open the folder's files and git, before the refresh button;
- * the list of every folder has none.
+ * the list of every folder has none. Last in the bar, one menu button opens the catalog's screens
+ * through [onOpenCatalog]: plain navigation, so it bypasses the presenter.
  *
  * Above the rows sit the search field and the archived switch; each row is a rounded card with the
  * session's title, how long ago it changed, its tokens and cost, and its status badge. Pulling the list down, or
@@ -119,6 +128,7 @@ fun SessionListScreen(
     state: SessionListState,
     onIntent: (SessionListIntent) -> Unit,
     modifier: Modifier = Modifier,
+    onOpenCatalog: (CatalogDestination) -> Unit = {},
 ) {
     val createLabel = stringResource(R.string.sessions_list_create)
     val canRefresh = !state.loading && !state.refreshing
@@ -148,6 +158,7 @@ fun SessionListScreen(
                     contentDescription = stringResource(R.string.sessions_list_refresh),
                 )
             }
+            CatalogMenu(onOpenCatalog)
         },
         floatingActionButton = {
             // The empty state has its own button; one is enough. The content overload, so the
@@ -226,6 +237,51 @@ fun SessionListScreen(
         }
     }
 }
+
+/**
+ * One icon button that drops down the catalog's screens: skills; commands, agents and models; and
+ * the status of MCP servers and plugins. A single button keeps the bar narrow enough for the title on
+ * a small phone. Choosing an item closes the menu and hands [onOpen] where to go.
+ */
+@Composable
+private fun CatalogMenu(onOpen: (CatalogDestination) -> Unit) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { expanded = true }) {
+            Icon(
+                imageVector = PhopencodeIcons.MoreVert,
+                contentDescription = stringResource(R.string.sessions_list_catalog),
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            CatalogDestination.entries.forEach { destination ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(destination.label)) },
+                    onClick = {
+                        expanded = false
+                        onOpen(destination)
+                    },
+                    leadingIcon = { Icon(imageVector = destination.icon, contentDescription = null) },
+                )
+            }
+        }
+    }
+}
+
+@get:StringRes
+private val CatalogDestination.label: Int
+    get() = when (this) {
+        CatalogDestination.Skills -> R.string.sessions_list_catalog_skills
+        CatalogDestination.Registry -> R.string.sessions_list_catalog_registry
+        CatalogDestination.Status -> R.string.sessions_list_catalog_status
+    }
+
+private val CatalogDestination.icon: ImageVector
+    get() = when (this) {
+        CatalogDestination.Skills -> PhopencodeIcons.Sparkle
+        CatalogDestination.Registry -> PhopencodeIcons.Agent
+        CatalogDestination.Status -> PhopencodeIcons.Info
+    }
 
 /**
  * The pull indicator: a ring that fills as the list is pulled, and a still refresh icon while the

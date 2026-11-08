@@ -6,6 +6,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import io.github.thewisekd.phopencode.core.model.Cost
 import io.github.thewisekd.phopencode.core.model.SessionId
 import io.github.thewisekd.phopencode.core.model.TokenUsage
@@ -36,6 +37,10 @@ internal data class ExpectedSessionListStrings(
     val refresh: String,
     val openFiles: String,
     val openGit: String,
+    /** The content description of the top bar's catalog menu button. */
+    val catalog: String,
+    /** The catalog menu's items, by where they lead. */
+    val catalogItems: Map<CatalogDestination, String>,
     val search: String,
     val showArchived: String,
     val archived: String,
@@ -79,6 +84,16 @@ abstract class SessionListScreenLanguageContract {
 
         compose.onNodeWithContentDescription(strings.openFiles).assertIsDisplayed()
         compose.onNodeWithContentDescription(strings.openGit).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the catalog menu button is named and its items are labelled`() {
+        assertEquals(CatalogDestination.entries.toSet(), strings.catalogItems.keys)
+        compose.setSessionList(listed)
+
+        compose.onNodeWithContentDescription(strings.catalog).assertIsDisplayed().performClick()
+
+        strings.catalogItems.values.forEach { compose.onNodeWithText(it).assertIsDisplayed() }
     }
 
     @Test

@@ -62,12 +62,13 @@ internal val listed = SessionListState(loading = false, rows = listOf(first, sec
 internal fun ComposeContentTestRule.setSessionList(
     state: SessionListState,
     route: SessionsRoute.SessionList = SessionsRoute.SessionList(directory = state.directory),
+    onOpenCatalog: (CatalogDestination) -> Unit = {},
     onIntent: (SessionListIntent) -> Unit = {},
 ) {
     setContent {
         PhopencodeTheme(darkTheme = false) {
             CompositionLocalProvider(LocalSessionListClock provides FixedClock) {
-                Surface { SessionListScreen(route = route, state = state, onIntent = onIntent) }
+                Surface { SessionListScreen(route = route, state = state, onIntent = onIntent, onOpenCatalog = onOpenCatalog) }
             }
         }
     }

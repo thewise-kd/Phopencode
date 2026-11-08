@@ -30,6 +30,12 @@ internal val ENGLISH_SESSION_LIST_STRINGS = ExpectedSessionListStrings(
     refresh = "Refresh sessions",
     openFiles = "Open files",
     openGit = "Open git",
+    catalog = "Open catalog",
+    catalogItems = mapOf(
+        CatalogDestination.Skills to "Skills",
+        CatalogDestination.Registry to "Commands, agents and models",
+        CatalogDestination.Status to "MCP and plugin status",
+    ),
     search = "Search sessions",
     showArchived = "Show archived",
     archived = "Archived",
