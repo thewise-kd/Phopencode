@@ -1,3 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_licenses_title">Açık kaynak lisansları</string>
+    <string name="settings_licenses_intro">Phopencode, MIT lisansıyla sunulan özgür bir yazılımdır. Aşağıdaki açık kaynak bileşenlerle yapılmıştır; her biri yanında gösterilen lisansla kullanılır.</string>
+
+    <string name="settings_licenses_lgpl_heading">LGPL bildirimi</string>
+    <!-- %1$s: the sora-editor version; %2$s: sora-editor's source URL; %3$s: this app's source URL. -->
+    <string name="settings_licenses_lgpl_notice">Kod görünümü, sora-editor %1$s kütüphanesini (io.github.rosemoe:editor ve io.github.rosemoe:language-textmate) değiştirilmeden, GNU Lesser General Public License 2.1 sürümüyle kullanır. Kaynak kodu %2$s adresindedir. Bu kütüphanenin yerine kendi değiştirdiğiniz bir sürümü koyabilirsiniz: bu uygulamanın derleme dosyaları dahil tüm kaynak kodu %3$s adresindedir, böylece uygulamayı seçtiğiniz kütüphaneyle yeniden derleyebilirsiniz. Kütüphane hiçbir garanti olmadan sunulur; lisansın tam metni aşağıdadır.</string>
+    <string name="settings_licenses_epl_heading">EPL bildirimi</string>
+    <!-- %1$s: the library version; %2$s: the Eclipse Foundation's URL. -->
+    <string name="settings_licenses_epl_notice">Eclipse JDT Annotations (org.eclipse.jdt:org.eclipse.jdt.annotation %1$s), değiştirilmeden, Eclipse Public License 2.0 ile kullanılır. Kaynak kodu Maven Central\'daki aynı paketin içinde yayımlanır ve Eclipse Vakfı\'ndan %2$s adresinden edinilebilir.</string>
+
+    <string name="settings_licenses_libraries_heading">Kütüphaneler</string>
+    <!-- %1$s: a library version; %2$s: its license, such as Apache-2.0. -->
+    <string name="settings_licenses_library_details">Sürüm %1$s · %2$s</string>
+
+    <string name="settings_licenses_textmate_heading">Kod renklendirme</string>
+    <string name="settings_licenses_textmate_intro">Kod görünümünün kullandığı TextMate gramerleri ve temaları; çoğu Visual Studio Code\'dan alınmıştır. Lisansını okumak için birine dokunun.</string>
+    <!-- %1$s: the upstream repository URL. -->
+    <string name="settings_licenses_textmate_source">Kaynak: %1$s</string>
+
+    <string name="settings_licenses_texts_heading">Lisans metinleri</string>
+    <string name="settings_licenses_open">lisans metnini göster</string>
+    <string name="settings_licenses_close">lisans metnini gizle</string>
+    <string name="settings_licenses_expanded">Açık</string>
+    <string name="settings_licenses_collapsed">Kapalı</string>
+    <string name="settings_licenses_unreadable">Lisans metni okunamadı.</string>
 </resources>

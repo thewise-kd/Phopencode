@@ -1,3 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_licenses_title">Open source licenses</string>
+    <string name="settings_licenses_intro">Phopencode is free software under the MIT license. It is built with the open source components below, each used under the license shown with it.</string>
+
+    <string name="settings_licenses_lgpl_heading">LGPL notice</string>
+    <!-- %1$s: the sora-editor version; %2$s: sora-editor's source URL; %3$s: this app's source URL. -->
+    <string name="settings_licenses_lgpl_notice">The code view uses sora-editor %1$s (io.github.rosemoe:editor and io.github.rosemoe:language-textmate), unmodified, under the GNU Lesser General Public License version 2.1. Its source code is available at %2$s. You may replace it with a modified version of your own: the complete source code of this app, with its build files, is available at %3$s, so you can rebuild the app with the library you choose. The library comes with no warranty; the full license text is below.</string>
+    <string name="settings_licenses_epl_heading">EPL notice</string>
+    <!-- %1$s: the library version; %2$s: the Eclipse Foundation's URL. -->
+    <string name="settings_licenses_epl_notice">Eclipse JDT Annotations (org.eclipse.jdt:org.eclipse.jdt.annotation %1$s) is used unmodified under the Eclipse Public License 2.0. Its source code is published inside the same artifact on Maven Central and is available from the Eclipse Foundation at %2$s.</string>
+
+    <string name="settings_licenses_libraries_heading">Libraries</string>
+    <!-- %1$s: a library version; %2$s: its license, such as Apache-2.0. -->
+    <string name="settings_licenses_library_details">Version %1$s · %2$s</string>
+
+    <string name="settings_licenses_textmate_heading">Code highlighting</string>
+    <string name="settings_licenses_textmate_intro">The TextMate grammars and themes the code view uses, most of them from Visual Studio Code. Tap one to read its license.</string>
+    <!-- %1$s: the upstream repository URL. -->
+    <string name="settings_licenses_textmate_source">Source: %1$s</string>
+
+    <string name="settings_licenses_texts_heading">License texts</string>
+    <string name="settings_licenses_open">show the license text</string>
+    <string name="settings_licenses_close">hide the license text</string>
+    <string name="settings_licenses_expanded">Open</string>
+    <string name="settings_licenses_collapsed">Closed</string>
+    <string name="settings_licenses_unreadable">The license text could not be read.</string>
 </resources>
