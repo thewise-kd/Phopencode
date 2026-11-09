@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -63,7 +64,11 @@ import io.github.thewisekd.phopencode.feature.connect.ui.R
 /** The steps the indicator shows, in the order a connect walks them. */
 private val INDICATOR_STEPS = listOf(ProgressStep.Ssh, ProgressStep.HostApproval, ProgressStep.Server, ProgressStep.Api)
 
+/** A step marker's least size; it grows with large text, so its number keeps room. */
 private val MARKER_SIZE = 32.dp
+
+/** The room around a marker's number, top and bottom together. */
+private val MARKER_TEXT_ROOM = 8.dp
 
 /** Where one step of the indicator stands. */
 internal enum class StepStatus { Done, Current, Failed, Pending }
@@ -215,22 +220,24 @@ private fun StepMarker(number: Int, status: StepStatus) {
         StepStatus.Pending -> Color.Transparent to colors.onSurfaceVariant
     }
     val outline = if (status == StepStatus.Pending) colors.outline else fill
+    val numberStyle = MaterialTheme.typography.labelLarge
+    val markerSize = maxOf(MARKER_SIZE, with(LocalDensity.current) { numberStyle.lineHeight.toDp() } + MARKER_TEXT_ROOM)
     Box(
         modifier = Modifier
-            .size(MARKER_SIZE)
+            .size(markerSize)
             .clearAndSetSemantics {}
             .background(fill, CircleShape)
             .border(2.dp, outline, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         when (status) {
-            StepStatus.Done -> Canvas(Modifier.size(MARKER_SIZE / 2)) {
+            StepStatus.Done -> Canvas(Modifier.size(markerSize / 2)) {
                 val stroke = size.minDimension / 6
                 fun at(x: Float, y: Float) = Offset(size.width * x, size.height * y)
                 drawLine(content, at(0.1f, 0.55f), at(0.4f, 0.85f), stroke, StrokeCap.Round)
                 drawLine(content, at(0.4f, 0.85f), at(0.9f, 0.2f), stroke, StrokeCap.Round)
             }
-            StepStatus.Failed -> Canvas(Modifier.size(MARKER_SIZE / 2)) {
+            StepStatus.Failed -> Canvas(Modifier.size(markerSize / 2)) {
                 val stroke = size.minDimension / 6
                 fun at(x: Float, y: Float) = Offset(size.width * x, size.height * y)
                 drawLine(content, at(0.15f, 0.15f), at(0.85f, 0.85f), stroke, StrokeCap.Round)
@@ -239,7 +246,7 @@ private fun StepMarker(number: Int, status: StepStatus) {
             StepStatus.Current, StepStatus.Pending -> Text(
                 text = number.toString(),
                 color = content,
-                style = MaterialTheme.typography.labelLarge,
+                style = numberStyle,
             )
         }
     }

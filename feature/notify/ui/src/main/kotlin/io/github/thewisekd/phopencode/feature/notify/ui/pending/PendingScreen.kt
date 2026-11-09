@@ -101,8 +101,12 @@ fun PendingScreen(
                 when {
                     state.items.isNotEmpty() -> Items(state.items, onIntent)
                     state.loading -> StillProgress(R.string.notify_pending_loading, Modifier.fillMaxSize())
+                    // Merged, so that the live region holds the message and TalkBack reads it when it shows;
+                    // the way out stays a button of its own.
                     error != null -> EmptyState(
-                        modifier = Modifier.fillMaxSize().semantics { liveRegion = LiveRegionMode.Polite },
+                        modifier = Modifier.fillMaxSize().semantics(mergeDescendants = true) {
+                            liveRegion = LiveRegionMode.Polite
+                        },
                         title = stringResource(error.messageRes),
                         icon = PhopencodeIcons.Warning,
                         action = error.wayOut(onIntent),

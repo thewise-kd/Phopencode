@@ -39,6 +39,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import io.github.thewisekd.phopencode.core.ui.component.EmptyState
@@ -400,7 +402,8 @@ private fun OlderStatus(state: TimelineState, modifier: Modifier, onRetry: () ->
             ) {
                 Text(
                     text = stringResource(R.string.chat_timeline_older_failed),
-                    modifier = Modifier.weight(1f, fill = false),
+                    // Read out when it shows, as the loading message before it is.
+                    modifier = Modifier.weight(1f, fill = false).semantics { liveRegion = LiveRegionMode.Polite },
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
                 )

@@ -66,7 +66,7 @@ import io.github.thewisekd.phopencode.feature.chat.ui.R
 /** How faint the control's text is while it cannot be tapped. */
 private const val DISABLED_ALPHA = 0.6f
 
-/** The control's least height: a full touch target, around the smaller chips. */
+/** The least height of the control and of each choice in the sheet: a full touch target. */
 private val CONTROL_MIN_HEIGHT = 48.dp
 
 /** The chips' visible height and their icon's size. */
@@ -363,7 +363,7 @@ private fun ModelRow(model: ModelOption, current: ModelRef?, enabled: Boolean, o
     }
 }
 
-/** A radio choice: [name] above [detail], selected when it is current. */
+/** A radio choice: [name] above [detail], selected when it is current; a full touch target tall. */
 @Composable
 private fun Choice(
     name: String,
@@ -376,6 +376,7 @@ private fun Choice(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = CONTROL_MIN_HEIGHT)
             .testTag(tag)
             .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
             .padding(vertical = 4.dp),

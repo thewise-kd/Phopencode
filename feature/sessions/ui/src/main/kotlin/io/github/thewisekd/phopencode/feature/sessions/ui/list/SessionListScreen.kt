@@ -63,6 +63,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.thewisekd.phopencode.core.navigation.SessionsRoute
@@ -435,6 +436,8 @@ private fun LazyListScope.sessions(state: SessionListState, now: Instant, onInte
             ) {
                 Text(
                     text = stringResource(R.string.sessions_list_load_more_error),
+                    // Read out when it shows, as the loading message before it is.
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
                 )

@@ -1,8 +1,13 @@
 package io.github.thewisekd.phopencode.core.ui.component
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -18,8 +23,10 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import io.github.thewisekd.phopencode.core.ui.icon.PhopencodeIcons
 import io.github.thewisekd.phopencode.core.ui.theme.LightColorScheme
 import io.github.thewisekd.phopencode.core.ui.theme.LightStatusColors
@@ -30,7 +37,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowDialog
+import kotlin.math.abs
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 private const val GO_BACK = "Go back"
@@ -42,6 +51,9 @@ private const val DANGEROUS = "Dangerous action"
 private const val CONTENT_TAG = "content"
 private const val BANNER_TAG = "banner"
 private const val SUBTITLE = "Some detail"
+
+/** Too short for an empty state with an icon, a message and an action in large text. */
+private val SHORT_SPACE = 200.dp
 
 private val isButton = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)
 
@@ -187,6 +199,65 @@ class ComponentBehaviorTest {
         compose.onNodeWithText(MESSAGE).assertIsDisplayed()
         compose.onNodeWithText(BUTTON_LABEL).assertIsDisplayed().assertTouchHeightIsAtLeast(touchTarget).performClick()
         compose.runOnIdle { assertEquals(1, clicks) }
+    }
+
+    @Test
+    fun `an empty state taller than its space scrolls, its text whole and its action reachable`() {
+        var clicks = 0
+        compose.setThemedContent(fontScale = 2f) {
+            Box(Modifier.height(SHORT_SPACE)) {
+                EmptyState(
+                    modifier = Modifier.fillMaxSize(),
+                    title = SCREEN_TITLE,
+                    message = MESSAGE,
+                    icon = PhopencodeIcons.Folder,
+                    action = EmptyStateAction(label = BUTTON_LABEL, onClick = { clicks++ }),
+                )
+            }
+        }
+
+        listOf(SCREEN_TITLE, MESSAGE, BUTTON_LABEL).forEach { text ->
+            val node = compose.onNodeWithText(text, useUnmergedTree = true)
+            assertFalse(node.textLayout().didOverflowHeight, "\"$text\" is cut off")
+        }
+        compose.onNodeWithText(BUTTON_LABEL).performScrollTo().assertIsDisplayed().performClick()
+        compose.runOnIdle { assertEquals(1, clicks) }
+    }
+
+    @Test
+    fun `an empty state that fits stays centred in its space`() {
+        compose.setThemedContent {
+            EmptyState(modifier = Modifier.fillMaxSize().testTag(CONTENT_TAG), title = SCREEN_TITLE)
+        }
+
+        val space = compose.onNodeWithTag(CONTENT_TAG).getUnclippedBoundsInRoot()
+        val title = compose.onNodeWithText(SCREEN_TITLE).getUnclippedBoundsInRoot()
+        val offCentre = ((title.top + title.bottom) / 2 - (space.top + space.bottom) / 2).value
+        assertTrue(abs(offCentre) <= 1f, "the title is $offCentre dp off the centre")
+    }
+
+    @Test
+    fun `an empty state in a scrolling column takes the height of its content`() {
+        compose.setThemedContent {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                EmptyState(
+                    modifier = Modifier.fillMaxWidth().testTag(CONTENT_TAG),
+                    title = SCREEN_TITLE,
+                    action = EmptyStateAction(label = BUTTON_LABEL, onClick = {}),
+                )
+                Text(MESSAGE)
+            }
+        }
+
+        compose.onNodeWithText(SCREEN_TITLE).assertIsDisplayed()
+        val button = compose.onNodeWithText(BUTTON_LABEL).assertIsDisplayed().getUnclippedBoundsInRoot()
+        val space = compose.onNodeWithTag(CONTENT_TAG).getUnclippedBoundsInRoot()
+        val after = compose.onNodeWithText(MESSAGE).assertIsDisplayed().getUnclippedBoundsInRoot()
+        // Below the button are only the room that makes it a full touch target and the padding: it does not
+        // stretch in a space without an end.
+        val below = space.bottom - button.bottom
+        assertTrue(below <= PhopencodeSpacing().xl + 8.dp, "the empty state is taller than its content, by $below")
+        assertTrue(after.top >= space.bottom)
     }
 
     @Test

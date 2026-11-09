@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -481,13 +482,16 @@ private fun ChangeRow(change: GitFileChange, staged: Boolean, enabled: Boolean, 
     )
 }
 
-/** The letter git prints for the change, in its status color. Decorative: the row's text names the kind. */
+/**
+ * The letter git prints for the change, in its status color, in a box that grows with large text.
+ * Decorative: the row's text names the kind.
+ */
 @Composable
 private fun KindMark(kind: GitChangeKind) {
     val colors = kind.colors
     Box(
         modifier = Modifier
-            .size(PhopencodeTheme.spacing.xl)
+            .sizeIn(minWidth = PhopencodeTheme.spacing.xl, minHeight = PhopencodeTheme.spacing.xl)
             .clearAndSetSemantics {}
             .background(colors.container, MaterialTheme.shapes.small),
         contentAlignment = Alignment.Center,
