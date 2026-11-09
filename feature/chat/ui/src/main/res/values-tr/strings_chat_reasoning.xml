@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="chat_reasoning_thinking">Düşünüyor</string>
+    <string name="chat_reasoning_thinking">Düşünüyor…</string>
     <string name="chat_reasoning_thought">Düşündü</string>
     <string name="chat_reasoning_thought_for">%1$s düşündü</string>
     <string name="chat_reasoning_live">Canlı</string>

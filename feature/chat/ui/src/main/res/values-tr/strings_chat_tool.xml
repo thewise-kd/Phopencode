@@ -22,6 +22,9 @@
     <string name="chat_tool_additions">+%1$d</string>
     <!-- %1$d: lines an edit removed. -->
     <string name="chat_tool_deletions">−%1$d</string>
+    <!-- What a tap on a tool call's row does. -->
+    <string name="chat_tool_show_details">Ayrıntıları göster</string>
+    <string name="chat_tool_hide_details">Ayrıntıları gizle</string>
     <string name="chat_tool_input">Girdi</string>
     <string name="chat_tool_output">Çıktı</string>
     <string name="chat_tool_expanded">Açık</string>

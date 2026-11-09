@@ -12,8 +12,8 @@ import org.robolectric.annotation.Config
 class EnglishTimelineTest : TimelineLanguageContract() {
     override val strings = ExpectedTimelineStrings(
         loading = "Loading messages…",
-        emptyTitle = "No messages yet",
-        emptyMessage = "Write a message below to start.",
+        emptyTitle = "What should we build?",
+        emptyMessage = "Type / for commands and skills, or @ for files and agents.",
         loadingOlder = "Loading older messages…",
         olderFailed = "Older messages could not be loaded.",
         retry = "Try again",
@@ -43,7 +43,6 @@ class EnglishTimelineTest : TimelineLanguageContract() {
         locationSwitched = "Folder: /home/dev/app",
         skillInvoked = "Skill used: review",
         turns = mapOf(
-            TurnOutcome.Succeeded to "The work is done.",
             TurnOutcome.Failed to "The work failed.",
             TurnOutcome.Interrupted to "The work was stopped.",
             TurnOutcome.Unknown to "The work ended.",

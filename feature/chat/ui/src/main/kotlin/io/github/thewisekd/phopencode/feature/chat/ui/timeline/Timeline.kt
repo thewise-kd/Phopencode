@@ -5,6 +5,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,10 +42,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
 import io.github.thewisekd.phopencode.core.ui.component.EmptyState
+import io.github.thewisekd.phopencode.core.ui.icon.PhopencodeIcons
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.TimelineIntent
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.TimelineItem
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.TimelineState
+import io.github.thewisekd.phopencode.feature.chat.logic.contract.TurnOutcome
 import io.github.thewisekd.phopencode.feature.chat.ui.R
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
@@ -71,7 +74,10 @@ internal const val FOLLOW_STEPS_PER_FRAME = 1_000
  * Items keep their [TimelineItem.key] as the list key. A [TimelineItem.Reasoning] and a
  * [TimelineItem.Tool] are drawn by [reasoningCard] and [toolCard], which the chat fills from their
  * own presenters; the timeline only places them. A prompt sits in a bubble on the end side; a reply
- * spans the width from the start side and renders its Markdown through `MarkdownView`.
+ * spans the width from the start side and renders its Markdown through `MarkdownView`. No caption
+ * names who wrote either: screen readers hear it. A wider gap above each prompt sets turns apart, and
+ * a successful end of the work draws nothing. An empty session shows a welcome with the composer's
+ * `/` and `@` hints.
  *
  * Scrolling follows [TimelineState.followLatest]: while it holds, the list keeps its end in view as
  * items arrive and a streamed reply grows. When the user moves the list, it sends
@@ -124,6 +130,7 @@ internal fun TimelineContent(
                 modifier = Modifier.fillMaxSize(),
                 title = stringResource(R.string.chat_timeline_empty_title),
                 message = stringResource(R.string.chat_timeline_empty_message),
+                icon = PhopencodeIcons.Chat,
             )
         }
     }
@@ -147,7 +154,6 @@ private fun BoxScope.TimelineList(
     ReportScrolling(listState, state.followLatest, tracker) { send(it) }
     LoadOlderNearTheTop(listState, state) { send(it) }
 
-    val spacing = PhopencodeTheme.spacing
     LazyColumn(
         modifier = Modifier.fillMaxSize().nestedScroll(takeOver).testTag(TIMELINE_LIST_TAG),
         state = listState,
@@ -157,7 +163,7 @@ private fun BoxScope.TimelineList(
                 Modifier
                     .fillMaxWidth()
                     .testTag(timelineItemTag(item.key))
-                    .padding(horizontal = spacing.lg, vertical = spacing.xs),
+                    .then(if (item.drawsNothing) Modifier else Modifier.padding(itemPadding(item))),
             ) {
                 if (item is TimelineItem.User) {
                     UserRow(item, reasoningCard, toolCard, userActions)
@@ -172,6 +178,21 @@ private fun BoxScope.TimelineList(
         JumpToLatest(state.unseenCount, Modifier.align(Alignment.BottomCenter)) { send(TimelineIntent.JumpToLatest) }
     }
 }
+
+/**
+ * Room around an item: the same small gap between the items of a turn, and a wider one above each
+ * prompt, so that turns read apart.
+ */
+@Composable
+private fun itemPadding(item: TimelineItem): PaddingValues {
+    val spacing = PhopencodeTheme.spacing
+    val top = if (item is TimelineItem.User) spacing.lg else spacing.xs
+    return PaddingValues(start = spacing.lg, end = spacing.lg, top = top, bottom = spacing.xs)
+}
+
+/** A successful end draws nothing, so it takes no room either. */
+private val TimelineItem.drawsNothing: Boolean
+    get() = this is TimelineItem.TurnEnded && outcome == TurnOutcome.Succeeded
 
 /**
  * What the timeline draws under a prompt whose actions were opened: the prompt, and how to close

@@ -31,6 +31,8 @@ class EnglishToolTest : ToolLanguageContract() {
         hideInput = "Hide the input",
         showOutput = "Show the output",
         hideOutput = "Hide the output",
+        showDetails = "Show details",
+        hideDetails = "Hide details",
         moreLines = { if (it == 1) "1 more line" else "$it more lines" },
         moreCharacters = { if (it == 1) "1 more character" else "$it more characters" },
         error = { "Error: $it" },

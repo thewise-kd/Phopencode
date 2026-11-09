@@ -1,11 +1,21 @@
 package io.github.thewisekd.phopencode.feature.chat.ui.tool
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
@@ -15,6 +25,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import io.github.thewisekd.phopencode.core.model.StructuredError
+import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ToolCardStatus
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ToolIntent
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ToolSection
@@ -39,13 +50,135 @@ class ToolBehaviorTest {
 
     private val both = setOf(ToolSection.Input, ToolSection.Output)
 
+    // The row
+
+    @Test
+    fun `a call starts as one slim row with no details`() {
+        compose.setTool(shellCard(input = INPUT, output = OUTPUT))
+        compose.waitForIdle()
+
+        node(TOOL_HEADER_TAG).assertIsDisplayed()
+        node(TOOL_SUMMARY_TAG).assertIsDisplayed()
+        node(TOOL_STATUS_TAG).assertIsDisplayed()
+        for (section in ToolSection.entries) {
+            compose.onNodeWithTag(toolSectionTag(section), useUnmergedTree = true).assertDoesNotExist()
+        }
+        val card = compose.onNodeWithTag(CARD_TAG).fetchSemanticsNode()
+        val height = with(card.layoutInfo.density) { card.boundsInRoot.height.toDp() }
+        assertTrue(height <= 56.dp, "a collapsed call is one row, was $height")
+    }
+
+    @Test
+    fun `tapping the row opens and closes its details without asking the presenter`() {
+        val harness = compose.setTool(shellCard(input = INPUT, output = OUTPUT))
+
+        node(TOOL_HEADER_TAG).performClick()
+        node(toolSectionTag(ToolSection.Input)).assertIsDisplayed()
+        node(toolSectionTag(ToolSection.Output)).assertIsDisplayed()
+
+        node(TOOL_HEADER_TAG).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag(toolSectionTag(ToolSection.Input), useUnmergedTree = true).assertDoesNotExist()
+        assertTrue(harness.intents.isEmpty(), "the row's own toggle sends nothing: ${harness.intents}")
+    }
+
+    @Test
+    fun `the row is a button big enough to touch when it has details`() {
+        compose.setTool(shellCard(input = INPUT))
+
+        compose.onNodeWithTag(TOOL_HEADER_TAG).performScrollTo()
+            .assertHasClickAction()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+            .assertTouchSizeIsAtLeast(48.dp)
+    }
+
+    @Test
+    fun `a row with nothing to show is not a button`() {
+        compose.setTool(shellCard(status = ToolCardStatus.Preparing))
+
+        compose.onNodeWithTag(TOOL_HEADER_TAG).performScrollTo().assertHasNoClickAction()
+    }
+
+    @Test
+    fun `a failed call opens with its error, and a call with an open section opens with it`() {
+        val harness = compose.setTool(
+            shellCard(status = ToolCardStatus.Failed, input = INPUT).copy(error = StructuredError(type = "tool", message = "boom")),
+        )
+        node(TOOL_ERROR_TAG).assertIsDisplayed()
+        node(toolSectionTag(ToolSection.Input)).assertIsDisplayed()
+
+        harness.state.value = shellCard(input = INPUT, output = OUTPUT)
+        node(TOOL_HEADER_TAG).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag(toolSectionTag(ToolSection.Input), useUnmergedTree = true).assertDoesNotExist()
+        harness.state.value = harness.state.value.copy(expanded = setOf(ToolSection.Output))
+        node(toolTextTag(ToolSection.Output)).assertIsDisplayed()
+    }
+
+    @Test
+    fun `an error that arrives opens a row the user closed with a section open, and a later close holds`() {
+        val harness = compose.setTool(shellCard(input = INPUT, output = OUTPUT).copy(expanded = setOf(ToolSection.Output)))
+        node(toolTextTag(ToolSection.Output)).assertIsDisplayed()
+        node(TOOL_HEADER_TAG).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag(toolSectionTag(ToolSection.Output), useUnmergedTree = true).assertDoesNotExist()
+
+        harness.state.value = harness.state.value.copy(
+            status = ToolCardStatus.Failed,
+            error = StructuredError(type = "tool", message = "exit code 2"),
+        )
+        assertEquals("Error: exit code 2", node(TOOL_ERROR_TAG).text())
+
+        node(TOOL_HEADER_TAG).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag(TOOL_ERROR_TAG, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a failed row the user closed stays closed when it leaves the screen and comes back`() {
+        val shown = mutableStateOf(true)
+        val card = shellCard(status = ToolCardStatus.Failed, input = INPUT, output = OUTPUT).copy(
+            error = StructuredError(type = "tool", message = "exit code 2"),
+            expanded = setOf(ToolSection.Output),
+        )
+        compose.setContent {
+            // As the timeline's lazy list does: an item's saved state outlives its leaving the screen.
+            val holder = rememberSaveableStateHolder()
+            PhopencodeTheme(darkTheme = false) {
+                Surface {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        if (shown.value) {
+                            holder.SaveableStateProvider(KEY.value) {
+                                ToolCard(KEY, card, {}, Modifier.fillMaxWidth().testTag(CARD_TAG))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        node(TOOL_ERROR_TAG).assertIsDisplayed()
+        node(TOOL_HEADER_TAG).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag(TOOL_ERROR_TAG, useUnmergedTree = true).assertDoesNotExist()
+
+        shown.value = false
+        compose.waitForIdle()
+        compose.onNodeWithTag(TOOL_HEADER_TAG, useUnmergedTree = true).assertDoesNotExist()
+        shown.value = true
+        compose.waitForIdle()
+
+        node(TOOL_HEADER_TAG).assertIsDisplayed()
+        compose.onNodeWithTag(TOOL_ERROR_TAG, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag(toolSectionTag(ToolSection.Output), useUnmergedTree = true).assertDoesNotExist()
+    }
+
     // Sections
 
     @Test
-    fun `a collapsed card shows its summary and section headers but no bodies`() {
+    fun `an open card shows its summary and section headers but no bodies`() {
         compose.setTool(shellCard(input = INPUT, output = OUTPUT))
 
-        node(TOOL_HEADER_TAG).assertIsDisplayed()
+        node(TOOL_HEADER_TAG).assertIsDisplayed().performClick()
         node(toolSectionTag(ToolSection.Input)).assertIsDisplayed()
         node(toolSectionTag(ToolSection.Output)).assertIsDisplayed()
         compose.onNodeWithTag(toolTextTag(ToolSection.Input), useUnmergedTree = true).assertDoesNotExist()
@@ -71,6 +204,7 @@ class ToolBehaviorTest {
     @Test
     fun `tapping a section header asks to toggle it and leaves the state to the presenter`() {
         val harness = compose.setTool(shellCard(input = INPUT, output = OUTPUT))
+        node(TOOL_HEADER_TAG).performClick()
 
         node(toolSectionTag(ToolSection.Input)).performClick()
         node(toolSectionTag(ToolSection.Output)).performClick()
@@ -97,6 +231,7 @@ class ToolBehaviorTest {
     @Test
     fun `section headers are buttons big enough to touch`() {
         compose.setTool(shellCard(input = INPUT, output = OUTPUT))
+        node(TOOL_HEADER_TAG).performClick()
 
         for (section in ToolSection.entries) {
             node(toolSectionTag(section))

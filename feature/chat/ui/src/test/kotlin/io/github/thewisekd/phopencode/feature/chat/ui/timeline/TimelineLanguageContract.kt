@@ -1,6 +1,8 @@
 package io.github.thewisekd.phopencode.feature.chat.ui.timeline
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -56,6 +58,7 @@ internal data class ExpectedTimelineStrings(
     val locationSwitched: String,
     /** For `review`. */
     val skillInvoked: String,
+    /** The ends that draw a chip: every outcome but [TurnOutcome.Succeeded], which draws nothing. */
     val turns: Map<TurnOutcome, String>,
     /** For the message `Rate limited`. */
     val turnFailedDetail: String,
@@ -125,14 +128,40 @@ abstract class TimelineLanguageContract {
         shows(strings.unseenFive)
     }
 
+    /** Nothing on screen reads [text]: a caption no longer drawn. */
+    private fun hides(text: String) = compose.assertNotDrawn(text)
+
+    /** Screen readers hear [author] first in the item that holds [text]. */
+    private fun spokenFirst(author: String, text: String) {
+        compose.waitUntil(5_000) {
+            compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
+        assertEquals(author, compose.spokenTexts(text).firstOrNull(), "who wrote the item holding $text")
+    }
+
     @Test
-    fun `a prompt and a reply say who wrote them`() {
-        val harness = compose.setTimeline(loaded(listOf(user(1))))
-        shows(strings.you)
+    fun `a prompt and a reply tell screen readers who wrote them, with no caption on screen`() {
+        val harness = compose.setTimeline(loaded(listOf(user(1, "Testleri çalıştır"))))
+        spokenFirst(strings.you, "Testleri çalıştır")
+        hides(strings.you)
+
+        harness.showOnly(answer(1, text = "Done."))
+        spokenFirst(strings.assistant, "Done.")
+        hides(strings.assistant)
 
         harness.showOnly(answer(1, text = "", streaming = true))
-        shows(strings.assistant)
         says(strings.writing)
+        hides(strings.assistant)
+    }
+
+    @Test
+    fun `a reply that fills the screen still says who wrote it first`() {
+        val harness = compose.setTimeline(loaded(emptyList()))
+
+        harness.showOnly(answer(1, text = streamed(40)))
+
+        spokenFirst(strings.assistant, "Paragraph 1 of the reply")
+        hides(strings.assistant)
     }
 
     @Test
@@ -209,15 +238,17 @@ abstract class TimelineLanguageContract {
     }
 
     @Test
-    fun `the end of the work says how it ended`() {
+    fun `the end of the work says how it ended, unless it succeeded`() {
         val harness = compose.setTimeline(loaded(emptyList()))
-        assertEquals(TurnOutcome.entries.toSet(), strings.turns.keys)
+        assertEquals(TurnOutcome.entries.toSet() - TurnOutcome.Succeeded, strings.turns.keys)
         assertEquals(strings.turns.size, strings.turns.values.toSet().size, "messages must differ")
 
         for ((outcome, text) in strings.turns) {
             harness.showOnly(TimelineItem.TurnEnded(key, id, outcome))
             shows(text)
         }
+        harness.showOnly(TimelineItem.TurnEnded(key, id, TurnOutcome.Succeeded))
+        strings.turns.values.forEach { hides(it) }
         harness.showOnly(
             TimelineItem.TurnEnded(key, id, TurnOutcome.Failed, StructuredError("provider.rate", message = "Rate limited")),
         )

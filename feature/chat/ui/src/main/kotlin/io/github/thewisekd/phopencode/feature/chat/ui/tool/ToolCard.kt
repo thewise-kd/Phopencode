@@ -1,6 +1,7 @@
 package io.github.thewisekd.phopencode.feature.chat.ui.tool
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -10,13 +11,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,9 +36,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.thewisekd.phopencode.core.model.StructuredError
+import io.github.thewisekd.phopencode.core.ui.icon.PhopencodeIcons
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.TimelineKey
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ToolCardState
@@ -74,8 +86,12 @@ private const val ERROR_MAX_LINES = 6
  * One tool call for the card [key] (P6.10), drawn from [state]; the chat draws it where the
  * timeline has the [TimelineKey].
  *
- * - **Header:** a still status icon, named for screen readers, and a summary line per [ToolSummary]
- *   kind; an edit adds its "+added −removed" counts when known.
+ * - **Row:** one slim line: an icon for the kind of call, the summary per [ToolSummary] kind (the
+ *   kind's name, then its target, such as the file or the command, in a quieter monospace), an
+ *   edit's "+added −removed" counts when known, a still status icon named for screen readers, and a
+ *   chevron when there are details. Tapping the row shows or hides the details; that is the row's
+ *   own state, kept here and not sent. The details open by themselves when the call failed with an
+ *   error, or when [state] has a section open.
  * - **Error:** the error's message, or its type when it has none.
  * - **Sections:** input and output, each drawn only when there is text. Tapping a section's header
  *   sends [ToolIntent.Toggle]; whether it is open comes only from [state]. An open section shows at
@@ -92,76 +108,161 @@ fun ToolCard(
     onIntent: (ToolIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val hasDetails = state.error != null || !state.input.isNullOrEmpty() || !state.output.isNullOrEmpty()
+    val failed = state.error != null
+    val sectionOpen = state.expanded.isNotEmpty()
+    var open by rememberSaveable(key.value) { mutableStateOf(failed || sectionOpen) }
+    // An error that arrives, or a first section the presenter opens, shows: the row opens with it.
+    // What the row last saw is saved with it, so only a real change opens it: not the row coming
+    // back on screen, which would undo the user's own close. Each is tracked on its own, so one
+    // already true does not hide the other's arrival.
+    var seenFailed by rememberSaveable(key.value) { mutableStateOf(failed) }
+    var seenSectionOpen by rememberSaveable(key.value) { mutableStateOf(sectionOpen) }
+    LaunchedEffect(failed) {
+        if (failed && !seenFailed) open = true
+        seenFailed = failed
+    }
+    LaunchedEffect(sectionOpen) {
+        if (sectionOpen && !seenSectionOpen) open = true
+        seenSectionOpen = sectionOpen
+    }
     Surface(
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = BORDER_ALPHA)),
     ) {
-        Column(Modifier.padding(bottom = 4.dp)) {
-            ToolHeader(state)
-            state.error?.let { ToolError(it) }
-            for (section in ToolSection.entries) {
-                val text = when (section) {
-                    ToolSection.Input -> state.input
-                    ToolSection.Output -> state.output
-                }
-                if (!text.isNullOrEmpty()) {
-                    ToolSectionView(
-                        section = section,
-                        text = text,
-                        expanded = section in state.expanded,
-                        onToggle = { onIntent(ToolIntent.Toggle(key, section)) },
-                    )
+        Column {
+            ToolHeader(state, open = open && hasDetails, onToggle = if (hasDetails) ({ open = !open }) else null)
+            if (open && hasDetails) {
+                Column(Modifier.padding(bottom = 4.dp)) {
+                    state.error?.let { ToolError(it) }
+                    for (section in ToolSection.entries) {
+                        val text = when (section) {
+                            ToolSection.Input -> state.input
+                            ToolSection.Output -> state.output
+                        }
+                        if (!text.isNullOrEmpty()) {
+                            ToolSectionView(
+                                section = section,
+                                text = text,
+                                expanded = section in state.expanded,
+                                onToggle = { onIntent(ToolIntent.Toggle(key, section)) },
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
 
+/** How strongly the row's hairline border shows: enough to hold it together, not to frame it. */
+private const val BORDER_ALPHA = 0.6f
+
+/** The row: kind, summary, counts, status and, when there are details, whether they show. */
 @Composable
-private fun ToolHeader(state: ToolCardState) {
+private fun ToolHeader(state: ToolCardState, open: Boolean, onToggle: (() -> Unit)?) {
+    val toggle = if (onToggle != null) {
+        val stateLabel = stringResource(if (open) R.string.chat_tool_expanded else R.string.chat_tool_collapsed)
+        val clickLabel = stringResource(if (open) R.string.chat_tool_hide_details else R.string.chat_tool_show_details)
+        Modifier
+            .clickable(onClickLabel = clickLabel, role = Role.Button, onClick = onToggle)
+            .semantics { stateDescription = stateLabel }
+    } else {
+        Modifier
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = MIN_TOUCH)
+            .then(toggle)
             .testTag(TOOL_HEADER_TAG)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
-            imageVector = toolStatusIcon(state.status),
-            contentDescription = stringResource(state.status.labelRes()),
-            tint = statusTint(state.status),
-            modifier = Modifier.testTag(TOOL_STATUS_TAG),
+            imageVector = kindIcon(state.summary),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp),
         )
         Text(
             text = summaryText(state.summary),
             style = MaterialTheme.typography.bodyMedium,
-            maxLines = 2,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).testTag(TOOL_SUMMARY_TAG),
         )
         (state.summary as? ToolSummary.Edit)?.let { edit -> EditChanges(edit) }
+        Icon(
+            imageVector = toolStatusIcon(state.status),
+            contentDescription = stringResource(state.status.labelRes()),
+            tint = statusTint(state.status),
+            modifier = Modifier.size(20.dp).testTag(TOOL_STATUS_TAG),
+        )
+        if (onToggle != null) {
+            Icon(
+                imageVector = if (open) ToolIcons.Less else ToolIcons.More,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+            )
+        }
     }
 }
 
+/** What kind of call it is, at a glance; the summary says it in words. */
+private fun kindIcon(summary: ToolSummary): ImageVector = when (summary) {
+    is ToolSummary.Shell -> PhopencodeIcons.Terminal
+    is ToolSummary.Edit -> PhopencodeIcons.Edit
+    is ToolSummary.Read -> PhopencodeIcons.File
+    is ToolSummary.Search -> PhopencodeIcons.Search
+    is ToolSummary.Generic -> PhopencodeIcons.Settings
+}
+
+/**
+ * The summary line: the kind's name as the strings put it, with its targets (the command, path or
+ * pattern) set in a quieter monospace. The text is the same as unstyled; only its look changes.
+ */
 @Composable
-private fun summaryText(summary: ToolSummary): String = when (summary) {
-    is ToolSummary.Shell -> stringResource(R.string.chat_tool_summary_shell, oneLine(summary.command))
-    is ToolSummary.Edit -> stringResource(R.string.chat_tool_summary_edit, summary.path)
-    is ToolSummary.Read -> stringResource(R.string.chat_tool_summary_read, summary.path)
-    is ToolSummary.Search -> {
-        val pattern = oneLine(summary.pattern)
-        val path = summary.path
-        if (path.isNullOrBlank()) {
-            stringResource(R.string.chat_tool_summary_search, pattern)
-        } else {
-            stringResource(R.string.chat_tool_summary_search_in, pattern, path)
+private fun summaryText(summary: ToolSummary): AnnotatedString {
+    val (text, targets) = when (summary) {
+        is ToolSummary.Shell -> oneLine(summary.command).let { stringResource(R.string.chat_tool_summary_shell, it) to listOf(it) }
+        is ToolSummary.Edit -> stringResource(R.string.chat_tool_summary_edit, summary.path) to listOf(summary.path)
+        is ToolSummary.Read -> stringResource(R.string.chat_tool_summary_read, summary.path) to listOf(summary.path)
+        is ToolSummary.Search -> {
+            val pattern = oneLine(summary.pattern)
+            val path = summary.path
+            if (path.isNullOrBlank()) {
+                stringResource(R.string.chat_tool_summary_search, pattern) to listOf(pattern)
+            } else {
+                stringResource(R.string.chat_tool_summary_search_in, pattern, path) to listOf(pattern, path)
+            }
+        }
+        is ToolSummary.Generic -> stringResource(R.string.chat_tool_summary_generic, summary.name) to listOf(summary.name)
+    }
+    val target = SpanStyle(
+        fontFamily = PhopencodeTheme.codeTypography.small.fontFamily,
+        fontWeight = FontWeight.Normal,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    val name = SpanStyle(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+    return remember(text, targets, target, name) {
+        buildAnnotatedString {
+            append(text)
+            addStyle(name, 0, text.length)
+            var from = 0
+            for (part in targets) {
+                if (part.isEmpty()) continue
+                val at = text.indexOf(part, from)
+                if (at < 0) continue
+                addStyle(target, at, at + part.length)
+                from = at + part.length
+            }
         }
     }
-    is ToolSummary.Generic -> stringResource(R.string.chat_tool_summary_generic, summary.name)
 }
 
 /** A multi-line command or pattern on one line, its line breaks and runs of spaces collapsed. */
@@ -272,9 +373,10 @@ private fun ToolSectionBody(section: ToolSection, text: String) {
 
 @Composable
 private fun statusTint(status: ToolCardStatus): Color = when (status) {
-    ToolCardStatus.Completed -> MaterialTheme.colorScheme.primary
+    ToolCardStatus.Completed -> MaterialTheme.colorScheme.outline
+    ToolCardStatus.Running -> MaterialTheme.colorScheme.primary
     ToolCardStatus.Failed -> MaterialTheme.colorScheme.error
-    ToolCardStatus.Preparing, ToolCardStatus.Running, ToolCardStatus.Unknown -> MaterialTheme.colorScheme.onSurfaceVariant
+    ToolCardStatus.Preparing, ToolCardStatus.Unknown -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
 @StringRes

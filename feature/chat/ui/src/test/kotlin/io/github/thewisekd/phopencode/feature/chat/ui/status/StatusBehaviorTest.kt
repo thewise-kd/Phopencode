@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.testTag
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -138,6 +139,62 @@ class StatusBehaviorTest {
         compose.setStatus(StatusState(ChatStatus.Failed(StructuredError(type = "provider.auth"))))
 
         assertParts(STATUS_FAILED_TAG)
+    }
+
+    @Test
+    fun `running work and a failure are slim strips`() {
+        val harness = compose.setStatus(StatusState(ChatStatus.Running))
+        assertSlim(STATUS_ACTIVITY_TAG)
+
+        harness.state.value = StatusState(ChatStatus.Failed(StructuredError(type = "provider.auth", message = "refused")))
+        compose.waitForIdle()
+        assertSlim(STATUS_FAILED_TAG)
+    }
+
+    @Test
+    fun `a failure strip says it is an error and is announced`() {
+        compose.setStatus(StatusState(ChatStatus.Failed(StructuredError(type = "provider.auth"))))
+
+        val config = part(STATUS_FAILED_TAG).fetchSemanticsNode().config
+        assertEquals("Error", config.getOrNull(SemanticsProperties.StateDescription))
+        assertEquals(LiveRegionMode.Polite, config.getOrNull(SemanticsProperties.LiveRegion))
+    }
+
+    @Test
+    fun `the disconnected strip holds its Reconnect`() {
+        compose.setStatus(StatusState(ChatStatus.Disconnected))
+
+        val strip = part(STATUS_DISCONNECTED_TAG).fetchSemanticsNode()
+        val button = part(STATUS_RECONNECT_TAG).fetchSemanticsNode()
+        assertTrue(strip.boundsInRoot.contains(button.boundsInRoot.center), "Reconnect sits in the strip")
+    }
+
+    @Test
+    fun `a long failure shows in full`() {
+        val harness = compose.setStatus(StatusState(ChatStatus.Failed(StructuredError(type = "provider.auth", message = "refused"))))
+        compose.waitForIdle()
+        val short = part(STATUS_FAILED_TAG).fetchSemanticsNode().boundsInRoot.height
+
+        harness.state.value = StatusState(ChatStatus.Failed(StructuredError(type = "provider.auth", message = LONG_ERROR_TEXT)))
+        compose.waitForIdle()
+
+        // Thirteen lines against one: every line of the error is on screen, none is cut.
+        val full = part(STATUS_FAILED_TAG).fetchSemanticsNode().boundsInRoot.height
+        assertTrue(full > short * 6f, "the whole error shows: $short -> $full")
+    }
+
+    @Test
+    fun `screen readers get the whole failure`() {
+        compose.setStatus(StatusState(ChatStatus.Failed(StructuredError(type = "provider.auth", message = LONG_ERROR_TEXT))))
+
+        val text = part(STATUS_FAILED_TAG).fetchSemanticsNode().config.getOrNull(SemanticsProperties.Text).orEmpty()
+        assertTrue(text.any { it.text.endsWith("SON") }, "the full text is in the semantics: $text")
+    }
+
+    private fun assertSlim(tag: String) {
+        val node = part(tag).fetchSemanticsNode()
+        val height = with(node.layoutInfo.density) { node.boundsInRoot.height.toDp() }
+        assertTrue(height <= 56.dp, "$tag is a slim strip, was $height")
     }
 
     // The whole chat

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -15,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -26,6 +28,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import io.github.thewisekd.phopencode.core.markdown.MarkdownView
+import io.github.thewisekd.phopencode.core.ui.icon.PhopencodeIcons
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ReasoningCardState
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ReasoningIntent
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.TimelineKey
@@ -44,11 +47,13 @@ private val MIN_TOUCH = 48.dp
  * The model's thinking for the card [key] (P6.8), drawn from [state]; the chat draws it where the
  * timeline has the [TimelineKey].
  *
- * - **Header:** "Thinking", the running duration and a still "Live" label while the reasoning
- *   streams; "Thought for N s" once it ended, or "Thought" with no duration. Tapping it sends
- *   [ReasoningIntent.Toggle]; whether the card is open comes only from [state].
- * - **Body:** when expanded, the text renders through [MarkdownView], which keeps the last result on
- *   screen while a longer, still unfinished text parses.
+ * - **Header:** one slim row, not a card: a sparkle, "Thinking…", the running duration and a
+ *   still "Live" label while the reasoning streams; "Thought for N s" once it ended, or "Thought"
+ *   with no duration; a chevron that says it opens. Tapping it sends [ReasoningIntent.Toggle];
+ *   whether the card is open comes only from [state].
+ * - **Body:** when expanded, the text renders through [MarkdownView] in a soft tinted panel under
+ *   the row; the renderer keeps the last result on screen while a longer, still unfinished text
+ *   parses.
  * - A card with blank text draws nothing.
  *
  * Nothing here animates without end, and the text, which is user data, is never logged.
@@ -61,19 +66,19 @@ fun ReasoningCard(
     modifier: Modifier = Modifier,
 ) {
     if (state.text.isBlank()) return
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    ) {
-        Column {
-            ReasoningHeader(state, onToggle = { onIntent(ReasoningIntent.Toggle(key)) })
-            if (state.expanded) {
+    Column(modifier) {
+        ReasoningHeader(state, onToggle = { onIntent(ReasoningIntent.Toggle(key)) })
+        if (state.expanded) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ) {
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
+                        .padding(12.dp)
                         .testTag(REASONING_BODY_TAG),
                 ) {
                     MarkdownView(markdown = state.text, modifier = Modifier.fillMaxWidth())
@@ -89,39 +94,47 @@ private fun ReasoningHeader(state: ReasoningCardState, onToggle: () -> Unit) {
         if (state.expanded) R.string.chat_reasoning_expanded else R.string.chat_reasoning_collapsed,
     )
     val clickLabel = stringResource(if (state.expanded) R.string.chat_reasoning_hide else R.string.chat_reasoning_show)
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = MIN_TOUCH)
+            .clip(MaterialTheme.shapes.medium)
             .clickable(onClickLabel = clickLabel, role = Role.Button, onClick = onToggle)
             .semantics { stateDescription = stateLabel }
             .testTag(REASONING_HEADER_TAG)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 4.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        Icon(
+            imageVector = PhopencodeIcons.Sparkle,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.tertiary,
+        )
         val duration = state.duration?.let { formatDuration(it) }
         if (state.streaming) {
-            Text(stringResource(R.string.chat_reasoning_thinking), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.chat_reasoning_thinking), color = muted, style = MaterialTheme.typography.labelLarge)
             if (duration != null) {
-                Text(duration, style = MaterialTheme.typography.bodySmall)
+                Text(duration, color = muted, style = MaterialTheme.typography.bodySmall)
             }
+            LiveLabel()
         } else {
             val title = if (duration != null) {
                 stringResource(R.string.chat_reasoning_thought_for, duration)
             } else {
                 stringResource(R.string.chat_reasoning_thought)
             }
-            Text(title, style = MaterialTheme.typography.titleSmall)
-        }
-        Box(Modifier.weight(1f))
-        if (state.streaming) {
-            LiveLabel()
+            Text(title, color = muted, style = MaterialTheme.typography.labelLarge)
         }
         Icon(
             imageVector = if (state.expanded) ReasoningIcons.Less else ReasoningIcons.More,
             contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = muted,
         )
+        Box(Modifier.weight(1f))
     }
 }
 
@@ -130,8 +143,8 @@ private fun ReasoningHeader(state: ReasoningCardState, onToggle: () -> Unit) {
 private fun LiveLabel() {
     Surface(
         shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
     ) {
         Text(
             text = stringResource(R.string.chat_reasoning_live),

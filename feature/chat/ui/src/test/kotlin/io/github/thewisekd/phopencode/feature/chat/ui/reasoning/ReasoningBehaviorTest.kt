@@ -104,6 +104,25 @@ class ReasoningBehaviorTest {
             .assertTouchSizeIsAtLeast(48.dp)
     }
 
+    @Test
+    fun `a collapsed card is one slim row, and expanding it grows it`() {
+        val harness = compose.setReasoning(ReasoningCardState(text = "$THOUGHT\n\n$THOUGHT\n\n$THOUGHT", duration = 4.seconds))
+        compose.waitForIdle()
+        val collapsed = cardHeight()
+        assertTrue(collapsed <= 56f, "a collapsed card is one row, was $collapsed dp")
+
+        harness.state.value = harness.state.value.copy(expanded = true)
+        compose.awaitText(THOUGHT, substring = true)
+        compose.waitForIdle()
+        assertTrue(cardHeight() > collapsed + 24f, "an expanded card shows the thinking under its row")
+    }
+
+    /** The card's height in dp. */
+    private fun cardHeight(): Float {
+        val node = compose.onNodeWithTag(CARD_TAG).fetchSemanticsNode()
+        return with(node.layoutInfo.density) { node.boundsInRoot.height.toDp().value }
+    }
+
     // Streaming
 
     @Test

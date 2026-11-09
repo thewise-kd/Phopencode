@@ -31,6 +31,8 @@ class TurkishToolTest : ToolLanguageContract() {
         hideInput = "Girdiyi gizle",
         showOutput = "Çıktıyı göster",
         hideOutput = "Çıktıyı gizle",
+        showDetails = "Ayrıntıları göster",
+        hideDetails = "Ayrıntıları gizle",
         moreLines = { "$it satır daha" },
         moreCharacters = { "$it karakter daha" },
         error = { "Hata: $it" },

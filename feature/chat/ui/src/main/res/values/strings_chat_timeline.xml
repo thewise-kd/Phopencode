@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="chat_timeline_loading">Loading messages…</string>
-    <string name="chat_timeline_empty_title">No messages yet</string>
-    <string name="chat_timeline_empty_message">Write a message below to start.</string>
+    <!-- The welcome of an empty session. -->
+    <string name="chat_timeline_empty_title">What should we build?</string>
+    <!-- Typing / or @ in the composer opens its suggestions. -->
+    <string name="chat_timeline_empty_message">Type / for commands and skills, or @ for files and agents.</string>
     <string name="chat_timeline_loading_older">Loading older messages…</string>
     <string name="chat_timeline_older_failed">Older messages could not be loaded.</string>
     <string name="chat_timeline_retry">Try again</string>
@@ -12,9 +14,9 @@
         <item quantity="one">%1$d new message</item>
         <item quantity="other">%1$d new messages</item>
     </plurals>
-    <!-- Who wrote a prompt: the user. -->
+    <!-- Who wrote a prompt: the user. Read by screen readers only. -->
     <string name="chat_timeline_you">You</string>
-    <!-- Who wrote a reply: the model. -->
+    <!-- Who wrote a reply: the model. Read by screen readers only. -->
     <string name="chat_timeline_assistant">Assistant</string>
     <string name="chat_timeline_writing">Writing…</string>
     <string name="chat_timeline_pending_steer">Waiting to steer the running work</string>
@@ -44,7 +46,6 @@
     <string name="chat_timeline_location_switched">Folder: %1$s</string>
     <!-- %1$s: the skill's name. -->
     <string name="chat_timeline_skill_invoked">Skill used: %1$s</string>
-    <string name="chat_timeline_turn_succeeded">The work is done.</string>
     <string name="chat_timeline_turn_failed">The work failed.</string>
     <!-- %1$s: the server's description of the error. -->
     <string name="chat_timeline_turn_failed_detail">The work failed: %1$s</string>

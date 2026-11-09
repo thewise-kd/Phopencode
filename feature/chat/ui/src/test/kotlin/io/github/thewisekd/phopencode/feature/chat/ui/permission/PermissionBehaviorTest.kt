@@ -43,6 +43,21 @@ class PermissionBehaviorTest {
         compose.onNodeWithTag(tag).performScrollTo().performClick()
     }
 
+    // The card
+
+    @Test
+    fun `an accent strip across the top holds the title`() {
+        compose.setPermission(bashCard())
+        compose.waitForIdle()
+
+        val card = compose.onNodeWithTag(CARD_TAG).fetchSemanticsNode().boundsInRoot
+        val header = node(PERMISSION_HEADER_TAG).fetchSemanticsNode().boundsInRoot
+        val title = node(PERMISSION_TITLE_TAG).fetchSemanticsNode().boundsInRoot
+        assertEquals(card.top, header.top, 1f, "the strip starts at the card's top")
+        assertEquals(card.width, header.width, 1f, "the strip spans the card")
+        assertTrue(header.contains(title.center), "the title sits in the strip")
+    }
+
     // What is asked
 
     @Test

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="chat_reasoning_thinking">Thinking</string>
+    <string name="chat_reasoning_thinking">Thinking…</string>
     <string name="chat_reasoning_thought">Thought</string>
     <string name="chat_reasoning_thought_for">Thought for %1$s</string>
     <string name="chat_reasoning_live">Live</string>

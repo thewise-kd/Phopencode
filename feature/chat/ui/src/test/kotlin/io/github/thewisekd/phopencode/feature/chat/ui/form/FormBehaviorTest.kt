@@ -264,6 +264,19 @@ class FormBehaviorTest {
     // Steps
 
     @Test
+    fun `an accent strip across the top holds the heading`() {
+        compose.setForm(question(single(), multi()))
+        compose.waitForIdle()
+
+        val card = compose.onNodeWithTag(CARD_TAG).fetchSemanticsNode().boundsInRoot
+        val header = part(FormTags.HEADER).fetchSemanticsNode().boundsInRoot
+        val heading = part(FormTags.HEADING).fetchSemanticsNode().boundsInRoot
+        assertTrue(header.top - card.top < 40f, "the strip starts at the card's top")
+        assertTrue(header.width > card.width * 0.8f, "the strip spans the card")
+        assertTrue(header.contains(heading.center), "the heading sits in the strip")
+    }
+
+    @Test
     fun `a question with several fields shows one step at a time`() {
         val harness = compose.setForm(question(single(), multi(), yesNo()))
 

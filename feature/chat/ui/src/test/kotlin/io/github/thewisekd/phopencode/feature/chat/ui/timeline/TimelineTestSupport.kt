@@ -13,9 +13,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.unit.dp
 import io.github.thewisekd.phopencode.core.model.MessageId
@@ -128,4 +134,23 @@ internal const val PIXEL = 1.5f
 
 internal fun assertNear(expected: Float, actual: Float, what: String) {
     if (abs(expected - actual) > PIXEL) throw AssertionError("$what: expected $expected, was $actual")
+}
+
+/**
+ * The texts screen readers hear for the item that merges [text] with what it holds: its author
+ * first, then the item's own texts.
+ */
+internal fun ComposeContentTestRule.spokenTexts(text: String): List<String> =
+    onAllNodes(hasText(text, substring = true))
+        .fetchSemanticsNodes()
+        .first()
+        .config.getOrNull(SemanticsProperties.Text).orEmpty()
+        .map { it.text }
+
+/** No text on screen reads [text]: it may be spoken, but it is not drawn. */
+internal fun ComposeContentTestRule.assertNotDrawn(text: String) {
+    onAllNodes(
+        hasText(text) and SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult),
+        useUnmergedTree = true,
+    ).assertCountEquals(0)
 }

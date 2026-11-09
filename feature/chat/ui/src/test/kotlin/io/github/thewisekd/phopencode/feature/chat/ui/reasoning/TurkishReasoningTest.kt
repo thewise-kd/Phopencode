@@ -9,7 +9,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [26, 36], qualifiers = "tr")
 class TurkishReasoningTest : ReasoningLanguageContract() {
     override val strings = ExpectedReasoningStrings(
-        thinking = "Düşünüyor",
+        thinking = "Düşünüyor…",
         thought = "Düşündü",
         live = "Canlı",
         thoughtFor = { "$it düşündü" },

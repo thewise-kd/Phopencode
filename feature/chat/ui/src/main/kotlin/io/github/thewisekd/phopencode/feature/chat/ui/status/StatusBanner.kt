@@ -6,14 +6,21 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -23,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -33,13 +41,16 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.thewisekd.phopencode.core.model.StructuredError
-import io.github.thewisekd.phopencode.core.ui.component.ErrorBanner
+import io.github.thewisekd.phopencode.core.ui.R as CoreUiR
+import io.github.thewisekd.phopencode.core.ui.icon.PhopencodeIcons
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
+import io.github.thewisekd.phopencode.core.ui.theme.StatusColor
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatFailure
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatStatus
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.StatusIntent
@@ -69,12 +80,14 @@ private const val PROVIDER_TEXT_MAX_LINES = 2
 /**
  * The status of the chat (P6.14). Draws [state], sends [onIntent]; the presenter decides everything.
  *
- * Two sizes. As a banner above the timeline: nothing while idle; a still line while the work runs
- * or retries, with the attempt, the time of the next try and the provider's text when given; the
- * last execution's error; and, while the connection is down, a banner with Reconnect, which goes
- * once the status is back to running or idle. When [StatusState.blocksChat] holds, the chat gives
- * the status its whole place through [modifier], and it fills it: a still loading message, or a
- * message with Close, and Reconnect when remaking the standing connection can help.
+ * Two sizes. As a slim tinted strip above the timeline (an icon, one line, its action): nothing
+ * while idle; a still line while the work runs or retries, with the attempt, the time of the next
+ * try and the provider's text when given; the last execution's error; and, while the connection is
+ * down, a strip with Reconnect, which goes once the status is back to running or idle. When
+ * [StatusState.blocksChat] holds, the chat gives the status its whole place through [modifier], and
+ * it fills it in the style of core/ui's `EmptyState`, an icon in a soft circle above the text: a
+ * still loading message, or a message with Close, and Reconnect when remaking the standing
+ * connection can help.
  *
  * Nothing animates: running work is a still label rather than core/ui's `Loading`, whose spinner
  * never stops, and the app's ActivityScenario tests would never come to rest.
@@ -87,11 +100,16 @@ fun StatusBanner(
 ) {
     when (val status = state.status) {
         ChatStatus.Idle -> Box(modifier)
-        ChatStatus.Running -> ActivityLine(stringResource(R.string.chat_status_running), modifier = modifier)
+        ChatStatus.Running -> ActivityLine(
+            message = stringResource(R.string.chat_status_running),
+            icon = PhopencodeIcons.Sparkle,
+            modifier = modifier,
+        )
         is ChatStatus.Retrying -> RetryLine(status, modifier)
         is ChatStatus.Failed -> FailedBanner(status.error, modifier)
         ChatStatus.Disconnected -> DisconnectedBanner(onIntent, modifier)
         ChatStatus.Loading -> Blocking(modifier) {
+            IconCircle(PhopencodeIcons.Chat)
             Text(
                 text = stringResource(R.string.chat_status_loading),
                 modifier = Modifier.semantics {
@@ -107,6 +125,7 @@ fun StatusBanner(
         // server list.
         ChatStatus.NotConnected -> BlockingMessage(
             title = stringResource(R.string.chat_status_not_connected_title),
+            icon = PhopencodeIcons.Server,
             message = stringResource(R.string.chat_status_not_connected_message),
             canReconnect = false,
             onIntent = onIntent,
@@ -114,6 +133,7 @@ fun StatusBanner(
         )
         ChatStatus.NotFound -> BlockingMessage(
             title = stringResource(R.string.chat_status_not_found_title),
+            icon = PhopencodeIcons.Search,
             message = stringResource(R.string.chat_status_not_found_message),
             canReconnect = false,
             onIntent = onIntent,
@@ -122,6 +142,7 @@ fun StatusBanner(
         // Reconnecting would reach the same other server: only leaving helps.
         ChatStatus.OtherServer -> BlockingMessage(
             title = stringResource(R.string.chat_status_other_server_title),
+            icon = PhopencodeIcons.Server,
             message = stringResource(R.string.chat_status_other_server_message),
             canReconnect = false,
             onIntent = onIntent,
@@ -129,6 +150,7 @@ fun StatusBanner(
         )
         is ChatStatus.Unavailable -> BlockingMessage(
             title = stringResource(R.string.chat_status_unavailable_title),
+            icon = PhopencodeIcons.Warning,
             message = stringResource(status.failure.reasonRes()),
             canReconnect = status.failure.reconnectHelps(),
             onIntent = onIntent,
@@ -138,44 +160,84 @@ fun StatusBanner(
 }
 
 /**
- * A still progress line. TalkBack hears its texts, an indeterminate progress and a polite live
+ * A slim strip in [tone]'s soft container: an [icon] that only decorates, then [content] on the
+ * line next to it, and the strip's [action] at its end.
+ */
+@Composable
+private fun Strip(
+    tone: StatusColor,
+    icon: ImageVector,
+    modifier: Modifier,
+    stripModifier: Modifier,
+    action: (@Composable () -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
+    val spacing = PhopencodeTheme.spacing
+    Box(modifier.padding(horizontal = spacing.md, vertical = spacing.xs)) {
+        Surface(
+            modifier = Modifier.fillMaxWidth().then(stripModifier),
+            color = tone.container,
+            contentColor = tone.onContainer,
+            shape = MaterialTheme.shapes.small,
+        ) {
+            Row(
+                modifier = Modifier
+                    .heightIn(min = STRIP_HEIGHT)
+                    .padding(start = spacing.md, end = if (action != null) spacing.xs else spacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            ) {
+                Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(STRIP_ICON), tint = tone.color)
+                Box(Modifier.weight(1f).padding(vertical = spacing.xs)) { content() }
+                action?.invoke()
+            }
+        }
+    }
+}
+
+private val STRIP_HEIGHT = 36.dp
+private val STRIP_ICON = 18.dp
+
+/**
+ * A still progress strip. TalkBack hears its texts, an indeterminate progress and a polite live
  * region, as for core/ui's `Loading`, but nothing animates.
  */
 @Composable
 private fun ActivityLine(
     message: String,
+    icon: ImageVector,
     detail: String? = null,
     providerText: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val spacing = PhopencodeTheme.spacing
-    Box(modifier) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag(STATUS_ACTIVITY_TAG)
-                .semantics(mergeDescendants = true) {
-                    progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate
-                    liveRegion = LiveRegionMode.Polite
+    val tone = PhopencodeTheme.status.info
+    Strip(
+        tone = tone,
+        icon = icon,
+        modifier = modifier,
+        stripModifier = Modifier
+            .testTag(STATUS_ACTIVITY_TAG)
+            .semantics(mergeDescendants = true) {
+                progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate
+                liveRegion = LiveRegionMode.Polite
+            },
+    ) {
+        Column {
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm), verticalAlignment = Alignment.CenterVertically) {
+                Text(text = message, style = MaterialTheme.typography.labelLarge)
+                if (detail != null) {
+                    Text(
+                        text = detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
-                .padding(horizontal = spacing.md, vertical = spacing.xs),
-        ) {
-            Text(
-                text = message,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelLarge,
-            )
-            if (detail != null) {
-                Text(
-                    text = detail,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
-                )
             }
             if (providerText != null) {
                 Text(
                     text = providerText,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = PROVIDER_TEXT_MAX_LINES,
                     overflow = TextOverflow.Ellipsis,
@@ -193,6 +255,7 @@ private fun RetryLine(status: ChatStatus.Retrying, modifier: Modifier) {
     val detail = status.nextAttemptAt?.let { stringResource(R.string.chat_status_next_try, timeOfDay(it)) }
     ActivityLine(
         message = message,
+        icon = PhopencodeIcons.Refresh,
         detail = detail,
         providerText = status.message?.takeIf { it.isNotBlank() },
         modifier = modifier,
@@ -212,18 +275,32 @@ private fun timeOfDay(instant: Instant): String {
     }
 }
 
+/**
+ * The last execution's error: a strip in the error's tone, which TalkBack hears as an error. The
+ * whole error shows, however long: nothing of it is cut.
+ */
 @Composable
 private fun FailedBanner(error: StructuredError?, modifier: Modifier) {
-    val spacing = PhopencodeTheme.spacing
     val description = error?.description
-    Box(modifier.padding(horizontal = spacing.md, vertical = spacing.xs)) {
-        ErrorBanner(
-            modifier = Modifier.testTag(STATUS_FAILED_TAG),
-            message = if (description != null) {
+    val errorLabel = stringResource(CoreUiR.string.ui_common_status_danger)
+    Strip(
+        tone = PhopencodeTheme.status.danger,
+        icon = PhopencodeIcons.Warning,
+        modifier = modifier,
+        stripModifier = Modifier
+            .testTag(STATUS_FAILED_TAG)
+            .semantics(mergeDescendants = true) {
+                stateDescription = errorLabel
+                liveRegion = LiveRegionMode.Polite
+            },
+    ) {
+        Text(
+            text = if (description != null) {
                 stringResource(R.string.chat_status_failed, description)
             } else {
                 stringResource(R.string.chat_status_failed_generic)
             },
+            style = MaterialTheme.typography.bodyMedium,
         )
     }
 }
@@ -232,32 +309,29 @@ private fun FailedBanner(error: StructuredError?, modifier: Modifier) {
 @Composable
 private fun DisconnectedBanner(onIntent: (StatusIntent) -> Unit, modifier: Modifier) {
     val spacing = PhopencodeTheme.spacing
-    val colors = PhopencodeTheme.status.warning
-    Box(modifier.padding(horizontal = spacing.md, vertical = spacing.xs)) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().testTag(STATUS_DISCONNECTED_TAG),
-            color = colors.container,
-            contentColor = colors.onContainer,
-            shape = MaterialTheme.shapes.medium,
-        ) {
-            Column(Modifier.padding(horizontal = spacing.md, vertical = spacing.sm)) {
-                Text(
-                    text = stringResource(R.string.chat_status_disconnected),
-                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                TextButton(
-                    onClick = { onIntent(StatusIntent.Reconnect) },
-                    modifier = Modifier
-                        .align(Alignment.End)
-                        .heightIn(min = spacing.touchTarget)
-                        .testTag(STATUS_RECONNECT_TAG),
-                    colors = ButtonDefaults.textButtonColors(contentColor = colors.onContainer),
-                ) {
-                    Text(stringResource(R.string.chat_status_reconnect))
-                }
+    val tone = PhopencodeTheme.status.warning
+    Strip(
+        tone = tone,
+        icon = PhopencodeIcons.Warning,
+        modifier = modifier,
+        stripModifier = Modifier.testTag(STATUS_DISCONNECTED_TAG),
+        action = {
+            TextButton(
+                onClick = { onIntent(StatusIntent.Reconnect) },
+                modifier = Modifier
+                    .heightIn(min = spacing.touchTarget)
+                    .testTag(STATUS_RECONNECT_TAG),
+                colors = ButtonDefaults.textButtonColors(contentColor = tone.onContainer),
+            ) {
+                Text(stringResource(R.string.chat_status_reconnect), style = MaterialTheme.typography.labelLarge)
             }
-        }
+        },
+    ) {
+        Text(
+            text = stringResource(R.string.chat_status_disconnected),
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 
@@ -302,9 +376,35 @@ private fun Blocking(modifier: Modifier, content: @Composable () -> Unit) {
     }
 }
 
+/**
+ * The icon above a blocking status, as core/ui's `EmptyState` draws it: large, in a soft tinted
+ * circle. It only decorates; the text says what it means.
+ */
+@Composable
+private fun IconCircle(icon: ImageVector) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        modifier = Modifier.padding(bottom = PhopencodeTheme.spacing.sm).size(ICON_CIRCLE),
+        shape = CircleShape,
+        color = colors.primaryContainer,
+        contentColor = colors.onPrimaryContainer,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(ICON_SIZE))
+        }
+    }
+}
+
+private val ICON_CIRCLE = 88.dp
+private val ICON_SIZE = 40.dp
+
+/** The widest a blocking status's text gets, so lines stay short on a tablet. */
+private val TEXT_WIDTH = 360.dp
+
 @Composable
 private fun BlockingMessage(
     title: String,
+    icon: ImageVector,
     message: String,
     canReconnect: Boolean,
     onIntent: (StatusIntent) -> Unit,
@@ -312,19 +412,22 @@ private fun BlockingMessage(
 ) {
     val spacing = PhopencodeTheme.spacing
     Blocking(modifier) {
+        IconCircle(icon)
         Text(
             text = title,
-            modifier = Modifier.semantics { heading() },
+            modifier = Modifier.widthIn(max = TEXT_WIDTH).semantics { heading() },
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleLarge,
         )
         Text(
             text = message,
+            modifier = Modifier.widthIn(max = TEXT_WIDTH),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.bodyMedium,
         )
+        Spacer(Modifier.height(spacing.sm))
         if (canReconnect) {
             Button(
                 onClick = { onIntent(StatusIntent.Reconnect) },

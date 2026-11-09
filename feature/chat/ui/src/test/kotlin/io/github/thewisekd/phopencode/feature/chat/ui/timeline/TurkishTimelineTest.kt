@@ -12,8 +12,8 @@ import org.robolectric.annotation.Config
 class TurkishTimelineTest : TimelineLanguageContract() {
     override val strings = ExpectedTimelineStrings(
         loading = "Mesajlar yükleniyor…",
-        emptyTitle = "Henüz mesaj yok",
-        emptyMessage = "Başlamak için aşağıya bir mesaj yazın.",
+        emptyTitle = "Ne yapalım?",
+        emptyMessage = "Komutlar ve beceriler için /, dosyalar ve ajanlar için @ yazın.",
         loadingOlder = "Eski mesajlar yükleniyor…",
         olderFailed = "Eski mesajlar yüklenemedi.",
         retry = "Yeniden dene",
@@ -43,7 +43,6 @@ class TurkishTimelineTest : TimelineLanguageContract() {
         locationSwitched = "Klasör: /home/dev/app",
         skillInvoked = "Kullanılan beceri: review",
         turns = mapOf(
-            TurnOutcome.Succeeded to "Çalışma tamamlandı.",
             TurnOutcome.Failed to "Çalışma başarısız oldu.",
             TurnOutcome.Interrupted to "Çalışma durduruldu.",
             TurnOutcome.Unknown to "Çalışma sona erdi.",

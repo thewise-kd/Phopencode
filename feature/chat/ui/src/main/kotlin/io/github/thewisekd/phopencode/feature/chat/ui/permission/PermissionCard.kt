@@ -1,20 +1,27 @@
 package io.github.thewisekd.phopencode.feature.chat.ui.permission
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -25,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.thewisekd.phopencode.core.model.PermissionDecision
 import io.github.thewisekd.phopencode.core.ui.component.ErrorBanner
+import io.github.thewisekd.phopencode.core.ui.icon.PhopencodeIcons
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatFailure
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PermissionCardState
@@ -49,6 +57,10 @@ private const val REJECT_MESSAGE_MAX_LINES = 4
  * - **On its way:** while a decision is sent, every control is disabled and a still note says so.
  * - **Failed:** the decision that failed and why, dismissable; the choices stay to try again.
  *
+ * It is a rounded card with a coral (tertiary) border and an accent strip across its top that
+ * holds the title and who asks, so it stands out from the conversation; the action said in words
+ * is the most prominent line; allow once is the one filled button, the others tonal or text.
+ *
  * The card sits in the chat's interaction area, which scrolls and is capped at half the screen, so
  * it never scrolls vertically itself and never fills the height. Nothing animates without end, and
  * the server's text, which can hold secrets, is drawn but never logged.
@@ -59,49 +71,85 @@ fun PermissionCard(
     onIntent: (PermissionIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val warning = PhopencodeTheme.status.warning
+    val colors = MaterialTheme.colorScheme
     Surface(
         modifier = modifier,
-        shape = MaterialTheme.shapes.medium,
-        color = warning.container,
-        contentColor = warning.onContainer,
+        shape = MaterialTheme.shapes.large,
+        color = colors.surfaceContainerLow,
+        contentColor = colors.onSurface,
+        border = BorderStroke(1.dp, colors.tertiary.copy(alpha = BORDER_ALPHA)),
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
+        Column {
             Header(card)
-            Request(card)
-            card.error?.let { error ->
-                ErrorBanner(
-                    modifier = Modifier.testTag(PERMISSION_ERROR_TAG),
-                    message = errorText(error),
-                    onDismiss = { onIntent(PermissionIntent.DismissError(card.requestId)) },
-                )
-            }
-            card.replying?.let { decision ->
-                Text(
-                    text = stringResource(decision.sendingRes()),
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier
-                        .testTag(PERMISSION_SENDING_TAG)
-                        .semantics { liveRegion = LiveRegionMode.Polite },
-                )
-            }
-            when {
-                card.confirmingAlways -> ConfirmAlways(card, onIntent)
-                card.rejecting -> RejectMessage(card, onIntent)
-                else -> Choices(card, onIntent)
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Body(card, onIntent)
             }
         }
     }
 }
 
+/** How strongly the coral border shows: clear, not loud. */
+private const val BORDER_ALPHA = 0.7f
+
+/** What is asked, then the error, the note of a decision on its way, and the choices. */
+@Composable
+private fun Body(card: PermissionCardState, onIntent: (PermissionIntent) -> Unit) {
+    Request(card)
+    card.error?.let { error ->
+        ErrorBanner(
+            modifier = Modifier.testTag(PERMISSION_ERROR_TAG),
+            message = errorText(error),
+            onDismiss = { onIntent(PermissionIntent.DismissError(card.requestId)) },
+        )
+    }
+    card.replying?.let { decision ->
+        Text(
+            text = stringResource(decision.sendingRes()),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier
+                .testTag(PERMISSION_SENDING_TAG)
+                .semantics { liveRegion = LiveRegionMode.Polite },
+        )
+    }
+    when {
+        card.confirmingAlways -> ConfirmAlways(card, onIntent)
+        card.rejecting -> RejectMessage(card, onIntent)
+        else -> Choices(card, onIntent)
+    }
+}
+
+/** The accent strip: a key, the title, and who asks. */
 @Composable
 private fun Header(card: PermissionCardState) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(colors.tertiaryContainer)
+            .testTag(PERMISSION_HEADER_TAG)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(
+            imageVector = PhopencodeIcons.Key,
+            contentDescription = null,
+            tint = colors.onTertiaryContainer,
+            modifier = Modifier.size(20.dp),
+        )
+        HeaderText(card, colors.onTertiaryContainer)
+    }
+}
+
+@Composable
+private fun HeaderText(card: PermissionCardState, color: Color) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(
             text = stringResource(R.string.chat_permission_title),
+            color = color,
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.testTag(PERMISSION_TITLE_TAG).semantics { heading() },
         )
@@ -112,6 +160,7 @@ private fun Header(card: PermissionCardState) {
         }
         Text(
             text = asker,
+            color = color,
             style = MaterialTheme.typography.bodySmall,
             fontWeight = if (card.fromSubagent) FontWeight.SemiBold else null,
             modifier = Modifier.testTag(PERMISSION_ASKER_TAG),
@@ -125,12 +174,13 @@ private fun Request(card: PermissionCardState) {
         actionMeaningRes(card.action)?.let { meaning ->
             Text(
                 text = stringResource(meaning),
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.testTag(PERMISSION_ACTION_MEANING_TAG),
             )
         }
         Text(
             text = stringResource(R.string.chat_permission_action, card.action),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = PhopencodeTheme.codeTypography.body,
             modifier = Modifier.testTag(PERMISSION_ACTION_TAG),
         )
@@ -159,14 +209,14 @@ private fun Request(card: PermissionCardState) {
 private fun Code(text: String, tag: String) {
     Surface(
         shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.surface,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
         contentColor = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Text(
             text = text,
             style = PhopencodeTheme.codeTypography.small,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp).testTag(tag),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp).testTag(tag),
         )
     }
 }
@@ -174,7 +224,7 @@ private fun Code(text: String, tag: String) {
 @Composable
 private fun Choices(card: PermissionCardState, onIntent: (PermissionIntent) -> Unit) {
     FlowRow(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Button(
@@ -184,14 +234,14 @@ private fun Choices(card: PermissionCardState, onIntent: (PermissionIntent) -> U
         ) {
             Text(stringResource(R.string.chat_permission_allow_once))
         }
-        OutlinedButton(
+        FilledTonalButton(
             onClick = { onIntent(PermissionIntent.AllowAlways(card.requestId)) },
             enabled = card.canReply,
             modifier = Modifier.testTag(PERMISSION_ALWAYS_TAG),
         ) {
             Text(stringResource(R.string.chat_permission_allow_always))
         }
-        OutlinedButton(
+        TextButton(
             onClick = { onIntent(PermissionIntent.StartReject(card.requestId)) },
             enabled = card.canReply,
             modifier = Modifier.testTag(PERMISSION_REJECT_TAG),

@@ -9,7 +9,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [26, 36], qualifiers = "en")
 class EnglishReasoningTest : ReasoningLanguageContract() {
     override val strings = ExpectedReasoningStrings(
-        thinking = "Thinking",
+        thinking = "Thinking…",
         thought = "Thought",
         live = "Live",
         thoughtFor = { "Thought for $it" },

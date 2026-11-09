@@ -2,6 +2,8 @@ package io.github.thewisekd.phopencode.feature.chat.ui.form
 
 /** Test tags of a form card's parts. A tag with a field key is unique within one card. */
 object FormTags {
+    /** The accent strip across the card's top, which holds the heading. */
+    const val HEADER: String = "chat:form:header"
     const val HEADING: String = "chat:form:heading"
     const val SUBAGENT: String = "chat:form:subagent"
     const val STEP: String = "chat:form:step"

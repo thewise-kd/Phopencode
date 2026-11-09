@@ -6,6 +6,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import io.github.thewisekd.phopencode.core.model.StructuredError
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ToolCardState
@@ -33,6 +34,8 @@ internal data class ExpectedToolStrings(
     val hideInput: String,
     val showOutput: String,
     val hideOutput: String,
+    val showDetails: String,
+    val hideDetails: String,
     val moreLines: (Int) -> String,
     val moreCharacters: (Int) -> String,
     val error: (String) -> String,
@@ -98,8 +101,25 @@ abstract class ToolLanguageContract {
     }
 
     @Test
+    fun `the row says whether it is open and what a tap does`() {
+        show(shellCard(input = "in", output = "out"))
+        assertRow(strings.collapsed, strings.showDetails)
+
+        node(TOOL_HEADER_TAG).performClick()
+        compose.waitForIdle()
+        assertRow(strings.expanded, strings.hideDetails)
+    }
+
+    private fun assertRow(state: String, action: String) {
+        val config = compose.onNodeWithTag(TOOL_HEADER_TAG).performScrollTo().fetchSemanticsNode().config
+        assertEquals(state, config.getOrNull(SemanticsProperties.StateDescription), "state of the row")
+        assertEquals(action, config.getOrNull(SemanticsActions.OnClick)?.label, "action of the row")
+    }
+
+    @Test
     fun `section headers say their name, whether they are open and what a tap does`() {
         show(shellCard(input = "in", output = "out"))
+        node(TOOL_HEADER_TAG).performClick()
         assertSection(ToolSection.Input, strings.input, strings.collapsed, strings.showInput)
         assertSection(ToolSection.Output, strings.output, strings.collapsed, strings.showOutput)
 

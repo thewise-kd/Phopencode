@@ -4,16 +4,22 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
 import io.github.thewisekd.phopencode.core.model.MessageId
+import io.github.thewisekd.phopencode.core.model.StructuredError
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.TimelineItem
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.TimelineKey
+import io.github.thewisekd.phopencode.feature.chat.logic.contract.TimelineState
+import io.github.thewisekd.phopencode.feature.chat.logic.contract.TurnOutcome
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
@@ -47,9 +53,80 @@ class TimelineItemsTest {
         assertTrue(list.right - bubble.right < list.width / 10, "the prompt keeps to the end side")
         assertTrue(body.left - list.left < list.width / 10, "the reply starts at the start side")
         assertTrue(body.width > list.width * 0.8f, "the reply spans the width")
-        compose.onNodeWithText("You").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Assistant").performScrollTo().assertIsDisplayed()
+        compose.assertNotDrawn("You")
+        compose.assertNotDrawn("Assistant")
+        assertEquals(listOf("You", "Run the tests"), compose.spokenTexts("Run the tests"))
+        assertEquals("Assistant", compose.spokenTexts("All tests pass.").first())
     }
+
+    @Test
+    fun `who wrote an item is part of the item, so nothing on screen can hide it`() {
+        val reply = answer(1, streamed(40))
+        compose.setTimeline(loaded(listOf(user(1, "Run the tests"), reply)))
+        compose.waitUntil(5_000) {
+            compose.onAllNodes(hasText("Paragraph 40 of the reply", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        // One node per item, the author first: no node of its own that the item's text could cover.
+        val spoken = compose.spokenTexts("Paragraph 1 of the reply")
+        assertEquals("Assistant", spoken.first())
+        assertTrue(spoken.any { it.contains("Paragraph 40 of the reply") }, "the whole reply is in the same node")
+        compose.onAllNodes(hasContentDescription("Assistant"), useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun `a successful end of the work draws nothing`() {
+        val end = TimelineItem.TurnEnded(TimelineKey.message(message), message, TurnOutcome.Succeeded)
+        compose.setTimeline(loaded(listOf(user(1), end)))
+
+        compose.item(end.key).assertExists()
+        assertEquals(0f, compose.item(end.key).pixelBounds().height, "height of a successful end")
+        compose.onNode(hasTestTag(TIMELINE_TURN_CHIP_TAG), useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a failed, stopped or unknown end is a compact chip`() {
+        for (outcome in listOf(TurnOutcome.Failed, TurnOutcome.Interrupted, TurnOutcome.Unknown)) {
+            val end = TimelineItem.TurnEnded(TimelineKey.message(message), message, outcome)
+            val harness = compose.setTimelineOnce(loaded(listOf(end)))
+            harness.state.value = loaded(listOf(end))
+            compose.waitForIdle()
+
+            val list = compose.listBounds()
+            val chip = compose.onNode(hasTestTag(TIMELINE_TURN_CHIP_TAG), useUnmergedTree = true).pixelBounds()
+            assertTrue(chip.width < list.width * 0.9f, "the chip of $outcome is compact")
+            assertTrue(chip.height > 0f)
+        }
+    }
+
+    @Test
+    fun `a failed end says why`() {
+        val end = TimelineItem.TurnEnded(
+            TimelineKey.message(message),
+            message,
+            TurnOutcome.Failed,
+            StructuredError("provider.rate", message = "Rate limited"),
+        )
+        compose.setTimeline(loaded(listOf(end)))
+
+        compose.onNode(hasTestTag(TIMELINE_TURN_CHIP_TAG), useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("The work failed: Rate limited").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `an empty session welcomes with hints`() {
+        compose.setTimeline(TimelineState(loading = false))
+
+        compose.onNodeWithText("What should we build?").assertIsDisplayed()
+        compose.onNodeWithText("Type / for commands and skills, or @ for files and agents.").assertIsDisplayed()
+        compose.onNode(hasTestTag(TIMELINE_LIST_TAG)).assertDoesNotExist()
+    }
+
+    /** The harness, set once per test: a test that loops shows each case through its state. */
+    private var once: TimelineHarness? = null
+
+    private fun androidx.compose.ui.test.junit4.ComposeContentTestRule.setTimelineOnce(state: TimelineState): TimelineHarness =
+        once ?: setTimeline(state).also { once = it }
 
     @Test
     fun `a reply renders its Markdown`() {

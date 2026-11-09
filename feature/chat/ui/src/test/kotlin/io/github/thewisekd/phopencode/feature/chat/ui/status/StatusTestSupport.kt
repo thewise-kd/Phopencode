@@ -33,6 +33,12 @@ internal const val PROVIDER_TEXT = "Sağlayıcı aşırı yüklü, lütfen bekle
 /** A server's made-up error text. */
 internal const val ERROR_TEXT = "Model bağlamı aşıldı."
 
+/**
+ * An error of many lines, as a stack trace is, ending in a word to look for. Lines rather than one
+ * long line: Robolectric does not measure glyphs, so only line breaks make a text taller in a test.
+ */
+internal val LONG_ERROR_TEXT: String = (1..12).joinToString("\n") { "Ayrıntı $it çöktü." } + "\nSON"
+
 /** A fixed moment for the next retry. */
 internal val NEXT_TRY: Instant = Instant.fromEpochMilliseconds(1_790_000_000_000)
 

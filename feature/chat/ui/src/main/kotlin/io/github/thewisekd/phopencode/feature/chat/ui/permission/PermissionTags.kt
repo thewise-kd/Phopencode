@@ -1,5 +1,8 @@
 package io.github.thewisekd.phopencode.feature.chat.ui.permission
 
+/** The tag on the accent strip across the card's top, which holds the title and who asks. */
+internal const val PERMISSION_HEADER_TAG = "permission:header"
+
 /** The tag on the card's title. */
 internal const val PERMISSION_TITLE_TAG = "permission:title"
 

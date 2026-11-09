@@ -1,6 +1,7 @@
 package io.github.thewisekd.phopencode.feature.chat.ui.form
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -8,14 +9,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
@@ -48,6 +51,7 @@ import io.github.thewisekd.phopencode.core.model.FormId
 import io.github.thewisekd.phopencode.core.model.FormOption
 import io.github.thewisekd.phopencode.core.model.TextFormat
 import io.github.thewisekd.phopencode.core.ui.component.ErrorBanner
+import io.github.thewisekd.phopencode.core.ui.icon.PhopencodeIcons
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.FieldAnswer
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.FieldProblem
@@ -68,6 +72,10 @@ import java.net.URISyntaxException
  * A field's problem shows once the user has answered that field here, or once a send was tried
  * ([FormCardState.attempted]); a field this app cannot draw shows its problem at once. Which
  * fields were touched is the only thing the card keeps itself.
+ *
+ * It is a rounded card with a teal (primary) border and an accent strip across its top that holds
+ * the heading, so the question stands out from the conversation; Send or Next is the one filled
+ * button, Back tonal and Decline text.
  *
  * The chat puts the card in a column that scrolls and is capped in height, so the card neither
  * scrolls nor fills its height, and text fields grow rather than scroll. Nothing animates without
@@ -95,89 +103,115 @@ fun FormCard(
     val shown = if (stepped) listOfNotNull(card.currentField) else card.fields
     Surface(
         modifier = modifier.padding(horizontal = spacing.md, vertical = spacing.xs),
-        shape = MaterialTheme.shapes.medium,
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = BORDER_ALPHA)),
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(spacing.md),
-            verticalArrangement = Arrangement.spacedBy(spacing.sm),
-        ) {
+        Column {
             Heading(card)
-            if (stepped) {
-                Text(
-                    text = stringResource(R.string.chat_form_step, card.step + 1, card.stepCount),
-                    modifier = Modifier.testTag(FormTags.STEP),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelMedium,
-                )
-            }
-            card.error?.let { error ->
-                ErrorBanner(
-                    modifier = Modifier.testTag(FormTags.ERROR),
-                    message = stringResource(
-                        if (error.action == FormAction.Submit) R.string.chat_form_error_submit else R.string.chat_form_error_decline,
-                        stringResource(error.reason.reasonRes()),
-                    ),
-                    onDismiss = { onIntent(FormIntent.DismissError(card.formId)) },
-                )
-            }
-            shown.forEach { field ->
-                key(field.field.key) {
-                    Field(
-                        formId = card.formId,
-                        state = field,
-                        showProblem = card.attempted || field.field.key in touched || field.problem == FieldProblem.Unsupported,
-                        enabled = !card.busy,
-                        onIntent = send,
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.lg, vertical = spacing.md),
+                verticalArrangement = Arrangement.spacedBy(spacing.sm),
+            ) {
+                if (stepped) {
+                    Text(
+                        text = stringResource(R.string.chat_form_step, card.step + 1, card.stepCount),
+                        modifier = Modifier.testTag(FormTags.STEP),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelMedium,
                     )
                 }
-            }
-            if (card.busy) {
-                Text(
-                    text = stringResource(if (card.submitting) R.string.chat_form_sending else R.string.chat_form_declining),
-                    modifier = Modifier
-                        .testTag(FormTags.PROGRESS)
-                        .semantics {
-                            progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate
-                            liveRegion = LiveRegionMode.Polite
-                        },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelLarge,
-                )
-            }
-            Buttons(card, stepped, onIntent)
-            if (card.question) {
-                Text(
-                    text = stringResource(R.string.chat_form_decline_question_hint),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
-                )
+                card.error?.let { error ->
+                    ErrorBanner(
+                        modifier = Modifier.testTag(FormTags.ERROR),
+                        message = stringResource(
+                            if (error.action == FormAction.Submit) R.string.chat_form_error_submit else R.string.chat_form_error_decline,
+                            stringResource(error.reason.reasonRes()),
+                        ),
+                        onDismiss = { onIntent(FormIntent.DismissError(card.formId)) },
+                    )
+                }
+                shown.forEach { field ->
+                    key(field.field.key) {
+                        Field(
+                            formId = card.formId,
+                            state = field,
+                            showProblem = card.attempted || field.field.key in touched || field.problem == FieldProblem.Unsupported,
+                            enabled = !card.busy,
+                            onIntent = send,
+                        )
+                    }
+                }
+                if (card.busy) {
+                    Text(
+                        text = stringResource(if (card.submitting) R.string.chat_form_sending else R.string.chat_form_declining),
+                        modifier = Modifier
+                            .testTag(FormTags.PROGRESS)
+                            .semantics {
+                                progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate
+                                liveRegion = LiveRegionMode.Polite
+                            },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+                Buttons(card, stepped, onIntent)
+                if (card.question) {
+                    Text(
+                        text = stringResource(R.string.chat_form_decline_question_hint),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
             }
         }
     }
 }
 
-/** The form's title, or what kind of form it is, and whether a subagent asks. */
+/** How strongly the teal border shows: clear, not loud. */
+private const val BORDER_ALPHA = 0.6f
+
+/**
+ * The accent strip: an icon for a question or a form, the form's title or what kind of form it is,
+ * and whether a subagent asks.
+ */
 @Composable
 private fun Heading(card: FormCardState) {
-    Column(Modifier.fillMaxWidth()) {
-        if (card.fromSubagent) {
+    val spacing = PhopencodeTheme.spacing
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(colors.primaryContainer)
+            .testTag(FormTags.HEADER)
+            .padding(horizontal = spacing.lg, vertical = spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(spacing.md),
+    ) {
+        Icon(
+            imageVector = if (card.question) PhopencodeIcons.Chat else PhopencodeIcons.Edit,
+            contentDescription = null,
+            tint = colors.onPrimaryContainer,
+            modifier = Modifier.size(20.dp),
+        )
+        Column(Modifier.weight(1f)) {
+            if (card.fromSubagent) {
+                Text(
+                    text = stringResource(R.string.chat_form_from_subagent),
+                    modifier = Modifier.testTag(FormTags.SUBAGENT),
+                    color = colors.onPrimaryContainer,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
+            val title = card.title?.takeIf { it.isNotBlank() }
+                ?: stringResource(if (card.question) R.string.chat_form_question_heading else R.string.chat_form_form_heading)
             Text(
-                text = stringResource(R.string.chat_form_from_subagent),
-                modifier = Modifier.testTag(FormTags.SUBAGENT),
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.labelMedium,
+                text = title,
+                modifier = Modifier.testTag(FormTags.HEADING).semantics { heading() },
+                color = colors.onPrimaryContainer,
+                style = MaterialTheme.typography.titleSmall,
             )
         }
-        val title = card.title?.takeIf { it.isNotBlank() }
-            ?: stringResource(if (card.question) R.string.chat_form_question_heading else R.string.chat_form_form_heading)
-        Text(
-            text = title,
-            modifier = Modifier.testTag(FormTags.HEADING).semantics { heading() },
-            color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.titleSmall,
-        )
     }
 }
 
@@ -199,7 +233,7 @@ private fun Buttons(card: FormCardState, stepped: Boolean, onIntent: (FormIntent
             Text(stringResource(R.string.chat_form_decline))
         }
         if (stepped && card.step > 0) {
-            OutlinedButton(
+            FilledTonalButton(
                 onClick = { onIntent(FormIntent.GoToStep(card.formId, card.step - 1)) },
                 enabled = !card.busy,
                 modifier = touch.testTag(FormTags.BACK),
@@ -257,7 +291,7 @@ private fun Field(
                         text = title,
                         modifier = Modifier.weight(1f, fill = false),
                         color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = MaterialTheme.typography.titleMedium,
                     )
                 }
                 if (required) {
@@ -561,7 +595,7 @@ private fun External(field: FormField.External, answer: FieldAnswer.External, en
             style = MaterialTheme.typography.bodySmall,
         )
     }
-    OutlinedButton(
+    FilledTonalButton(
         onClick = onOpen,
         enabled = enabled,
         modifier = Modifier.heightIn(min = PhopencodeTheme.spacing.touchTarget).testTag(FormTags.open(field.key)),
