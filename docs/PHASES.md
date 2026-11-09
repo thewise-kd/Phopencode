@@ -662,6 +662,7 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | P11.10 | Notification screen | P11.7 | `feature/notify/ui/…/setup/`, `strings_notify_setup.xml` | The ntfy requirement is explained; `ntfy://` subscription; status | `CI` |
 | P11.11 | Pending items logic | P11.7 | `feature/notify/logic/…/pending/` | Forms and permissions from all sessions are combined; removed once answered | `PI` |
 | P11.12 | Pending items screen and deep link | P11.7 | `feature/notify/ui/…/pending/`, `feature/notify/ui/src/main/AndroidManifest.xml`, `strings_notify_pending.xml` | `phopencode://pending` opens the screen; tapping goes to the session | `EMU` |
+| P11.13 | Notification entry point | P11.7 | the session list screen and its graph wiring (`feature/sessions/ui/…/list/`, `SessionsGraph.kt`), `strings_sessions_list.xml`, `docs/PHASES.md` (this row) | The session list's top bar menu has Notifications (opens `NotifyRoute.Setup`) and Pending items (opens `NotifyRoute.Pending`); TR/EN strings | `CI` |
 
 `CP11`: push, CI green, `PHONE`: receive a real notification, tap it and switch to the app.
 

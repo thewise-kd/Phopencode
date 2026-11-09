@@ -34,6 +34,7 @@ import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionMan
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionManageState
 import io.github.thewisekd.phopencode.feature.sessions.ui.list.CatalogDestination
 import io.github.thewisekd.phopencode.feature.sessions.ui.list.ENGLISH_SESSION_LIST_STRINGS
+import io.github.thewisekd.phopencode.feature.sessions.ui.list.NotifyDestination
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -107,6 +108,7 @@ class SessionsGraphTest {
                 NavHost(navController = navController, startDestination = ConnectRoute.ServerList) {
                     composable<ConnectRoute.ServerList> { Stand("start") }
                     composable<NotifyRoute.Pending> { Stand("pending") }
+                    composable<NotifyRoute.Setup> { Stand("notify-setup") }
                     composable<ChatRoute.Chat> { Stand("chat") }
                     composable<ChatRoute.Subagents> { Stand("subagents") }
                     composable<ChatRoute.ChildSession> { Stand("child") }
@@ -143,6 +145,7 @@ class SessionsGraphTest {
         return when {
             destination.hasRoute<ConnectRoute.ServerList>() -> ConnectRoute.ServerList
             destination.hasRoute<NotifyRoute.Pending>() -> NotifyRoute.Pending
+            destination.hasRoute<NotifyRoute.Setup>() -> NotifyRoute.Setup
             destination.hasRoute<ChatRoute.Chat>() -> entry.toRoute<ChatRoute.Chat>()
             destination.hasRoute<ChatRoute.Subagents>() -> entry.toRoute<ChatRoute.Subagents>()
             destination.hasRoute<ChatRoute.ChildSession>() -> entry.toRoute<ChatRoute.ChildSession>()
@@ -217,6 +220,26 @@ class SessionsGraphTest {
             listOf(ConnectRoute.ServerList, SessionsRoute.SessionList(directory = FOLDER), expected),
             backStack(),
         )
+    }
+
+    @Test
+    fun `the menu's notifications item opens the notification setup on top of the list`() =
+        assertNotifyItemOpens(NotifyDestination.Setup, NotifyRoute.Setup)
+
+    @Test
+    fun `the menu's pending items item opens the pending items on top of the list`() =
+        assertNotifyItemOpens(NotifyDestination.Pending, NotifyRoute.Pending)
+
+    private fun assertNotifyItemOpens(destination: NotifyDestination, expected: NotifyRoute) {
+        val strings = ENGLISH_SESSION_LIST_STRINGS
+        setNavHost()
+        open(SessionsRoute.SessionList())
+
+        compose.onNodeWithContentDescription(strings.catalog).performClick()
+        compose.onNodeWithText(strings.notifyItems.getValue(destination)).performClick()
+        compose.waitForIdle()
+
+        assertEquals(listOf(ConnectRoute.ServerList, SessionsRoute.SessionList(), expected), backStack())
     }
 
     @Test

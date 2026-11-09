@@ -41,6 +41,8 @@ internal data class ExpectedSessionListStrings(
     val catalog: String,
     /** The catalog menu's items, by where they lead. */
     val catalogItems: Map<CatalogDestination, String>,
+    /** The same menu's notification items, by where they lead. */
+    val notifyItems: Map<NotifyDestination, String>,
     val search: String,
     val showArchived: String,
     val archived: String,
@@ -94,6 +96,18 @@ abstract class SessionListScreenLanguageContract {
         compose.onNodeWithContentDescription(strings.catalog).assertIsDisplayed().performClick()
 
         strings.catalogItems.values.forEach { compose.onNodeWithText(it).assertIsDisplayed() }
+    }
+
+    @Test
+    fun `the menu's notification items are labelled`() {
+        assertEquals(NotifyDestination.entries.toSet(), strings.notifyItems.keys)
+        val labels = strings.catalogItems.values + strings.notifyItems.values
+        assertEquals(labels.size, labels.toSet().size, "menu labels must differ")
+        compose.setSessionList(listed)
+
+        compose.onNodeWithContentDescription(strings.catalog).performClick()
+
+        strings.notifyItems.values.forEach { compose.onNodeWithText(it).assertIsDisplayed() }
     }
 
     @Test

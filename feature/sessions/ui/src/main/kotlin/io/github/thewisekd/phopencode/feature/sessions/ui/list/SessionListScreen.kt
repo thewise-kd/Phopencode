@@ -29,6 +29,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -109,7 +110,8 @@ private const val LOAD_AHEAD = 3
  * When the list is limited to a folder ([SessionListState.hasFolder]), the top bar names that folder
  * under its title and has buttons that open the folder's files and git, before the refresh button;
  * the list of every folder has none. Last in the bar, one menu button opens the catalog's screens
- * through [onOpenCatalog]: plain navigation, so it bypasses the presenter.
+ * through [onOpenCatalog] and the notification screens through [onOpenNotify]: plain navigation, so
+ * it bypasses the presenter.
  *
  * Above the rows sit the search field and the archived switch; each row is a rounded card with the
  * session's title, how long ago it changed, its tokens and cost, and its status badge. Pulling the list down, or
@@ -129,6 +131,7 @@ fun SessionListScreen(
     onIntent: (SessionListIntent) -> Unit,
     modifier: Modifier = Modifier,
     onOpenCatalog: (CatalogDestination) -> Unit = {},
+    onOpenNotify: (NotifyDestination) -> Unit = {},
 ) {
     val createLabel = stringResource(R.string.sessions_list_create)
     val canRefresh = !state.loading && !state.refreshing
@@ -158,7 +161,7 @@ fun SessionListScreen(
                     contentDescription = stringResource(R.string.sessions_list_refresh),
                 )
             }
-            CatalogMenu(onOpenCatalog)
+            CatalogMenu(onOpenCatalog, onOpenNotify)
         },
         floatingActionButton = {
             // The empty state has its own button; one is enough. The content overload, so the
@@ -240,11 +243,12 @@ fun SessionListScreen(
 
 /**
  * One icon button that drops down the catalog's screens: skills; commands, agents and models; and
- * the status of MCP servers and plugins. A single button keeps the bar narrow enough for the title on
- * a small phone. Choosing an item closes the menu and hands [onOpen] where to go.
+ * the status of MCP servers and plugins. Below a divider follow the notification screens: the
+ * notification setup and the pending items. A single button keeps the bar narrow enough for the title
+ * on a small phone. Choosing an item closes the menu and hands [onOpen] or [onOpenNotify] where to go.
  */
 @Composable
-private fun CatalogMenu(onOpen: (CatalogDestination) -> Unit) {
+private fun CatalogMenu(onOpen: (CatalogDestination) -> Unit, onOpenNotify: (NotifyDestination) -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     Box {
         IconButton(onClick = { expanded = true }) {
@@ -264,9 +268,34 @@ private fun CatalogMenu(onOpen: (CatalogDestination) -> Unit) {
                     leadingIcon = { Icon(imageVector = destination.icon, contentDescription = null) },
                 )
             }
+            HorizontalDivider()
+            NotifyDestination.entries.forEach { destination ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(destination.label)) },
+                    onClick = {
+                        expanded = false
+                        onOpenNotify(destination)
+                    },
+                    leadingIcon = { Icon(imageVector = destination.icon, contentDescription = null) },
+                )
+            }
         }
     }
 }
+
+@get:StringRes
+private val NotifyDestination.label: Int
+    get() = when (this) {
+        NotifyDestination.Setup -> R.string.sessions_list_notify_setup
+        NotifyDestination.Pending -> R.string.sessions_list_notify_pending
+    }
+
+/** core/ui has no bell yet: the setup is a settings screen, and pending items wait from earlier. */
+private val NotifyDestination.icon: ImageVector
+    get() = when (this) {
+        NotifyDestination.Setup -> PhopencodeIcons.Settings
+        NotifyDestination.Pending -> PhopencodeIcons.History
+    }
 
 @get:StringRes
 private val CatalogDestination.label: Int

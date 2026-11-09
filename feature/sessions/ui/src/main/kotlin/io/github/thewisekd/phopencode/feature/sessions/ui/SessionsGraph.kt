@@ -22,6 +22,7 @@ import io.github.thewisekd.phopencode.core.navigation.CatalogRoute
 import io.github.thewisekd.phopencode.core.navigation.ChatRoute
 import io.github.thewisekd.phopencode.core.navigation.FilesRoute
 import io.github.thewisekd.phopencode.core.navigation.GitRoute
+import io.github.thewisekd.phopencode.core.navigation.NotifyRoute
 import io.github.thewisekd.phopencode.core.navigation.SessionsRoute
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.Presenter
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionCreateEvent
@@ -32,6 +33,7 @@ import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionMan
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionManagePresenter
 import io.github.thewisekd.phopencode.feature.sessions.ui.create.SessionCreateScreen
 import io.github.thewisekd.phopencode.feature.sessions.ui.list.CatalogDestination
+import io.github.thewisekd.phopencode.feature.sessions.ui.list.NotifyDestination
 import io.github.thewisekd.phopencode.feature.sessions.ui.list.SessionListScreen
 import io.github.thewisekd.phopencode.feature.sessions.ui.manage.SessionManageScreen
 import kotlinx.coroutines.CoroutineScope
@@ -48,7 +50,8 @@ import org.koin.mp.KoinPlatform
  *
  * The flow: the list opens a session's chat, the creation screen or a session's management, and a
  * folder's list also that folder's files ([FilesRoute.Tree]) and git ([GitRoute.Status]). Every
- * list's menu opens the catalog's skills, registry and status ([CatalogRoute]). A
+ * list's menu opens the catalog's skills, registry and status ([CatalogRoute]), and the
+ * notification setup and pending items ([NotifyRoute]). A
  * created session's chat replaces the creation screen; a deleted session's screens are left behind.
  */
 fun NavGraphBuilder.sessionsGraph(navController: NavController) {
@@ -65,7 +68,13 @@ fun NavGraphBuilder.sessionsGraph(navController: NavController) {
             }
         }
         val state by presenter.state.collectAsStateWithLifecycle()
-        SessionListScreen(route, state, presenter::onIntent, onOpenCatalog = { navController.navigate(it.route) })
+        SessionListScreen(
+            route,
+            state,
+            presenter::onIntent,
+            onOpenCatalog = { navController.navigate(it.route) },
+            onOpenNotify = { navController.navigate(it.route) },
+        )
     }
     composable<SessionsRoute.Create> { entry ->
         val route = entry.toRoute<SessionsRoute.Create>()
@@ -103,6 +112,13 @@ private val CatalogDestination.route: CatalogRoute
         CatalogDestination.Skills -> CatalogRoute.Skills
         CatalogDestination.Registry -> CatalogRoute.Registry
         CatalogDestination.Status -> CatalogRoute.Status
+    }
+
+/** The notification screen a session list's menu item opens; the notify feature's graph draws it. */
+private val NotifyDestination.route: NotifyRoute
+    get() = when (this) {
+        NotifyDestination.Setup -> NotifyRoute.Setup
+        NotifyDestination.Pending -> NotifyRoute.Pending
     }
 
 /**

@@ -13,12 +13,15 @@
     <!-- The labels of the top bar's buttons to the list's folder, read by a screen reader. -->
     <string name="sessions_list_open_files">Open files</string>
     <string name="sessions_list_open_git">Open git</string>
-    <!-- The label of the top bar's menu button to the catalog, read by a screen reader. -->
-    <string name="sessions_list_catalog">Open catalog</string>
+    <!-- The label of the top bar's menu button to the catalog and the notification screens, read by a screen reader. -->
+    <string name="sessions_list_catalog">More options</string>
     <!-- The catalog menu's items. -->
     <string name="sessions_list_catalog_skills">Skills</string>
     <string name="sessions_list_catalog_registry">Commands, agents and models</string>
     <string name="sessions_list_catalog_status">MCP and plugin status</string>
+    <!-- The same menu's items to the notification screens. -->
+    <string name="sessions_list_notify_setup">Notifications</string>
+    <string name="sessions_list_notify_pending">Pending items</string>
     <string name="sessions_list_search">Search sessions</string>
     <string name="sessions_list_show_archived">Show archived</string>
     <string name="sessions_list_archived">Archived</string>
