@@ -1,3 +1,72 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="notify_setup_title">Notifications</string>
+    <string name="notify_setup_loading">Loading the notification settings…</string>
+
+    <string name="notify_setup_app_heading">The ntfy app</string>
+    <string name="notify_setup_app_message">Notifications reach this phone through ntfy, a free app. Install ntfy on this phone, then subscribe to your private topic below.</string>
+    <string name="notify_setup_app_privacy">Anyone who knows the topic can read the notifications, so it stays hidden here. They carry only a short fixed notice, never your messages or code.</string>
+    <!-- The subscription link with its topic hidden. %1$s is the ntfy server's host. -->
+    <string name="notify_setup_link_masked" translatable="false">ntfy://%1$s/••••••••</string>
+    <!-- What TalkBack reads for the hidden link. %1$s is the ntfy server's host. -->
+    <string name="notify_setup_link_description">Subscription link on %1$s, topic hidden</string>
+    <string name="notify_setup_open">Subscribe in ntfy</string>
+    <string name="notify_setup_app_missing">The ntfy app is not installed, so the link could not open. Install ntfy, then tap Subscribe in ntfy again.</string>
+    <string name="notify_setup_get_app">Get ntfy</string>
+
+    <string name="notify_setup_service_heading">Service on the server</string>
+    <string name="notify_setup_service_message">A small service on the server of this connection watches opencode and sends the notifications. It needs python3 3.9 or later.</string>
+    <string name="notify_setup_status_not_installed">Not installed</string>
+    <string name="notify_setup_status_stopped">Stopped</string>
+    <string name="notify_setup_status_running">Running</string>
+    <string name="notify_setup_status_unknown">Unknown</string>
+    <string name="notify_setup_refresh">Check the status again</string>
+    <string name="notify_setup_install">Install</string>
+    <string name="notify_setup_install_start">Install and start</string>
+    <string name="notify_setup_reinstall">Reinstall</string>
+    <string name="notify_setup_remove">Remove</string>
+    <string name="notify_setup_remove_confirm_title">Remove the service?</string>
+    <string name="notify_setup_remove_confirm_message">The service and its settings are removed from the server, and notifications stop. You can install it again at any time.</string>
+
+    <string name="notify_setup_test_heading">Test notification</string>
+    <string name="notify_setup_test_message">Sends one notification from the server to your topic, to try the whole way to this phone.</string>
+    <string name="notify_setup_send_test">Send a test</string>
+    <string name="notify_setup_test_sent">The ntfy server took the test notification. It should show up in the ntfy app shortly.</string>
+
+    <string name="notify_setup_server_heading">ntfy server</string>
+    <string name="notify_setup_server_message">ntfy.sh is used unless you run your own ntfy server.</string>
+    <string name="notify_setup_server_label">Server address</string>
+    <string name="notify_setup_server_blank">Enter the server\'s address.</string>
+    <string name="notify_setup_server_not_https">The address must start with https://.</string>
+    <string name="notify_setup_server_invalid">Enter only the address, like https://ntfy.example.com, without a path or a password.</string>
+    <string name="notify_setup_server_reinstall_hint">An installed service keeps its old server until you install it again.</string>
+    <string name="notify_setup_server_save">Save</string>
+    <string name="notify_setup_server_reset">Use ntfy.sh</string>
+
+    <string name="notify_setup_progress_save_server">Saving the ntfy server…</string>
+    <string name="notify_setup_progress_check_status">Checking the service…</string>
+    <string name="notify_setup_progress_install">Installing the service…</string>
+    <string name="notify_setup_progress_remove">Removing the service…</string>
+    <string name="notify_setup_progress_send_test">Sending a test notification…</string>
+
+    <!-- A failure: %1$s says which step failed, %2$s why. -->
+    <string name="notify_setup_error_format">%1$s %2$s</string>
+    <string name="notify_setup_error_step_load">The notification settings could not be loaded.</string>
+    <string name="notify_setup_error_step_save_server">The ntfy server could not be saved.</string>
+    <string name="notify_setup_error_step_check_status">The service\'s status could not be checked.</string>
+    <string name="notify_setup_error_step_install">The service could not be installed.</string>
+    <string name="notify_setup_error_step_remove">The service could not be removed.</string>
+    <string name="notify_setup_error_step_send_test">The test notification could not be sent.</string>
+    <string name="notify_setup_error_not_connected">No server is connected. Connect to a server, then try again.</string>
+    <string name="notify_setup_error_unreachable">The server could not be reached. Check the connection and try again.</string>
+    <string name="notify_setup_error_unauthorized">The server refused the credentials.</string>
+    <string name="notify_setup_error_not_found">The server could not find what was asked for.</string>
+    <string name="notify_setup_error_rejected">The server refused the request.</string>
+    <string name="notify_setup_error_server_failed">The server ran into an error.</string>
+    <string name="notify_setup_error_python_missing">The server has no python3, which the notification service needs. Nothing was installed.</string>
+    <string name="notify_setup_error_python_too_old">The server\'s python3 is older than 3.9, which the notification service needs. Nothing was installed.</string>
+    <string name="notify_setup_error_install_failed">A step on the server failed.</string>
+    <string name="notify_setup_error_storage_failed">The ntfy settings could not be read from or saved on this phone.</string>
+    <string name="notify_setup_error_ntfy_failed">The ntfy server did not take the test notification. Check the ntfy server.</string>
+    <string name="notify_setup_error_unknown">Something went wrong.</string>
 </resources>

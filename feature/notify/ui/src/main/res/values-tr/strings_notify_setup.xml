@@ -1,3 +1,68 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="notify_setup_title">Bildirimler</string>
+    <string name="notify_setup_loading">Bildirim ayarları yükleniyor…</string>
+
+    <string name="notify_setup_app_heading">ntfy uygulaması</string>
+    <string name="notify_setup_app_message">Bildirimler bu telefona ücretsiz bir uygulama olan ntfy ile gelir. ntfy\'ı bu telefona kurun, ardından aşağıdan size özel konuya abone olun.</string>
+    <string name="notify_setup_app_privacy">Konuyu bilen herkes bildirimleri okuyabilir, bu yüzden burada gizli tutulur. Bildirimler yalnızca kısa, sabit bir uyarı taşır; mesajlarınızı ya da kodunuzu asla taşımaz.</string>
+    <string name="notify_setup_link_description">%1$s üzerindeki abonelik bağlantısı, konu gizli</string>
+    <string name="notify_setup_open">ntfy\'da abone ol</string>
+    <string name="notify_setup_app_missing">ntfy uygulaması kurulu olmadığı için bağlantı açılamadı. ntfy\'ı kurun, ardından \"ntfy\'da abone ol\" düğmesine yeniden dokunun.</string>
+    <string name="notify_setup_get_app">ntfy\'ı indir</string>
+
+    <string name="notify_setup_service_heading">Sunucudaki servis</string>
+    <string name="notify_setup_service_message">Bu bağlantının sunucusundaki küçük bir servis opencode\'u izler ve bildirimleri gönderir. python3 3.9 ya da üstü gerekir.</string>
+    <string name="notify_setup_status_not_installed">Kurulu değil</string>
+    <string name="notify_setup_status_stopped">Durdu</string>
+    <string name="notify_setup_status_running">Çalışıyor</string>
+    <string name="notify_setup_status_unknown">Bilinmiyor</string>
+    <string name="notify_setup_refresh">Durumu yeniden denetle</string>
+    <string name="notify_setup_install">Kur</string>
+    <string name="notify_setup_install_start">Kur ve başlat</string>
+    <string name="notify_setup_reinstall">Yeniden kur</string>
+    <string name="notify_setup_remove">Kaldır</string>
+    <string name="notify_setup_remove_confirm_title">Servis kaldırılsın mı?</string>
+    <string name="notify_setup_remove_confirm_message">Servis ve ayarları sunucudan kaldırılır, bildirimler durur. İstediğiniz zaman yeniden kurabilirsiniz.</string>
+
+    <string name="notify_setup_test_heading">Deneme bildirimi</string>
+    <string name="notify_setup_test_message">Sunucudan konunuza tek bir bildirim gönderir; böylece bu telefona giden yolun tamamı denenir.</string>
+    <string name="notify_setup_send_test">Deneme gönder</string>
+    <string name="notify_setup_test_sent">ntfy sunucusu deneme bildirimini aldı. Birazdan ntfy uygulamasında görünmeli.</string>
+
+    <string name="notify_setup_server_heading">ntfy sunucusu</string>
+    <string name="notify_setup_server_message">Kendi ntfy sunucunuzu çalıştırmıyorsanız ntfy.sh kullanılır.</string>
+    <string name="notify_setup_server_label">Sunucu adresi</string>
+    <string name="notify_setup_server_blank">Sunucunun adresini girin.</string>
+    <string name="notify_setup_server_not_https">Adres https:// ile başlamalı.</string>
+    <string name="notify_setup_server_invalid">Yalnızca adresi girin, örneğin https://ntfy.example.com; yol ya da parola eklemeyin.</string>
+    <string name="notify_setup_server_reinstall_hint">Kurulu servis, yeniden kurulana kadar eski sunucusunu kullanır.</string>
+    <string name="notify_setup_server_save">Kaydet</string>
+    <string name="notify_setup_server_reset">ntfy.sh kullan</string>
+
+    <string name="notify_setup_progress_save_server">ntfy sunucusu kaydediliyor…</string>
+    <string name="notify_setup_progress_check_status">Servis denetleniyor…</string>
+    <string name="notify_setup_progress_install">Servis kuruluyor…</string>
+    <string name="notify_setup_progress_remove">Servis kaldırılıyor…</string>
+    <string name="notify_setup_progress_send_test">Deneme bildirimi gönderiliyor…</string>
+
+    <string name="notify_setup_error_format">%1$s %2$s</string>
+    <string name="notify_setup_error_step_load">Bildirim ayarları yüklenemedi.</string>
+    <string name="notify_setup_error_step_save_server">ntfy sunucusu kaydedilemedi.</string>
+    <string name="notify_setup_error_step_check_status">Servisin durumu denetlenemedi.</string>
+    <string name="notify_setup_error_step_install">Servis kurulamadı.</string>
+    <string name="notify_setup_error_step_remove">Servis kaldırılamadı.</string>
+    <string name="notify_setup_error_step_send_test">Deneme bildirimi gönderilemedi.</string>
+    <string name="notify_setup_error_not_connected">Bağlı bir sunucu yok. Bir sunucuya bağlanıp yeniden deneyin.</string>
+    <string name="notify_setup_error_unreachable">Sunucuya ulaşılamadı. Bağlantıyı denetleyip yeniden deneyin.</string>
+    <string name="notify_setup_error_unauthorized">Sunucu kimlik bilgilerini reddetti.</string>
+    <string name="notify_setup_error_not_found">Sunucu istenen şeyi bulamadı.</string>
+    <string name="notify_setup_error_rejected">Sunucu isteği reddetti.</string>
+    <string name="notify_setup_error_server_failed">Sunucuda bir hata oluştu.</string>
+    <string name="notify_setup_error_python_missing">Sunucuda bildirim servisinin gerektirdiği python3 yok. Hiçbir şey kurulmadı.</string>
+    <string name="notify_setup_error_python_too_old">Sunucudaki python3, bildirim servisinin gerektirdiği 3.9 sürümünden eski. Hiçbir şey kurulmadı.</string>
+    <string name="notify_setup_error_install_failed">Sunucudaki adımlardan biri başarısız oldu.</string>
+    <string name="notify_setup_error_storage_failed">ntfy ayarları bu telefonda okunamadı ya da kaydedilemedi.</string>
+    <string name="notify_setup_error_ntfy_failed">ntfy sunucusu deneme bildirimini kabul etmedi. ntfy sunucusunu denetleyin.</string>
+    <string name="notify_setup_error_unknown">Bir şeyler ters gitti.</string>
 </resources>

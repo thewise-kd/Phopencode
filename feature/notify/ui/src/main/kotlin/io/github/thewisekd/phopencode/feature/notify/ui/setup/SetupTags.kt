@@ -1,0 +1,21 @@
+package io.github.thewisekd.phopencode.feature.notify.ui.setup
+
+/** Test tags of the setup screen; tests find its parts by these, never by position. */
+internal const val SETUP_LIST_TAG = "notify:setup:list"
+internal const val SETUP_LOADING_TAG = "notify:setup:loading"
+internal const val SETUP_PROGRESS_TAG = "notify:setup:progress"
+internal const val SETUP_ERROR_TAG = "notify:setup:error"
+internal const val SETUP_LINK_TAG = "notify:setup:link"
+internal const val SETUP_OPEN_TAG = "notify:setup:open"
+internal const val SETUP_APP_MISSING_TAG = "notify:setup:app-missing"
+internal const val SETUP_GET_APP_TAG = "notify:setup:get-app"
+internal const val SETUP_STATUS_TAG = "notify:setup:status"
+internal const val SETUP_REFRESH_TAG = "notify:setup:refresh"
+internal const val SETUP_INSTALL_TAG = "notify:setup:install"
+internal const val SETUP_REMOVE_TAG = "notify:setup:remove"
+internal const val SETUP_REMOVE_DIALOG_TAG = "notify:setup:remove-dialog"
+internal const val SETUP_TEST_TAG = "notify:setup:test"
+internal const val SETUP_TEST_SENT_TAG = "notify:setup:test-sent"
+internal const val SETUP_SERVER_FIELD_TAG = "notify:setup:server"
+internal const val SETUP_SERVER_SAVE_TAG = "notify:setup:server-save"
+internal const val SETUP_SERVER_RESET_TAG = "notify:setup:server-reset"
