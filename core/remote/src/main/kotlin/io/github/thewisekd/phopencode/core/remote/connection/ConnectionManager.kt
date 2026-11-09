@@ -6,6 +6,7 @@ import io.github.thewisekd.phopencode.core.api.FsApi
 import io.github.thewisekd.phopencode.core.api.OpencodeClient
 import io.github.thewisekd.phopencode.core.api.ServerEvent
 import io.github.thewisekd.phopencode.core.api.ServerInfo
+import io.github.thewisekd.phopencode.core.model.SecretRef
 import io.github.thewisekd.phopencode.core.model.ServerProfile
 import io.github.thewisekd.phopencode.core.ssh.api.HostKey
 import io.github.thewisekd.phopencode.core.ssh.api.HostKeyDecision
@@ -22,6 +23,7 @@ import io.github.thewisekd.phopencode.core.storage_api.HostKeyFingerprint
 import io.github.thewisekd.phopencode.core.storage_api.HostKeyUpdate
 import io.github.thewisekd.phopencode.core.storage_api.KnownHostsStore
 import io.github.thewisekd.phopencode.core.storage_api.SecretStore
+import io.github.thewisekd.phopencode.core.storage_api.SecretValue
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.cancellation.CancellationException
@@ -398,6 +400,22 @@ class ConnectionManager(
         override val fs: FsApi get() = live.client.fs
         override val server: ConnectionServer get() = live.server
         override val generation: Long = synchronized(lock) { live.generation }
+        override val opencode: OpencodeLogin? get() = live.opencode
+
+        override suspend fun readOpencodePassword(): SecretValue? {
+            val ref = live.opencode?.passwordRef ?: return null
+            val check = live.passwordCheck ?: return null
+            val value = try {
+                secrets.readOrNull(ref)
+            } catch (_: ConnectionException) {
+                // Unreachable or unreadable storage: the caller only needs to know there is none.
+                null
+            } ?: return null
+            // A secret changed since the connect is not one the server accepted: unreadable.
+            if (check.matches(value)) return value
+            value.close()
+            return null
+        }
 
         override suspend fun openSftp(root: String): SftpClient {
             if (!stands(run, live)) throw NotConnectedException()
@@ -524,6 +542,10 @@ class ConnectionManager(
         val client: OpencodeClient,
         val info: ServerInfo,
         val server: ConnectionServer,
+        /** Where `opencode serve` is and the ref of the password it accepted; never the password. */
+        val opencode: OpencodeLogin?,
+        /** Recognises the accepted password when it is read again through [opencode]'s ref. */
+        val passwordCheck: PasswordCheck?,
     ) {
         /** Guarded by the run's held lock: the [openSftp] clients still open on this connection. */
         val sftp = ArrayList<TrackedSftp>()
@@ -1038,7 +1060,11 @@ class ConnectionManager(
                     for ((index, password) in server.passwords.withIndex()) {
                         val client = hold(mapFailures { clients.create(server.baseUrl, password, session.socketFactory()) })
                         try {
-                            return Live(session, client, mapFailures { client.serverInfo() }, identity)
+                            val info = mapFailures { client.serverInfo() }
+                            // Accepted: keep where it is stored and a keyed digest, never the password.
+                            val login = server.passwordRefs.getOrNull(index)?.let { OpencodeLogin(server.baseUrl, it) }
+                            val check = login?.let { PasswordCheck.of(password) }
+                            return Live(session, client, info, identity, login, check)
                         } catch (failure: Throwable) {
                             release(client)
                             val refused = failure is ConnectionException &&
@@ -1247,6 +1273,22 @@ interface BoundConnection {
     val generation: Long
 
     /**
+     * Where this connection's `opencode serve` is, as the SSH server reaches it, and the ref of the
+     * password it accepted. Null when that is not known by ref; the default, for implementations
+     * that do not reach opencode.
+     */
+    val opencode: OpencodeLogin? get() = null
+
+    /**
+     * Reads the password of [opencode] again from the secret store, through its ref: the
+     * connection keeps no password, only a keyed digest of the accepted one, in memory. The caller
+     * owns the value and closes it as soon as it is used. Null when [opencode] is null, or the
+     * secret is gone, unreadable, the store unreachable, or no longer the password the server
+     * accepted.
+     */
+    suspend fun readOpencodePassword(): SecretValue? = null
+
+    /**
      * Opens an SFTP client confined to [root] on this connection's SSH session, as
      * [ConnectionManager.openSftp] does for the current one; the connection owns and closes it.
      *
@@ -1258,4 +1300,14 @@ interface BoundConnection {
      *   session ends during the open.
      */
     suspend fun openSftp(root: String): SftpClient
+}
+
+/**
+ * How a connection reaches `opencode serve`: [baseUrl] as seen from the SSH server (a loopback
+ * address) and [passwordRef], where the password the server accepted is stored, either the
+ * profile's `opencodeCredential` or [ServerResolver.startedPasswordRef]. It holds no password, and
+ * prints nothing: the URL names a port of the server, and the ref names the profile.
+ */
+class OpencodeLogin(val baseUrl: String, val passwordRef: SecretRef) {
+    override fun toString(): String = "OpencodeLogin(***)"
 }

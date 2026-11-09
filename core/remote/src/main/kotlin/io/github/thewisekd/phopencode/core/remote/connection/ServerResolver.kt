@@ -50,10 +50,18 @@ interface ServerTools {
  *
  * @property baseUrl As seen from the SSH server, always a loopback address.
  * @property passwords The candidates to try in order; never empty.
+ * @property passwordRefs Where each of [passwords] is stored, in the same order, so that the
+ *   connection can keep the ref of the one the server accepts instead of the password; empty when
+ *   the candidates are not known by ref.
  */
-class ResolvedServer(val baseUrl: String, val passwords: List<SecretValue>) : AutoCloseable {
+class ResolvedServer(
+    val baseUrl: String,
+    val passwords: List<SecretValue>,
+    val passwordRefs: List<SecretRef> = emptyList(),
+) : AutoCloseable {
     init {
         require(passwords.isNotEmpty()) { "No password" }
+        require(passwordRefs.isEmpty() || passwordRefs.size == passwords.size) { "One ref per password" }
     }
 
     override fun close() = passwords.forEach(SecretValue::close)
@@ -92,7 +100,8 @@ class ServerResolver(
             is ServerLookup.Running -> {
                 // A server on another port than the profile names is never used, whoever found it.
                 if (port != null && lookup.port != port) throw ConnectionException(ConnectionError.ServerNotOnPort(port))
-                ResolvedServer(baseUrl(lookup.host, lookup.port), knownPasswords(profile, lookup.source))
+                val known = knownPasswords(profile, lookup.source)
+                ResolvedServer(baseUrl(lookup.host, lookup.port), known.map { it.second }, known.map { it.first })
             }
             // A live server that does not answer is waited for: never started next to, never stopped.
             is ServerLookup.Unresponsive -> throw ConnectionException(ConnectionError.ServerUnresponsive)
@@ -110,14 +119,14 @@ class ServerResolver(
      * is one this app started, so the password stored at that start comes first; for any other the
      * profile's credential does. Fails when neither is known.
      */
-    private suspend fun knownPasswords(profile: ServerProfile, source: ServerSource): List<SecretValue> {
-        val found = ArrayList<SecretValue>(2)
+    private suspend fun knownPasswords(profile: ServerProfile, source: ServerSource): List<Pair<SecretRef, SecretValue>> {
+        val found = ArrayList<Pair<SecretRef, SecretValue>>(2)
         try {
             val refs = listOfNotNull(profile.opencodeCredential, startedPasswordRef(profile))
             val ordered = if (source == ServerSource.StateFile) refs.asReversed() else refs
-            for (ref in ordered.distinct()) secrets.readOrNull(ref)?.let(found::add)
+            for (ref in ordered.distinct()) secrets.readOrNull(ref)?.let { found += ref to it }
         } catch (failure: Throwable) {
-            found.forEach(SecretValue::close)
+            found.forEach { it.second.close() }
             throw failure
         }
         if (found.isEmpty()) throw ConnectionException(ConnectionError.ServerPasswordUnknown)
@@ -142,7 +151,7 @@ class ServerResolver(
             } catch (failure: ServerStartException) {
                 throw ConnectionException(ConnectionError.ServerStartFailed(ServerStartFailure.of(failure)))
             }
-            return ResolvedServer(baseUrl(LOOPBACK_V4, started.port), listOf(password))
+            return ResolvedServer(baseUrl(LOOPBACK_V4, started.port), listOf(password), listOf(startedPasswordRef(profile)))
         } catch (failure: Throwable) {
             password.close()
             throw failure

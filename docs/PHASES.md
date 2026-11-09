@@ -657,7 +657,7 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 
 | Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
 |---|---|---|---|---|---|
-| P11.8 | Remote installation | P11.6, P3.2, P3.4 | `core/remote/…/notify/`, `feature/notify/ui/build.gradle.kts` | `python3` version is checked; upload, 0600 config, start, status, removal; clear error if missing; `.pyz` is produced by a Gradle task under `build/` and does not enter the repository | `PI` |
+| P11.8 | Remote installation | P11.6, P3.2, P3.4 | `core/remote/…/notify/`, `feature/notify/ui/build.gradle.kts`, `feature/notify/ui/…/setup/RemoteNotifyService.kt` and its test, `core/remote/…/connection/` (main and test) | `python3` version is checked; upload, 0600 config, start, status, removal; clear error if missing; `.pyz` is produced by a Gradle task under `build/` and does not enter the repository | `PI` |
 | P11.9 | Notification logic | P11.7 | `feature/notify/logic/…/setup/` | Random topic of at least 128 bits; in `SecretStore`; never enters logs; test notification | `PI` |
 | P11.10 | Notification screen | P11.7 | `feature/notify/ui/…/setup/`, `strings_notify_setup.xml` | The ntfy requirement is explained; `ntfy://` subscription; status | `CI` |
 | P11.11 | Pending items logic | P11.7 | `feature/notify/logic/…/pending/` | Forms and permissions from all sessions are combined; removed once answered | `PI` |
