@@ -1,3 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="notify_pending_title">Sizi bekleyenler</string>
+    <string name="notify_pending_refresh">Listeyi yenile</string>
+    <string name="notify_pending_loading">Bekleyenler yükleniyor…</string>
+    <string name="notify_pending_refreshing">Bekleyenler yenileniyor…</string>
+    <string name="notify_pending_empty">Yanıt bekleyen bir şey yok</string>
+    <string name="notify_pending_kind_question">Soru</string>
+    <string name="notify_pending_kind_form">Form</string>
+    <string name="notify_pending_kind_permission">İzin isteği</string>
+    <string name="notify_pending_untitled">Adsız oturum</string>
+    <string name="notify_pending_subagent">Alt ajan</string>
+    <string name="notify_pending_open">Oturumu aç</string>
+    <string name="notify_pending_retry">Tekrar dene</string>
+    <string name="notify_pending_connect">Bağlan</string>
+    <string name="notify_pending_error_not_connected">Bir sunucuya bağlı değil. Bekleyenleri görmek için bağlanın.</string>
+    <string name="notify_pending_error_unreachable">Sunucuya ulaşılamadı.</string>
+    <string name="notify_pending_error_unauthorized">Sunucu girişi reddetti. Doğru parolayla yeniden bağlanın.</string>
+    <string name="notify_pending_error_not_found">Sunucu istenen şeyi bulamadı.</string>
+    <string name="notify_pending_error_rejected">Sunucu bekleyenleri listelemeyi reddetti.</string>
+    <string name="notify_pending_error_server">Sunucu bekleyenleri listelerken hata verdi.</string>
+    <string name="notify_pending_error_unknown">Bekleyenler yüklenemedi.</string>
 </resources>

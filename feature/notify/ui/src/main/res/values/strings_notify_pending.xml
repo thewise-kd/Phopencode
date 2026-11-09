@@ -1,3 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="notify_pending_title">Waiting for you</string>
+    <string name="notify_pending_refresh">Refresh the list</string>
+    <string name="notify_pending_loading">Loading what is waiting…</string>
+    <string name="notify_pending_refreshing">Refreshing what is waiting…</string>
+    <string name="notify_pending_empty">Nothing is waiting for an answer</string>
+    <string name="notify_pending_kind_question">Question</string>
+    <string name="notify_pending_kind_form">Form</string>
+    <string name="notify_pending_kind_permission">Permission request</string>
+    <string name="notify_pending_untitled">Untitled session</string>
+    <string name="notify_pending_subagent">Subagent</string>
+    <string name="notify_pending_open">Open session</string>
+    <string name="notify_pending_retry">Try again</string>
+    <string name="notify_pending_connect">Connect</string>
+    <string name="notify_pending_error_not_connected">Not connected to a server. Connect to see what is waiting.</string>
+    <string name="notify_pending_error_unreachable">The server could not be reached.</string>
+    <string name="notify_pending_error_unauthorized">The server refused the sign-in. Connect again with the right password.</string>
+    <string name="notify_pending_error_not_found">The server could not find what was asked.</string>
+    <string name="notify_pending_error_rejected">The server refused to list what is waiting.</string>
+    <string name="notify_pending_error_server">The server failed while listing what is waiting.</string>
+    <string name="notify_pending_error_unknown">What is waiting could not be loaded.</string>
 </resources>

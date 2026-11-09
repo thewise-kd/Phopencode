@@ -1,2 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" />
+<!--
+    The pending list's deep link (P11.12). A notification's tap, a VIEW of phopencode://pending from
+    the ntfy app or a browser, starts the app's only activity, which this adds the filter to by name
+    when the app's manifest merges; the NavHost then hands the intent to the graph's deep link. The
+    activity's class lives in the app module, hence MissingClass is ignored here.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <activity
+            android:name="io.github.thewisekd.phopencode.MainActivity"
+            android:exported="true"
+            tools:ignore="MissingClass">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:host="pending"
+                    android:scheme="phopencode" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
