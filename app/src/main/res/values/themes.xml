@@ -1,9 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- The window behind Compose, which draws its own theme from core:ui. Its background
-         is core:ui's light background, so no other color shows before the first frame. -->
-    <style name="Theme.Phopencode" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">#FFF4FAF9</item>
-        <item name="android:colorBackground">#FFF4FAF9</item>
+    <!-- The window's background: core:ui's light background (Neutral98), so no other color shows
+         before Compose draws. values-night/themes.xml holds the dark one. -->
+    <color name="window_background">#FFF4FAF9</color>
+
+    <!-- What every level shares: the window behind Compose, which draws its own theme from core:ui. -->
+    <style name="Base.Theme.Phopencode" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:colorBackground">@color/window_background</item>
+    </style>
+
+    <!-- The launch theme below API 31, which has no system splash screen: the window background
+         draws the splash itself, the launcher icon centred on the background. Compose covers it
+         with its own full-screen background from the first frame. values-v31/themes.xml holds
+         the splash screen of API 31+. -->
+    <style name="Theme.Phopencode" parent="Base.Theme.Phopencode">
+        <item name="android:windowBackground">@drawable/splash_window_background</item>
     </style>
 </resources>

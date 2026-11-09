@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The launch theme from API 31: the system splash screen shows the launcher foreground on
+         the icon background color (Teal20), over core:ui's background, light or dark through
+         @color/window_background. The window background stays that plain color, so the icon
+         does not show a second time when the splash screen hands over to the app. -->
+    <style name="Theme.Phopencode" parent="Base.Theme.Phopencode">
+        <item name="android:windowSplashScreenBackground">@color/window_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/ic_launcher_background</item>
+    </style>
+</resources>

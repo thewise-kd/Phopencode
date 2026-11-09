@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The splash screen below API 31 (values/themes.xml): the window background with the launcher
+    icon centred on it, at the sizes of the API 31+ system splash screen. The foreground's
+    108 dp canvas becomes 240 dp, so its 72 dp visible circle fills the 160 dp badge.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/window_background" />
+    <item
+        android:width="160dp"
+        android:height="160dp"
+        android:gravity="center">
+        <shape android:shape="oval">
+            <solid android:color="@color/ic_launcher_background" />
+        </shape>
+    </item>
+    <item
+        android:width="240dp"
+        android:height="240dp"
+        android:drawable="@drawable/ic_launcher_foreground"
+        android:gravity="center" />
+</layer-list>

@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- The dark window, so that a dark system does not flash white before Compose draws.
-         Its background is core:ui's deep ink dark background. -->
-    <style name="Theme.Phopencode" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">#FF0B1517</item>
-        <item name="android:colorBackground">#FF0B1517</item>
+         Its background is core:ui's deep ink dark background (Ink6). Theme.Phopencode itself
+         lives in values/ and values-v31/; it takes this base and this color in dark mode. -->
+    <color name="window_background">#FF0B1517</color>
+
+    <style name="Base.Theme.Phopencode" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:colorBackground">@color/window_background</item>
     </style>
 </resources>
