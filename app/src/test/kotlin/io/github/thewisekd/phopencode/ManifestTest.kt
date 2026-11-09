@@ -1,6 +1,8 @@
 package io.github.thewisekd.phopencode
 
+import android.content.ComponentName
 import android.content.Context
+import android.content.pm.ActivityInfo
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Rule
 import org.junit.Test
@@ -79,6 +81,12 @@ class ManifestTest {
     @Test
     fun `the app uses its own theme`() {
         assertEquals("@style/Theme.Phopencode", attribute("theme"))
+    }
+
+    @Test
+    fun `the main activity is single top, so a deep link reaches the running one`() {
+        val info = context.packageManager.getActivityInfo(ComponentName(context, MainActivity::class.java), 0)
+        assertEquals(ActivityInfo.LAUNCH_SINGLE_TOP, info.launchMode)
     }
 
     private companion object {

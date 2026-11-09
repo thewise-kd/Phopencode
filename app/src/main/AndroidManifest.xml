@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Final after P1.10; P9.27 added the launcher icon. Later tasks fill in the XML files this points to, and declare
+    Final after P1.10; P9.27 added the launcher icon; P11.14 made MainActivity singleTop, so a deep link
+    reaches the running activity in onNewIntent. Later tasks fill in the XML files this points to, and declare
     permissions and services in their feature module's own manifest.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -18,7 +19,8 @@
         android:theme="@style/Theme.Phopencode">
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

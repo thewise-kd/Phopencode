@@ -1,5 +1,6 @@
 package io.github.thewisekd.phopencode
 
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -16,10 +17,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
 import io.github.thewisekd.phopencode.core.storage_api.SettingsRepository
 import io.github.thewisekd.phopencode.core.storage_api.ThemePreference
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.navigation.AppNavHost
+import io.github.thewisekd.phopencode.navigation.openDeepLink
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -33,14 +37,24 @@ import org.koin.android.ext.android.inject
  * The theme follows the stored [ThemePreference] (see [rememberDarkTheme]); a change recomposes
  * the content in place, without recreating the activity. The system bar icons follow the same
  * theme, so a forced dark theme on a light phone does not get dark icons on a dark bar.
+ *
+ * Deep links, such as a notification's `phopencode://pending`: the NavHost opens the one that
+ * starts the activity; one that reaches the running activity opens in [onNewIntent], above the
+ * current screen.
  */
 class MainActivity : ComponentActivity() {
     private val settings: SettingsRepository by inject()
 
+    /** The NavHost's controller, once the content is composed; `onNewIntent` hands it deep links. */
+    internal var navController: NavHostController? = null
+        private set
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) intent?.let(::startsOwnTask)
         setContent {
+            val navController = rememberNavController().also { this.navController = it }
             val darkTheme = rememberDarkTheme(settings)
             DisposableEffect(darkTheme) {
                 enableEdgeToEdge(
@@ -50,9 +64,22 @@ class MainActivity : ComponentActivity() {
                 onDispose {}
             }
             PhopencodeTheme(darkTheme = darkTheme) {
-                AppNavHost(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+                AppNavHost(
+                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+                    navController = navController,
+                )
             }
         }
+    }
+
+    /**
+     * A deep link that reaches the running activity: `singleTop` in the manifest sends it here
+     * instead of starting a second activity. The link's screen opens above the current one.
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        navController?.openDeepLink(intent)
     }
 
     private companion object {
@@ -60,6 +87,17 @@ class MainActivity : ComponentActivity() {
         val LIGHT_SCRIM = Color.argb(0xe6, 0xFF, 0xFF, 0xFF)
         val DARK_SCRIM = Color.argb(0x80, 0x1b, 0x1b, 0x1b)
     }
+}
+
+/**
+ * Marks the [intent] that started a fresh activity in a new task as also clearing that task. The
+ * NavHost hands the starting intent to `NavController.handleDeepLink`, which, for a new task that
+ * is not cleared, starts the activity again in a cleared task and finishes this one. The activity
+ * is already the whole of a new task, so the flag only spares that restart: the deep link opens
+ * above the start screen as it would after it.
+ */
+internal fun startsOwnTask(intent: Intent) {
+    if (intent.flags and Intent.FLAG_ACTIVITY_NEW_TASK != 0) intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
 }
 
 /** Whether this preference means a dark theme on a phone whose own dark mode is [systemDark]. */

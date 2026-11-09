@@ -663,6 +663,7 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | P11.11 | Pending items logic | P11.7 | `feature/notify/logic/…/pending/` | Forms and permissions from all sessions are combined; removed once answered | `PI` |
 | P11.12 | Pending items screen and deep link | P11.7 | `feature/notify/ui/…/pending/`, `feature/notify/ui/src/main/AndroidManifest.xml`, `strings_notify_pending.xml` | `phopencode://pending` opens the screen; tapping goes to the session | `EMU` |
 | P11.13 | Notification entry point | P11.7 | the session list screen and its graph wiring (`feature/sessions/ui/…/list/`, `SessionsGraph.kt`), `strings_sessions_list.xml`, `docs/PHASES.md` (this row) | The session list's top bar menu has Notifications (opens `NotifyRoute.Setup`) and Pending items (opens `NotifyRoute.Pending`); TR/EN strings | `CI` |
+| P11.14 | Deep link while running | P11.12 | `app/src/main/AndroidManifest.xml` (MainActivity launch mode), `app/…/MainActivity.kt`, `app/…/navigation/AppNavHost.kt`, app tests, `docs/PHASES.md` (this row) | With the app running, `phopencode://pending` opens the pending list in the existing task on top of the current back stack, without a second activity or a restarted task; a cold start still opens it | `CI` |
 
 `CP11`: push, CI green, `PHONE`: receive a real notification, tap it and switch to the app.
 
