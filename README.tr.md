@@ -18,9 +18,10 @@
 </p>
 
 > [!NOTE]
-> **Durum: erken geliştirme aşamasında, henüz sürüm yok.** Aşağıdaki temel özellikler çalışıyor,
-> ancak yayımlanmış bir APK yok. Uygulamayı denemek için onu
-> [kaynak koddan derle](#kaynak-koddan-derleme).
+> **Durum: henüz sürüm yok.** Aşağıdaki özellikler çalışıyor, ancak yayımlanmış bir APK yok.
+> Sürümler imzalı olarak ve SHA-256 özetiyle birlikte
+> [GitHub Releases](https://github.com/thewise-kd/Phopencode/releases) sayfasında yayımlanacak; o
+> zamana kadar [uygulamayı kaynak koddan derle](#kaynak-koddan-derleme).
 
 <!--
 Ekran görüntüleri: henüz yok. Hazır olduğunda buraya ekle, örneğin:
@@ -38,9 +39,17 @@ Neden: bir ajan uzun süre çalışabilir, soru sorabilir ve izin bekleyebilir. 
 bilgisayarından uzaktayken ajanı izlemeni, ona yanıt vermeni ve yaptığı değişiklikleri incelemeni
 sağlar; bunun için sunucunun hiçbir portunu internete açman gerekmez.
 
+## Belgeler
+
+- [Kurulum ve ayarlar](docs/INSTALL.tr.md): telefonun ve sunucunun neye ihtiyacı olduğu, APK'yı
+  kurma ve doğrulama, ilk bağlantı ve ntfy ile bildirimler.
+- [Güvenlik modeli](docs/SECURITY-MODEL.tr.md): neyin nerede saklandığı, ağ üzerinden neyin
+  gittiği, sunucu anahtarına güven ve bir saldırganın neler yapabileceği.
+- [Güvenlik politikası](SECURITY.md): bir güvenlik açığının nasıl bildirileceği.
+
 ## Özellikler
 
-Tamamlananlar ([docs/PHASES.md](docs/PHASES.md) içindeki P0–P9 aşamaları):
+Tamamlananlar ([docs/PHASES.md](docs/PHASES.md) içindeki P0–P11 aşamaları):
 
 **Bağlantı ve sunucular**
 
@@ -85,23 +94,32 @@ Tamamlananlar ([docs/PHASES.md](docs/PHASES.md) içindeki P0–P9 aşamaları):
 - Farklar, commit ayrıntılarıyla geçmiş ve dallar (oluşturma, geçiş, silme).
 - Fetch, pull (yalnızca fast-forward) ve push. Uygulama hiçbir zaman zorla push yapmaz.
 
+**Katalog**
+
+- Arama ve Markdown metniyle beceriler; komutlar, ajanlar (izinleriyle) ve modeller (sınırları ve
+  fiyatlarıyla); MCP sunucusu ve eklenti durumu. Yalnızca görüntüleme.
+
+**Bildirimler**
+
+- Ajan bir şey sorduğunda, izin istediğinde, işi bittiğinde ya da hata verdiğinde
+  [ntfy](https://ntfy.sh) üzerinden anlık bildirim; bildirimleri sunucuda çalışan, bağımlılığı
+  olmayan küçük bir Python servisi gönderir. Bildirim metni sabittir; kod, dosya yolu ya da yapay
+  zekâ çıktısı içermez.
+- Servisi uygulamadan kurma, deneme ve kaldırma; varsayılan olarak `ntfy.sh` ya da kendi ntfy
+  sunucun; uygulamanın ntfy uygulamasına ilettiği, rastgele ve gizli bir konu.
+- Herhangi bir oturumda yanıt bekleyen tüm soruları ve izin isteklerini listeleyen bekleyenler
+  ekranı; bir bildirime dokunmak bu ekranı açar.
+
 **Genel**
 
-- Sistem dilini izleyen Türkçe ve İngilizce arayüz; açık ve koyu tema.
+- Sistem dilini izleyen ya da ayarlardan seçilen Türkçe ve İngilizce arayüz; açık, koyu ya da
+  sistem teması.
+- Dosya boyutu sınırı ve tüm uygulama verisini silme ayarları; açık kaynak lisans bildirimleri.
 
 ### Yol haritası
 
-Henüz yapılmadı (planın tamamı için [docs/PHASES.md](docs/PHASES.md)):
-
-- **P10, katalog ve ayarlar:** beceri, komut, ajan ve model listeleri; MCP ve eklenti durumu; dil,
-  tema, dosya boyutu sınırı ve uygulama verisini silme ayarları.
-- **P11, bildirimler:** sunucuda çalışan, bağımlılığı olmayan küçük bir Python servisi; ajan bir
-  şey sorduğunda, izin istediğinde, işi bittiğinde ya da hata verdiğinde [ntfy](https://ntfy.sh)
-  üzerinden bildirim gönderir. Bildirim metni sabittir; kod, dosya yolu ya da yapay zekâ çıktısı
-  içermez.
-- **P12, sürüm:** erişilebilirlik incelemesi, uygulama simgesi ve açılış ekranı, üçüncü taraf
-  lisans bildirimleri, sürüm sağlamlaştırması (R8, yedekleme yok, log yok), GitHub Releases'te
-  imzalı APK'lar ve kullanıcı belgeleri.
+İlk sürümden önce (planın tamamı için [docs/PHASES.md](docs/PHASES.md)): bir sürüm denetimi ve
+v0.1.0 sürümünün kendisi.
 
 İlk sürüm için planlanmayanlar: terminal, git stash/birleştirme çakışması çözme/rebase, MCP
 sunucularını ya da sağlayıcı kimlik bilgilerini yönetme
@@ -128,21 +146,28 @@ sunucularını ya da sağlayıcı kimlik bilgilerini yönetme
   hiç yazılmaz, stdin üzerinden verilir.
 - Dosyalar SFTP ile, açtığın klasörle sınırlı olarak aktarılır. Git ve içerik araması SSH üzerinden
   sıradan komutlar olarak çalışır; her argüman kabuk için tırnaklanır.
+- Bildirimleri kurarsan, onları sunucuda opencode'u izleyen bir servis gönderir; servis sabit
+  metni HTTPS üzerinden ntfy'a iletir, telefondaki ntfy uygulaması da gösterir.
 
 ### Sunucu gereksinimleri
 
 - Bir anahtar ya da parolayla SSH erişimi.
 - O kullanıcı için kurulu [opencode](https://opencode.ai) 2.2 ya da daha yenisi.
 - Git ekranları için `git`; `rg` (ripgrep) isteğe bağlıdır, yoksa `grep` kullanılır.
+- Yalnızca bildirimler için: `python3` 3.9 ya da daha yenisi ve servisi çalışır tutmak için
+  lingering açık bir `systemd --user` ya da `crontab`.
+
+Ayrıntılar ve uygulamanın sunucuda ne yaptığı [docs/INSTALL.tr.md](docs/INSTALL.tr.md) dosyasındadır.
 
 ## Gereksinimler
 
 - Android 8.0 (API 26) ya da daha yeni bir Android telefon.
 - [Sunucu gereksinimleri](#sunucu-gereksinimleri) bölümünde anlatılan bir sunucu.
+- Bildirimler için telefonda [ntfy](https://ntfy.sh) uygulaması.
 
 ## Kaynak koddan derleme
 
-Henüz yayımlanmış bir APK olmadığı için debug APK'yı kendin derlersin.
+Bir sürüm yayımlanana kadar debug APK'yı kendin derlersin.
 
 Gerekenler:
 
@@ -190,10 +215,10 @@ modüllerindedir.
 | `core/storage-api`, `core/storage` | Depolama arayüzleri; şifreli depolama (Keystore, Tink, DataStore) |
 | `core/navigation`, `core/ui`, `core/markdown`, `core/codeview` | Rotalar, tema ve ortak bileşenler, Markdown, kod görüntüleyici |
 | `feature/<ad>/logic`, `feature/<ad>/ui` | Her özelliğin durumu ve sunucuları (JVM) ile Compose ekranları (Android) |
+| `helper/` | Bildirim servisi (Python) ile kurma ve kaldırma betikleri |
 | `build-logic/` | Gradle convention eklentileri |
 
-Özellikler: `connect`, `sessions`, `chat`, `files`, `git` ve henüz boş olan `catalog`, `notify` ve
-`settings`.
+Özellikler: `connect`, `sessions`, `chat`, `files`, `git`, `catalog`, `notify` ve `settings`.
 
 ## Güvenlik
 
@@ -210,9 +235,12 @@ modüllerindedir.
   bir komut ya da az önce başlatıp ayağa kalkamayan bir sunucu.
 - **Git varsayılan olarak güvenlidir.** Zorla push, `git reset --hard` ya da `git clean` yoktur;
   pull yalnızca fast-forward yapar; değişiklikleri atmak onay ister.
-- **Analiz ya da izleme yok.** Loglarda parola, anahtar ya da dosya içeriği bulunmaz.
+- **Bildirimler gizli kalır.** Metinleri sabittir, ntfy konusu rastgeledir ve şifreli saklanır;
+  servisin sunucudaki ayar dosyasını yalnızca senin kullanıcın okuyabilir.
+- **Analiz ya da izleme yok.** Loglarda parola, anahtar ya da dosya içeriği bulunmaz; sürüm
+  derlemesi Android log çağrılarını tümüyle kaldırır.
 
-Bir güvenlik açığı bildirmek için [SECURITY.md](SECURITY.md) dosyasına bak. Lütfen herkese açık
+Tüm ayrıntılar [docs/SECURITY-MODEL.tr.md](docs/SECURITY-MODEL.tr.md) dosyasındadır. Bir güvenlik açığı bildirmek için [SECURITY.md](SECURITY.md) dosyasına bak. Lütfen herkese açık
 bir issue açma.
 
 ## Katkıda bulunma

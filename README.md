@@ -18,8 +18,9 @@
 </p>
 
 > [!NOTE]
-> **Status: early development, no release yet.** The core features below work, but there is no
-> published APK. To try the app, [build it from source](#building-from-source).
+> **Status: no release yet.** The features below work, but there is no published APK. Releases
+> will appear on [GitHub Releases](https://github.com/thewise-kd/Phopencode/releases), signed and
+> with a SHA-256 hash; until then, [build the app from source](#building-from-source).
 
 <!--
 Screenshots: none yet. Add them here once they exist, for example:
@@ -37,9 +38,17 @@ Why: an agent can run for a long time, ask questions and wait for permissions. P
 you follow it, answer it and review what it changed when you are away from your computer, without
 opening any port of your server to the internet.
 
+## Documentation
+
+- [Installation and setup](docs/INSTALL.md): what the phone and the server need, installing and
+  checking the APK, the first connection, and notifications with ntfy.
+- [Security model](docs/SECURITY-MODEL.md): what is stored where, what goes over the network,
+  host key trust, and what an attacker could do.
+- [Security policy](SECURITY.md): how to report a vulnerability.
+
 ## Features
 
-Done (phases P0 to P9 of [docs/PHASES.md](docs/PHASES.md)):
+Done (phases P0 to P11 of [docs/PHASES.md](docs/PHASES.md)):
 
 **Connection and servers**
 
@@ -80,22 +89,31 @@ Done (phases P0 to P9 of [docs/PHASES.md](docs/PHASES.md)):
 - Diffs, history with commit details, and branches (create, switch, delete).
 - Fetch, pull (fast-forward only) and push. The app never force-pushes.
 
+**Catalog**
+
+- Skills with search and their Markdown text; commands, agents (with their permissions) and
+  models (with limits and pricing); MCP server and plugin status. View only.
+
+**Notifications**
+
+- Push notifications through [ntfy](https://ntfy.sh) when the agent asks something, needs a
+  permission, finishes or fails, sent by a small, dependency-free Python service on the server.
+  The notification text is fixed and carries no code, paths or AI output.
+- Install, test and remove the service from the app; `ntfy.sh` by default or your own ntfy
+  server; a private random topic that the app hands to the ntfy app.
+- A pending items screen that lists every question and permission request waiting in any
+  session; tapping a notification opens it.
+
 **General**
 
-- Turkish and English interface following the system language; light and dark theme.
+- Turkish and English interface following the system language or chosen in the settings; light,
+  dark or system theme.
+- Settings for the file size limit and deleting all app data; open source license notices.
 
 ### Roadmap
 
-Not done yet (see [docs/PHASES.md](docs/PHASES.md) for the full plan):
-
-- **P10, catalog and settings:** skill, command, agent and model lists; MCP and plugin status;
-  settings for language, theme, file size limit and deleting app data.
-- **P11, notifications:** a small, dependency-free Python service on the server that sends a push
-  notification through [ntfy](https://ntfy.sh) when the agent asks something, needs a permission,
-  finishes or fails. The notification text is fixed and carries no code, paths or AI output.
-- **P12, release:** accessibility review, app icon and splash screen, third-party license notices,
-  release hardening (R8, no backups, no logs), signed APKs on GitHub Releases and user
-  documentation.
+Before the first release (see [docs/PHASES.md](docs/PHASES.md) for the full plan): a release
+audit and the v0.1.0 version itself.
 
 Not planned for the first release: a terminal, git stash/merge conflict resolution/rebase, and
 managing MCP servers or provider credentials
@@ -122,21 +140,28 @@ managing MCP servers or provider credentials
   stdin, never on the command line.
 - Files use SFTP, confined to the folder you opened. Git and content search run as ordinary
   commands over SSH, with every argument shell-quoted.
+- Notifications, when you install them, come from a service on the server that watches opencode
+  and posts fixed text to ntfy over HTTPS; the ntfy app on the phone shows them.
 
 ### Server requirements
 
 - SSH access with a key or a password.
 - [opencode](https://opencode.ai) 2.2 or newer installed for that user.
 - `git` for the git screens; `rg` (ripgrep) is optional, `grep` is used without it.
+- For notifications only: `python3` 3.9 or newer, and `systemd --user` with lingering or
+  `crontab` to keep the service running.
+
+The details, and what the app does on the server, are in [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Requirements
 
 - An Android phone with Android 8.0 (API 26) or newer.
 - A server as described in [Server requirements](#server-requirements).
+- For notifications, the [ntfy](https://ntfy.sh) app on the phone.
 
 ## Building from source
 
-There is no published APK yet, so you build the debug APK yourself.
+Until a release is published, you build the debug APK yourself.
 
 You need:
 
@@ -183,10 +208,10 @@ in thin Android modules.
 | `core/storage-api`, `core/storage` | Storage interfaces; encrypted storage (Keystore, Tink, DataStore) |
 | `core/navigation`, `core/ui`, `core/markdown`, `core/codeview` | Routes, theme and shared components, Markdown, code viewer |
 | `feature/<name>/logic`, `feature/<name>/ui` | Each feature's state and presenters (JVM) and its Compose screens (Android) |
+| `helper/` | The notification service (Python) and its install and uninstall scripts |
 | `build-logic/` | Gradle convention plugins |
 
-Features: `connect`, `sessions`, `chat`, `files`, `git`, and, still empty, `catalog`, `notify` and
-`settings`.
+Features: `connect`, `sessions`, `chat`, `files`, `git`, `catalog`, `notify` and `settings`.
 
 ## Security
 
@@ -203,9 +228,12 @@ Features: `connect`, `sessions`, `chat`, `files`, `git`, and, still empty, `cata
   failed to come up.
 - **Git is safe by default.** No force push, no `git reset --hard`, no `git clean`; pull is
   fast-forward only; discarding changes needs confirmation.
-- **No analytics or tracking.** Logs never contain passwords, keys or file contents.
+- **Notifications stay private.** Their text is fixed, the ntfy topic is random and kept
+  encrypted, and the service's settings file on the server is readable by your user only.
+- **No analytics or tracking.** Logs never contain passwords, keys or file contents, and the
+  release build strips the calls to Android's log.
 
-To report a vulnerability, see [SECURITY.md](SECURITY.md). Please do not open a public issue.
+The full picture is in [docs/SECURITY-MODEL.md](docs/SECURITY-MODEL.md). To report a vulnerability, see [SECURITY.md](SECURITY.md). Please do not open a public issue.
 
 ## Contributing
 
