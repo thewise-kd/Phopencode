@@ -8,6 +8,12 @@ base {
 }
 
 android {
+    defaultConfig {
+        // P12.9: the release workflow refuses a tag that is not "v" + versionName; raise versionCode
+        // with every release and add the version to CHANGELOG.md (docs/dev-setup/release.md, section 4).
+        versionCode = 1
+        versionName = "0.1.0"
+    }
     buildTypes {
         release {
             // P12.4: R8 shrinks, optimises and obfuscates the release, and its rules strip every log
