@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Stub, finished in P12.4: nothing leaves the device in a cloud backup or a device
-    transfer, because the app keeps keys and passwords.
+    P12.4: nothing leaves the device in a cloud backup or a device transfer, because the app keeps
+    keys and passwords. Every domain is excluded, the device-protected ones as well. Android 11 and
+    older read android:allowBackup="false" in the manifest instead, which turns both off.
 -->
 <data-extraction-rules>
     <cloud-backup>
@@ -10,6 +11,10 @@
         <exclude domain="database" path="." />
         <exclude domain="sharedpref" path="." />
         <exclude domain="external" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="device_file" path="." />
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_sharedpref" path="." />
     </cloud-backup>
     <device-transfer>
         <exclude domain="root" path="." />
@@ -17,5 +22,9 @@
         <exclude domain="database" path="." />
         <exclude domain="sharedpref" path="." />
         <exclude domain="external" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="device_file" path="." />
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_sharedpref" path="." />
     </device-transfer>
 </data-extraction-rules>
