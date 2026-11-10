@@ -18,10 +18,10 @@
 </p>
 
 > [!NOTE]
-> **Durum: henüz sürüm yok.** Aşağıdaki özellikler çalışıyor, ancak yayımlanmış bir APK yok.
-> Sürümler imzalı olarak ve SHA-256 özetiyle birlikte
-> [GitHub Releases](https://github.com/thewise-kd/Phopencode/releases) sayfasında yayımlanacak; o
-> zamana kadar [uygulamayı kaynak koddan derle](#kaynak-koddan-derleme).
+> **İndirme:** imzalı APK'lar ve SHA-256 özetleri
+> [GitHub Releases](https://github.com/thewise-kd/Phopencode/releases) sayfasında yayımlanır; en
+> son sürüm orada listelenir. Her sürümdeki değişiklikler [CHANGELOG.md](CHANGELOG.md)
+> dosyasındadır. İstersen [uygulamayı kaynak koddan da derleyebilirsin](#kaynak-koddan-derleme).
 
 <!--
 Ekran görüntüleri: henüz yok. Hazır olduğunda buraya ekle, örneğin:
@@ -49,7 +49,7 @@ sağlar; bunun için sunucunun hiçbir portunu internete açman gerekmez.
 
 ## Özellikler
 
-Tamamlananlar ([docs/PHASES.md](docs/PHASES.md) içindeki P0–P11 aşamaları):
+Bu sürümde olanlar (tüm değişiklikler [CHANGELOG.md](CHANGELOG.md) dosyasında):
 
 **Bağlantı ve sunucular**
 
@@ -116,12 +116,9 @@ Tamamlananlar ([docs/PHASES.md](docs/PHASES.md) içindeki P0–P11 aşamaları):
   sistem teması.
 - Dosya boyutu sınırı ve tüm uygulama verisini silme ayarları; açık kaynak lisans bildirimleri.
 
-### Yol haritası
+### Dahil olmayanlar
 
-İlk sürümden önce (planın tamamı için [docs/PHASES.md](docs/PHASES.md)): bir sürüm denetimi ve
-v0.1.0 sürümünün kendisi.
-
-İlk sürüm için planlanmayanlar: terminal, git stash/birleştirme çakışması çözme/rebase, MCP
+Bu sürümde olmayanlar: terminal, git stash/birleştirme çakışması çözme/rebase, MCP
 sunucularını ya da sağlayıcı kimlik bilgilerini yönetme
 ([tam liste](docs/PHASES.md#out-of-scope-first-release)).
 
@@ -167,7 +164,7 @@ Ayrıntılar ve uygulamanın sunucuda ne yaptığı [docs/INSTALL.tr.md](docs/IN
 
 ## Kaynak koddan derleme
 
-Bir sürüm yayımlanana kadar debug APK'yı kendin derlersin.
+Sürüm APK'sını kurmak yerine debug APK'yı kendin de derleyebilirsin.
 
 Gerekenler:
 

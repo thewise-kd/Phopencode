@@ -18,9 +18,10 @@
 </p>
 
 > [!NOTE]
-> **Status: no release yet.** The features below work, but there is no published APK. Releases
-> will appear on [GitHub Releases](https://github.com/thewise-kd/Phopencode/releases), signed and
-> with a SHA-256 hash; until then, [build the app from source](#building-from-source).
+> **Download:** signed APKs and their SHA-256 hashes are published on
+> [GitHub Releases](https://github.com/thewise-kd/Phopencode/releases); the latest release is
+> listed there. What changed in each version is in [CHANGELOG.md](CHANGELOG.md). You can also
+> [build the app from source](#building-from-source).
 
 <!--
 Screenshots: none yet. Add them here once they exist, for example:
@@ -48,7 +49,7 @@ opening any port of your server to the internet.
 
 ## Features
 
-Done (phases P0 to P11 of [docs/PHASES.md](docs/PHASES.md)):
+In this release ([CHANGELOG.md](CHANGELOG.md) lists every change):
 
 **Connection and servers**
 
@@ -110,12 +111,9 @@ Done (phases P0 to P11 of [docs/PHASES.md](docs/PHASES.md)):
   dark or system theme.
 - Settings for the file size limit and deleting all app data; open source license notices.
 
-### Roadmap
+### Not included
 
-Before the first release (see [docs/PHASES.md](docs/PHASES.md) for the full plan): a release
-audit and the v0.1.0 version itself.
-
-Not planned for the first release: a terminal, git stash/merge conflict resolution/rebase, and
+Not included in this release: a terminal, git stash/merge conflict resolution/rebase, and
 managing MCP servers or provider credentials
 ([full list](docs/PHASES.md#out-of-scope-first-release)).
 
@@ -161,7 +159,7 @@ The details, and what the app does on the server, are in [docs/INSTALL.md](docs/
 
 ## Building from source
 
-Until a release is published, you build the debug APK yourself.
+Instead of installing a release APK, you can build a debug APK yourself.
 
 You need:
 

@@ -45,19 +45,16 @@ You do not need root, `sudo` or any open port besides SSH.
 
 ### Download the APK
 
-> [!NOTE]
-> There is no published release yet. Until the first one appears, build the app from source as
-> described in the [README](../README.md#building-from-source). The steps below apply once
-> releases are published.
-
 Releases are published on the
-[GitHub Releases page](https://github.com/thewise-kd/Phopencode/releases) of the repository. Each
-release carries two files:
+[GitHub Releases page](https://github.com/thewise-kd/Phopencode/releases) of the repository,
+where the latest release is listed; [CHANGELOG.md](../CHANGELOG.md) lists the changes in each
+version. Each release carries two files:
 
 - `Phopencode-v<version>.apk`, the signed app;
 - `Phopencode-v<version>.apk.sha256`, the SHA-256 hash of that APK.
 
-Download the APK only from there. The app is not on Google Play or any other store.
+Download the APK only from there. The app is not on Google Play or any other store. You can also
+build the app from source as described in the [README](../README.md#building-from-source).
 
 ### Check the SHA-256
 

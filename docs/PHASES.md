@@ -703,6 +703,12 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 |---|---|---|---|---|---|
 | P12.9 | v0.1.0 preparation `[U]` | P12.8 | `CHANGELOG.md`, `app/build.gradle.kts` | Version number; change list; the user creates the tag, the APK appears in the Release, `PHONE`: clean install | `LOCAL` |
 
+**G6**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P12.10 | Docs for the public release | P12.9 | README.md, README.tr.md, docs/INSTALL*.md, docs/SECURITY-MODEL*.md, scripts/tests/test_user_docs.py | No "no release yet" wording; Releases and CHANGELOG linked; TR+EN | `PY` |
+
 `CP12`: the user pushes the `v0.1.0` tag.
 
 ## Parallelism summary
@@ -721,8 +727,8 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | P9 | 15 | 3, 6, 6 | 6 | 9 | 6 |
 | P10 | 11 | 1, 6, 2, 2 | 6 | 5 | 6 |
 | P11 | 12 | 4, 3, 5 | 5 | 10 | 2 |
-| P12 | 9 | 1, 3, 3, 1, 1 | 3 | 4 | 5 |
-| Total | 151 | 46 groups | 6 | 95 | 56 |
+| P12 | 10 | 1, 3, 3, 1, 1, 1 | 3 | 5 | 5 |
+| Total | 152 | 47 groups | 6 | 96 | 56 |
 
 `logic` and `ui` tasks run at the same time after the contract. The group limit is for the Pi; on a stronger machine, consecutive groups of the same phase can be merged, since the dependency column is sufficient.
 

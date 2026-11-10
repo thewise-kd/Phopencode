@@ -47,18 +47,16 @@ root yetkisi, `sudo` ya da SSH dışında açık bir port gerekmez.
 
 ### APK'yı indir
 
-> [!NOTE]
-> Henüz yayımlanmış bir sürüm yok. İlki çıkana kadar uygulamayı
-> [README](../README.tr.md#kaynak-koddan-derleme) dosyasında anlatıldığı gibi kaynak koddan
-> derle. Aşağıdaki adımlar sürümler yayımlandığında geçerlidir.
-
 Sürümler deponun [GitHub Releases sayfasında](https://github.com/thewise-kd/Phopencode/releases)
-yayımlanır. Her sürümde iki dosya bulunur:
+yayımlanır; en son sürüm orada listelenir. Her sürümdeki değişiklikler
+[CHANGELOG.md](../CHANGELOG.md) dosyasındadır. Her sürümde iki dosya bulunur:
 
 - `Phopencode-v<sürüm>.apk`, imzalı uygulama;
 - `Phopencode-v<sürüm>.apk.sha256`, o APK'nın SHA-256 özeti.
 
-APK'yı yalnızca oradan indir. Uygulama Google Play'de ya da başka bir mağazada yoktur.
+APK'yı yalnızca oradan indir. Uygulama Google Play'de ya da başka bir mağazada yoktur. İstersen
+uygulamayı [README](../README.tr.md#kaynak-koddan-derleme) dosyasında anlatıldığı gibi kaynak
+koddan da derleyebilirsin.
 
 ### SHA-256'yı doğrula
 

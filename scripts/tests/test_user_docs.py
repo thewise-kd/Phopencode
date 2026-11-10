@@ -202,6 +202,48 @@ class FactsTest(unittest.TestCase):
                 self.assertIn(default, read(doc))
 
 
+class ReleasedTest(unittest.TestCase):
+    """P12.10: the docs read correctly once v0.1.0 is published on GitHub Releases."""
+
+    RELEASES = "https://github.com/thewise-kd/Phopencode/releases"
+
+    # Wording from before the first release, in English and Turkish, compared case-insensitively.
+    STALE = (
+        "no release yet",
+        "no published release",
+        "no published apk",
+        "until a release is published",
+        "until the first one appears",
+        "once releases are published",
+        "will appear on",
+        "before the first release",
+        "the v0.1.0 version itself",
+        "henüz sürüm yok",
+        "henüz yayımlanmış",
+        "yayımlanmış bir apk yok",
+        "bir sürüm yayımlanana kadar",
+        "ilki çıkana kadar",
+        "sürümler yayımlandığında",
+        "sayfasında yayımlanacak",
+        "ilk sürümden önce",
+        "v0.1.0 sürümünün kendisi",
+    )
+
+    def test_no_pre_release_wording(self):
+        for doc in all_docs():
+            text = " ".join(read(doc).lower().replace(">", " ").split())
+            for phrase in self.STALE:
+                with self.subTest(doc=doc, phrase=phrase):
+                    self.assertFalse(phrase in text, "%s still says %r" % (doc, phrase))
+
+    def test_readmes_link_releases_and_changelog(self):
+        for readme in ("README.md", "README.tr.md"):
+            with self.subTest(readme=readme):
+                self.assertIn(self.RELEASES, links(read(readme)))
+                targets = {resolve(readme, t)[0] for t in relative_links(readme)}
+                self.assertIn((REPO_ROOT / "CHANGELOG.md").resolve(), targets)
+
+
 class HelpersTest(unittest.TestCase):
     def test_slug_matches_github(self):
         self.assertEqual(slug("Building from source"), "building-from-source")
