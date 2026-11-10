@@ -244,6 +244,54 @@ class ReleasedTest(unittest.TestCase):
                 self.assertIn((REPO_ROOT / "CHANGELOG.md").resolve(), targets)
 
 
+class EarlyStageTest(unittest.TestCase):
+    """The READMEs warn that the app is new and may have bugs, and the disclaimer says "as is"."""
+
+    ISSUES = "https://github.com/thewise-kd/Phopencode/issues"
+    DISCLAIMERS = {"README.md": "Disclaimer", "README.tr.md": "Sorumluluk reddi"}
+    AS_IS = {"README.md": "as is", "README.tr.md": "olduğu gibi"}
+
+    def boxes(self, text):
+        """{kind: text} of every GitHub alert box, for example `NOTE` or `WARNING`, in order."""
+        found = {}
+        current = None
+        for line in text.splitlines():
+            match = re.match(r"^>\s*\[!([A-Z]+)\]\s*$", line)
+            if match:
+                current = match.group(1)
+                found[current] = ""
+            elif current is not None and line.startswith(">"):
+                found[current] += line[1:] + "\n"
+            else:
+                current = None
+        return found
+
+    def section(self, text, title):
+        lines = text.splitlines()
+        start = lines.index("## " + title)
+        end = next((i for i in range(start + 1, len(lines)) if re.match(r"^#{1,2}\s", lines[i])), len(lines))
+        return "\n".join(lines[start + 1:end])
+
+    def test_warning_box_follows_the_download_note(self):
+        for readme in self.DISCLAIMERS:
+            with self.subTest(readme=readme):
+                boxes = self.boxes(read(readme))
+                self.assertIn("WARNING", boxes, readme + " has no WARNING box")
+                self.assertEqual(list(boxes)[:2], ["NOTE", "WARNING"], readme + ": WARNING must follow the NOTE box")
+                warning = boxes["WARNING"]
+                self.assertIn(self.ISSUES, links(warning))
+                self.assertIn("v0.1.0", warning)
+
+    def test_disclaimer_says_as_is_and_links_the_license(self):
+        for readme, title in self.DISCLAIMERS.items():
+            with self.subTest(readme=readme):
+                section = self.section(read(readme), title)
+                flat = " ".join(section.lower().split())
+                self.assertIn(self.AS_IS[readme], flat, readme + ": disclaimer does not say the software is as is")
+                targets = {resolve(readme, t)[0] for t in links(section) if not EXTERNAL.match(t)}
+                self.assertIn((REPO_ROOT / "LICENSE").resolve(), targets, readme + ": disclaimer does not link LICENSE")
+
+
 class HelpersTest(unittest.TestCase):
     def test_slug_matches_github(self):
         self.assertEqual(slug("Building from source"), "building-from-source")

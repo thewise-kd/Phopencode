@@ -23,6 +23,11 @@
 > son sürüm orada listelenir. Her sürümdeki değişiklikler [CHANGELOG.md](CHANGELOG.md)
 > dosyasındadır. İstersen [uygulamayı kaynak koddan da derleyebilirsin](#kaynak-koddan-derleme).
 
+> [!WARNING]
+> **Erken aşama:** Phopencode yeni ve erken aşamada bir uygulamadır (v0.1.0). Hatalarla ve eksik
+> özelliklerle karşılaşabilirsin; davranışı sürümden sürüme değişebilir. Lütfen sorunları
+> [GitHub Issues](https://github.com/thewise-kd/Phopencode/issues) üzerinden bildir.
+
 <!--
 Ekran görüntüleri: henüz yok. Hazır olduğunda buraya ekle, örneğin:
 <p align="center"><img src="docs/assets/screenshot-chat.png" alt="Sohbet ekranı" width="260"></p>
@@ -262,3 +267,6 @@ Görev planı ve kurallar [docs/PHASES.md](docs/PHASES.md) dosyasındadır.
 Phopencode bağımsız bir projedir. opencode projesi ya da SST ile bağlantılı değildir, onlar
 tarafından onaylanmamış ya da desteklenmemiştir. "opencode" adı yalnızca bu uygulamanın bağlandığı
 yazılımı belirtmek için kullanılır.
+
+Yazılım "olduğu gibi", hiçbir garanti verilmeden sunulur; ayrıntılar için [LICENSE](LICENSE)
+dosyasına bak. Uygulamaya güvenmeden önce sunucundaki önemli çalışmalarını yedekle.

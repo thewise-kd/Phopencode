@@ -23,6 +23,11 @@
 > listed there. What changed in each version is in [CHANGELOG.md](CHANGELOG.md). You can also
 > [build the app from source](#building-from-source).
 
+> [!WARNING]
+> **Early stage:** Phopencode is a new app at an early stage (v0.1.0). Expect bugs and missing
+> features, and behaviour may change between versions. Please report problems on
+> [GitHub Issues](https://github.com/thewise-kd/Phopencode/issues).
+
 <!--
 Screenshots: none yet. Add them here once they exist, for example:
 <p align="center"><img src="docs/assets/screenshot-chat.png" alt="Chat screen" width="260"></p>
@@ -253,3 +258,6 @@ The task plan and the conventions are in [docs/PHASES.md](docs/PHASES.md).
 
 Phopencode is an independent project. It is not affiliated with, endorsed by or sponsored by the
 opencode project or SST. "opencode" is used only to name the software this app connects to.
+
+The software is provided "as is", without warranty of any kind; see the [LICENSE](LICENSE). Back
+up important work on your server before you rely on the app.
