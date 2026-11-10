@@ -55,4 +55,8 @@ dependencies {
     implementation(project(":feature:git:ui"))
     implementation(project(":feature:notify:ui"))
     implementation(project(":feature:settings:ui"))
+    androidTestImplementation(project(":feature:connect:logic"))
+    androidTestImplementation(project(":feature:sessions:logic"))
+    androidTestImplementation(project(":feature:files:logic"))
+    androidTestImplementation(project(":feature:git:logic"))
 }

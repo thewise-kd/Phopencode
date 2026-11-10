@@ -18,7 +18,7 @@ defaults:
 
 jobs:
   connected:
-    name: connected (API ${{ matrix.api-level }})
+    name: connected (API ${{ matrix.api-level }})${{ matrix.variant == 'releaseCheck' && ' releaseCheck' || '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
@@ -31,19 +31,37 @@ jobs:
         # runner has, and its first boot gets 20 minutes, which still fits the job's 60. Its data
         # partition gets room for the first boot's package optimisation; the disk step reports
         # about 30 GB free on / before the emulator.
+        #
+        # variant: which build the connected tests run against. debug runs every module's tests.
+        # releaseCheck (P12.4) is the app's release as R8 makes it, signed with the debug key; it
+        # runs the app's tests, SSH and end-to-end, on minSdk only, whose emulator boots fast. A
+        # job of its own, so that its R8 build and test run do not add to the API 36 job's time.
         include:
           - api-level: 26
+            variant: debug
             cores: 2
             disk-size: 4000M
             boot-timeout: 600
           - api-level: 36
+            variant: debug
             cores: 4
             disk-size: 6000M
             boot-timeout: 1200
+          - api-level: 26
+            variant: releaseCheck
+            cores: 2
+            disk-size: 4000M
+            boot-timeout: 600
     env:
+      VARIANT: ${{ matrix.variant }}
       SSH_PORT: "2222"
       ECHO_PORT: "7777"
       STATS_PORT: "7778"
+      # P12.7: the opencode the end-to-end tests talk to, pinned by version and by the SHA-256 of
+      # its release archive; at least the app's MIN_SERVER_VERSION.
+      OPENCODE_PORT: "4097"
+      OPENCODE_VERSION: "2.2.5"
+      OPENCODE_SHA256: "09f44302c10fd036912f59c81fd1aef5df45dd06f649197f9dfc9bbe2a79614e"
     steps:
       # The runner image leaves too little free on / for the Gradle build plus an AVD whose default
       # userdata partition wants more than 7 GB. Toolchains this job never uses go first. The
@@ -91,8 +109,15 @@ jobs:
 
       # Built before the emulator starts, so that it does not wait for the compiler. The same
       # heaps as the test run below, so that it reuses this Gradle daemon.
-      - run: |
+      - if: ${{ matrix.variant == 'debug' }}
+        run: |
           ./gradlew assembleDebug assembleDebugAndroidTest \
+            "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" \
+            -Pkotlin.daemon.jvmargs=-Xmx2g
+      - if: ${{ matrix.variant == 'releaseCheck' }}
+        run: |
+          ./gradlew :app:assembleReleaseCheck :app:assembleReleaseCheckAndroidTest \
+            -Pphopencode.testBuildType=releaseCheck \
             "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" \
             -Pkotlin.daemon.jvmargs=-Xmx2g
 
@@ -131,7 +156,7 @@ jobs:
           KbdInteractiveAuthentication no
           PermitRootLogin no
           AllowTcpForwarding local
-          PermitOpen 127.0.0.1:$ECHO_PORT 127.0.0.1:$STATS_PORT
+          PermitOpen 127.0.0.1:$ECHO_PORT 127.0.0.1:$STATS_PORT 127.0.0.1:$OPENCODE_PORT
           AllowStreamLocalForwarding no
           AllowAgentForwarding no
           X11Forwarding no
@@ -188,24 +213,38 @@ jobs:
           nohup python3 "$dir/loopback_servers.py" "$ECHO_PORT" "$STATS_PORT" > "$dir/loopback.log" 2>&1 &
 
           # The test run: the emulator action runs each line of its script on its own, so the
-          # command lives in a file. It reads the keys when it runs.
+          # command lives in a file. It reads the keys when it runs. The opencode server's
+          # password is no argument: the end-to-end tests read it from its file over SSH. The
+          # variant picks the build: debug runs every module's connected tests, releaseCheck the
+          # app's against its R8 build.
           cat > "$dir/connected-tests.sh" <<'EOF'
           #!/usr/bin/env bash
           set -euo pipefail
           dir="$RUNNER_TEMP/test-sshd"
           arg=-Pandroid.testInstrumentationRunnerArguments
-          exec ./gradlew connectedDebugAndroidTest \
-            "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" \
-            -Pkotlin.daemon.jvmargs=-Xmx2g \
-            "$arg.requireSsh=true" \
-            "$arg.sshHost=10.0.2.2" \
-            "$arg.sshPort=$SSH_PORT" \
-            "$arg.sshUser=$(id -un)" \
-            "$arg.sshHostKey=$(ssh-keygen -l -E sha256 -f "$dir/host_ed25519.pub" | cut -d ' ' -f 2)" \
-            "$arg.sshKey=$(base64 -w 0 "$dir/user_ed25519")" \
-            "$arg.sftpRoot=$dir/sftp-root" \
-            "$arg.echoPort=$ECHO_PORT" \
+          args=(
+            "-Dorg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
+            -Pkotlin.daemon.jvmargs=-Xmx2g
+            "$arg.requireSsh=true"
+            "$arg.sshHost=10.0.2.2"
+            "$arg.sshPort=$SSH_PORT"
+            "$arg.sshUser=$(id -un)"
+            "$arg.sshHostKey=$(ssh-keygen -l -E sha256 -f "$dir/host_ed25519.pub" | cut -d ' ' -f 2)"
+            "$arg.sshKey=$(base64 -w 0 "$dir/user_ed25519")"
+            "$arg.sftpRoot=$dir/sftp-root"
+            "$arg.echoPort=$ECHO_PORT"
             "$arg.statsPort=$STATS_PORT"
+            "$arg.requireE2e=true"
+            "$arg.opencodePort=$OPENCODE_PORT"
+            "$arg.opencodePasswordFile=$RUNNER_TEMP/opencode/password"
+            "$arg.projectDir=$RUNNER_TEMP/e2e-project"
+          )
+          case "$VARIANT" in
+            debug) exec ./gradlew connectedDebugAndroidTest "${args[@]}" ;;
+            releaseCheck)
+              exec ./gradlew :app:connectedReleaseCheckAndroidTest -Pphopencode.testBuildType=releaseCheck "${args[@]}" ;;
+            *) echo "Unknown variant: $VARIANT" >&2; exit 1 ;;
+          esac
           EOF
 
           # Everything answers before the emulator starts; a login from the runner itself shows
@@ -223,6 +262,100 @@ jobs:
             -o BatchMode=yes -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$dir/known_hosts" \
             "$(id -un)@127.0.0.1" true
+
+      # P12.7: the opencode serve the end-to-end tests connect to through the sshd above, as the
+      # app does on a real server: same user, on the loopback only, found by the app's own server
+      # detection. Its password is new for each run and never leaves the runner; the tests read
+      # it over SSH. It has a home of its own and no LLM provider: the tests never send a prompt.
+      - name: Install opencode and start opencode serve
+        run: |
+          set -euo pipefail
+          oc="$RUNNER_TEMP/opencode"
+          project="$RUNNER_TEMP/e2e-project"
+          mkdir -m 700 "$oc" "$oc/bin" "$oc/home" "$oc/download"
+
+          # The release archive, pinned by version and by its SHA-256.
+          archive="$oc/download/opencode-linux-x64.tar.gz"
+          curl -sSfL --retry 3 --proto '=https' -o "$archive" \
+            "https://github.com/anomalyco/opencode/releases/download/v$OPENCODE_VERSION/opencode-linux-x64.tar.gz"
+          echo "$OPENCODE_SHA256  $archive" | sha256sum -c --quiet -
+          tar -xzf "$archive" -C "$oc/bin" opencode
+          rm -rf "$oc/download"
+          version=$("$oc/bin/opencode" --version)
+          echo "opencode: $version"
+          if [ "$version" != "opencode v$OPENCODE_VERSION" ] && [ "$version" != "$OPENCODE_VERSION" ]; then
+            echo "Expected opencode $OPENCODE_VERSION" >&2
+            exit 1
+          fi
+
+          # No provider is enabled, so nothing could ever reach an LLM; no updates, no sharing,
+          # no language servers or formatters to download.
+          mkdir -p "$oc/home/.config/opencode"
+          cat > "$oc/home/.config/opencode/opencode.json" <<'EOF'
+          {
+            "$schema": "https://opencode.ai/config.json",
+            "enabled_providers": [],
+            "update": "disable",
+            "share": "disabled",
+            "lsp": false,
+            "formatter": false
+          }
+          EOF
+
+          # The project folder: a git repository with one commit, so that a new file shows as an
+          # untracked change.
+          mkdir -m 700 "$project"
+          git -C "$project" init -q -b main
+          echo "phopencode end-to-end test project" > "$project/README.md"
+          git -C "$project" add README.md
+          git -C "$project" -c user.name=phopencode-e2e -c user.email=e2e@example.invalid \
+            -c commit.gpgsign=false commit -q -m "Initial commit"
+
+          # One line, alphanumeric, in a 0600 file; masked in the log all the same.
+          (umask 077; printf '%s\n' "$(head -c 32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9')" > "$oc/password")
+          echo "::add-mask::$(cat "$oc/password")"
+
+          # Detached, with a clean environment and its own home. The password reaches the server
+          # through stdin and its environment, never through a command line.
+          (
+            cd "$project"
+            env -i HOME="$oc/home" PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 \
+              XDG_CONFIG_HOME="$oc/home/.config" XDG_DATA_HOME="$oc/home/.local/share" \
+              XDG_STATE_HOME="$oc/home/.local/state" XDG_CACHE_HOME="$oc/home/.cache" \
+              setsid sh -c 'IFS= read -r OPENCODE_PASSWORD || exit 1
+                OPENCODE_SERVER_PASSWORD=$OPENCODE_PASSWORD
+                export OPENCODE_PASSWORD OPENCODE_SERVER_PASSWORD
+                exec "$0" serve --hostname 127.0.0.1 --port "$1" </dev/null' \
+                "$oc/bin/opencode" "$OPENCODE_PORT" < "$oc/password" > "$oc/serve.log" 2>&1 &
+          )
+
+          # The server answers only with its password, has finished loading the project folder,
+          # and has no provider. curl reads the password from stdin, not its command line.
+          api() {
+            { printf 'user = "opencode:'; tr -d '\n' < "$oc/password"; printf '"\n'; } |
+              curl -sS -g -m 10 -K - -o "$oc/reply.json" -w '%{http_code}' "$@"
+          }
+          providers=(-G "http://127.0.0.1:$OPENCODE_PORT/api/provider" --data-urlencode "location[directory]=$project")
+          code=000
+          for _ in $(seq 120); do
+            code=$(api "${providers[@]}" 2> /dev/null) || code=000
+            [ "$code" = 200 ] && break
+            sleep 0.5
+          done
+          if [ "$code" != 200 ]; then
+            echo "opencode serve did not get ready: HTTP $code" >&2
+            cat "$oc/serve.log" >&2
+            exit 1
+          fi
+          python3 -I -c 'import json, sys; assert json.load(open(sys.argv[1]))["data"] == [], "a provider is enabled"' "$oc/reply.json"
+          [ "$(api "http://127.0.0.1:$OPENCODE_PORT/api/info")" = 200 ]
+          python3 -I -c 'import json, sys; print("opencode serve", json.load(open(sys.argv[1]))["version"])' "$oc/reply.json"
+          code=$(curl -sS -m 10 -o /dev/null -w '%{http_code}' -u opencode:wrong "http://127.0.0.1:$OPENCODE_PORT/api/info")
+          if [ "$code" != 401 ]; then
+            echo "A wrong password got HTTP $code" >&2
+            exit 1
+          fi
+          rm -f "$oc/reply.json"
 
       # The API 36 emulator takes 2.5 GB of guest RAM on top of its software GPU. The idle Gradle
       # and Kotlin daemons hold up to 6 GB of heap; the test run starts a fresh daemon instead.
@@ -260,15 +393,52 @@ jobs:
           free -m
           sudo dmesg | grep -iE 'out of memory|oom|killed process' || true
 
-      # Logs only: the keys in the same folder stay on the runner.
+      # Logs only: the keys and the opencode password in the same folders stay on the runner.
       - if: ${{ !cancelled() }}
         run: |
           mkdir -p build/emulator-logs
           cp "$RUNNER_TEMP/test-sshd/sshd.log" "$RUNNER_TEMP/test-sshd/loopback.log" build/emulator-logs/ || true
+          cp "$RUNNER_TEMP/opencode/serve.log" build/emulator-logs/opencode-serve.log || true
+
+      # The artifact is public. Nothing that will be uploaded may hold a credential of this run:
+      # the user key as the tests get it and line by line (lines shorter than 16 characters would
+      # match by chance, and the other lines still give the key away), or the opencode password.
+      # A file
+      # that does is named (never shown), left out of the upload, and fails the job.
+      - name: Check the reports and logs for credentials
+        if: ${{ !cancelled() }}
+        run: |
+          set -euo pipefail
+          patterns="$RUNNER_TEMP/credential-patterns"
+          (
+            umask 077
+            {
+              if [ -f "$RUNNER_TEMP/test-sshd/user_ed25519" ]; then
+                base64 -w 0 "$RUNNER_TEMP/test-sshd/user_ed25519"
+                echo
+                grep -v -- '-----' "$RUNNER_TEMP/test-sshd/user_ed25519"
+              fi
+              if [ -f "$RUNNER_TEMP/opencode/password" ]; then cat "$RUNNER_TEMP/opencode/password"; fi
+            } | awk 'length >= 16' > "$patterns"
+          )
+          mapfile -t roots < <(find . \( -path '*/build/outputs/androidTest-results' \
+            -o -path '*/build/reports/androidTests' -o -path './build/emulator-logs' \) -type d)
+          found=()
+          if [ -s "$patterns" ] && [ "${#roots[@]}" -gt 0 ]; then
+            mapfile -t found < <(grep -rlF -f "$patterns" -- "${roots[@]}" || true)
+          fi
+          rm -f "$patterns"
+          if [ "${#found[@]}" -gt 0 ]; then
+            echo "A credential of this run is in these files; they are not uploaded:" >&2
+            printf '  %s\n' "${found[@]}" >&2
+            rm -f -- "${found[@]}"
+            exit 1
+          fi
+          echo "No credential in ${#roots[@]} report and log folders."
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: emulator-reports-api-${{ matrix.api-level }}
+          name: emulator-reports-api-${{ matrix.api-level }}${{ matrix.variant == 'releaseCheck' && '-releaseCheck' || '' }}
           path: |
             **/build/outputs/androidTest-results/**
             **/build/reports/androidTests/**
