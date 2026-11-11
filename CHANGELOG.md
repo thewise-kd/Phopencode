@@ -7,7 +7,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 version the app reports (its `versionName`) and the date of the release; the version links to
 its release page, where the signed APK and its SHA-256 hash are published.
 
-## [0.1.0] - 2026-11-10
+## [0.1.0] - 2026-11-11
 
 The first public release: work with opencode running on your own server from an Android phone
 (Android 8.0 or newer), over SSH. The server needs opencode 2.2 or newer.
