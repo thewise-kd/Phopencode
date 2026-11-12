@@ -14,6 +14,7 @@ Tasks are listed by `P<phase>.<number>` ID. API details: `docs/opencode-api-note
 | D6 | Is sora-editor's LGPL-2.1 acceptable? | File viewer. The app stays MIT, a notice is added | Yes |
 | D7 | Real LLM call in P1.7 | Spends a small amount of tokens. Not needed if `OPENCODE_SIMULATE` works | Try simulation first |
 | D8 | Signing key | P12.5. The user generates the key and adds it to GitHub Secrets personally. If it is lost, updates cannot be signed | Keep a backup outside the repository |
+| D9 | Live preview transport: (a) the WebView's requests are intercepted and sent through the tunnel, or (b) a temporary bridge on the phone's `127.0.0.1` guarded by a per-session secret | P13. (a) keeps "the phone opens no local port" but has no WebSocket hot reload and no request bodies; (b) has hot reload but is a documented exception to that rule | Open: decided with the user in P13.1 |
 
 ## Tags
 
@@ -101,7 +102,7 @@ This list is created in one go in P0.4. 32 modules in total.
 | `strings.xml` | No single file | Each screen keeps a `strings_<f>_<screen>.xml` file under `values/` and `values-tr/`. Key prefix `<f>_<screen>_` |
 | `AndroidManifest.xml` | Per module | The `app` manifest does not change after P1.10. Permissions and services go in the feature's own manifest |
 | R8 rules | P3.10, P12.4 | Only `app/proguard-rules.pro`, in these two tasks |
-| `README.md`, `README.tr.md`, `CLAUDE.md` | P0.1, P0.4, P9.29, P12.6 | No other task touches them |
+| `README.md`, `README.tr.md`, `CLAUDE.md` | P0.1, P0.4, P9.29, P12.6, P13.19 | No other task touches them |
 
 ### What a contract task produces
 
@@ -711,6 +712,75 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 
 `CP12`: the user pushes the `v0.1.0` tag.
 
+### P13: Live preview
+
+Planned for a release after v0.1.0. The developer runs a web frontend on the server (for example `npm run dev` on `127.0.0.1:8080`); the app shows it live in a screen of its own, through the existing SSH connection, so nothing is exposed on the server's network. No task before P13.19 changes the version, `CHANGELOG.md` or the READMEs.
+
+Rules every task of this phase keeps:
+
+- The app never starts, stops, restarts or kills a process on the server and never uses `sudo`. The user, or opencode, starts the dev server; the app only lists listening ports (read-only) and connects to the one the user picks.
+- Targets stay on the server's loopback (`127.0.0.1`, `::1`, `localhost`). Only the preview's own tunnel reaches the port the user picked for that preview, and only while the preview is open; no task lets a tunnel reach a non-loopback host, and neither the general tunnel factory nor `LoopbackTarget`'s host rules change.
+- The preview WebView is isolated: no `addJavascriptInterface` or any other bridge into the app; no file or content access; no geolocation, camera, microphone, file chooser, downloads, pop-up windows or saved passwords; its own cookies, storage and cache, all cleared when the preview closes; no access to credentials, keys, the opencode password or the `SecretStore`. Navigation stays on the preview origin; any other `http(s)` link opens outside the app only after a confirmation that shows its full address, and every other scheme (`file:`, `content:`, `intent:`, `javascript:` and the rest) is refused. Requests the page makes off the preview origin are refused, never fetched by the phone.
+- Every new user-facing string exists in English and Turkish (`strings_preview_<screen>.xml` under `values/` and `values-tr/`, key prefix `preview_<screen>_`).
+- The transport is decided in P13.1 (D9). Text marked "(a)" or "(b)" applies only when that option is chosen; P13.1 strikes the other one.
+
+**G1**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P13.1 | Preview transport decision `[U]` (D9) | P12.10 | `docs/dev-setup/preview-transport.md`, `docs/PHASES.md` (D9 row, "Security decisions" and the P13 rows only) | The doc compares (a) no local port: the WebView's requests are intercepted (`shouldInterceptRequest`) and sent through the tunnel; the security model is unchanged; WebSocket hot reload (Vite/webpack HMR) does not work and the user taps reload; requests with a body (POST/PUT from forms or `fetch`) cannot be forwarded, because the WebView does not hand their body over without a JavaScript bridge, with (b) a temporary HTTP bridge bound to `127.0.0.1` on the phone on a random port, guarded by a random per-session secret of at least 128 bits, listening only while the preview screen is open; HMR and request bodies work; it is a documented exception to "the phone opens no local port". For each option: how a request travels, what works, what the page can reach, what changes in `docs/SECURITY-MODEL*.md`. The user's choice and its date are recorded in D9; the unchosen option's text in P13.10, P13.13, P13.17, P13.18 and P13.20 is struck; if (b) is chosen, "Security decisions" names the exception | `LOCAL` |
+
+**G2 (parallel)**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P13.2 | `preview` modules | P0.4 | `settings.gradle.kts` (the two module lines), `feature/preview/logic/build.gradle.kts`, `feature/preview/ui/build.gradle.kts`, `feature/preview/ui/src/main/AndroidManifest.xml`, `build-logic/src/test/…/buildlogic/ModuleMap.kt`, `docs/PHASES.md` (module map and this row) | `:feature:preview:logic` applies `phopencode.feature.logic` and depends on `:core:remote`; `:feature:preview:ui` applies `phopencode.feature.ui`; `./gradlew jvmCheck` runs `:feature:preview:logic:jvmCheck` without an SDK and skips the UI module; an Android dependency in the logic module fails its build; `check_boundaries.py` treats it as a JVM module; `./gradlew functionalTest` passes; the module map says 34 modules and lists `preview`; no new catalog entry | `PI` |
+| P13.3 | Tunnel pinned to one loopback port | P3.5, P3.11 | `core/ssh/…/api/SshConnector.kt` (the new `SshSession` member only), `core/ssh/…/tunnel/`, `core/ssh/…/connect/SshjSession.kt`, `core/ssh/…/connect/SessionFeatures.kt`, their tests, `core/testing/…/ssh/FakeSsh.kt`, `core/testing/…/contract/SshContracts.kt` (pinned tunnel cases), `docs/PHASES.md` (this row) | `SshSession.openLoopbackTunnel(port)` gives an `AutoCloseable` tunnel whose `SocketFactory` reaches only `127.0.0.1`, `::1` or `localhost` on that port; another port, or any non-loopback host (`10.0.0.1`, `192.168.1.10`, a name other than `localhost`), is refused before a channel opens; a port outside 1..65535 is refused at creation; no local port is bound or listened on; closing the tunnel closes its open sockets and refuses new ones; closing the session closes the tunnel; `socketFactory()` and `LoopbackTarget`'s host rules are unchanged and their existing tests pass untouched; tests against the embedded MINA server and the fake's contract | `PI` |
+| P13.4 | Listening ports on the server | P3.2 | `core/remote/…/preview/` and its tests | Runs the fixed command `ss -ltnH` through `RemoteExec`, with no `sudo`, no `kill` and no variable part; when `ss` is missing it reads `/proc/net/tcp` and `/proc/net/tcp6` (state `0A`); when neither works the result says unsupported. Parses IPv4, IPv6, `*`, `0.0.0.0`, `[::]`, `[::ffff:127.0.0.1]` and `%lo` scope samples; keeps the ports reachable on loopback (bound to a loopback or wildcard address), drops ones bound only to another address, removes duplicates and sorts them; marks the opencode server's port; caps the output it reads and has a timeout; a failed command maps to a typed error without host names or paths | `PI` |
+
+**G3 (parallel)**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P13.5 | `preview` contract | P13.1, P13.2, P1.10 | `feature/preview/logic/…/contract/`, `feature/preview/ui/…/PreviewGraph.kt`, `feature/preview/ui/…/PreviewModule.kt`, screen stubs with their empty `strings_preview_ports.xml` and `strings_preview_page.xml` pairs, `core/navigation/…/PreviewRoute.kt` and its serialization test, `app/…/navigation/AppNavHost.kt` (the `previewGraph()` call only), `app/…/di/AppModules.kt` (the preview module only), `app/build.gradle.kts` (the `:feature:preview:ui` dependency only), `app/src/test/…/navigation/AllRoutes.kt`, `docs/PHASES.md` (this row) | Contract outputs complete for two screens: `PreviewRoute.Ports` (pick a port) and `PreviewRoute.Page(port: Int)`; the service ports (`PreviewPortsSource`, `PreviewTunnelSource`) and the transport interface of the chosen option are defined in the contract; the state types cover page state, console entries and viewport mode; the app's navigation and Koin verification tests pass with both routes | `PI` |
+| P13.6 | Preview tunnel from the connection manager | P13.3, P3.9 | `core/remote/…/connection/ConnectionManager.kt` (preview tunnel only) and its tests, `docs/PHASES.md` (this row) | Opens a pinned tunnel (P13.3) on the current session for a given port; without a connection it fails with NotConnected; the opencode server's port is refused; a dropped or closed connection closes every preview tunnel; after a reconnect a new tunnel opens on the new session; the manager's other states and tests are unchanged | `PI` |
+
+**G4 (parallel)**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P13.7 | Wire the preview services | P13.4, P13.5, P13.6 | `feature/preview/logic/…/service/`, `feature/preview/ui/…/PreviewModule.kt`, their tests | The contract's ports reach the connected server's port listing and preview tunnel; no server means NotConnected; every error of P13.4 and P13.6 maps to a contract error | `PI` |
+| P13.8 | Port picker logic | P13.5 | `feature/preview/logic/…/ports/` | Lists the server's listening ports with the opencode port marked and not openable; refresh; manual entry accepts only 1..65535 and opens `PreviewRoute.Page(port)`; an empty list explains that the user or opencode must start the dev server; NotConnected, unsupported and failed states; no command other than the listing is run | `PI` |
+| P13.9 | Port picker screen | P13.5 | `feature/preview/ui/…/ports/`, `strings_preview_ports.xml` (EN and TR) | List of ports with the opencode one shown disabled; manual port field with a numeric keyboard and inline validation; refresh; empty, loading, NotConnected and error states; 48 dp targets; TR/EN parity; screen tests in both languages | `CI` |
+| P13.10 | Preview transport | P13.1, P13.5 | `feature/preview/logic/…/transport/` and its tests | Both options: requests reach the dev server through the pinned tunnel with `Host: localhost:<port>`, with `Origin` and `Referer` on the preview origin rewritten the same way; `Location` headers naming `localhost`, `127.0.0.1` or `[::1]` on that port map back to the preview origin; every page response carries an added `Content-Security-Policy` that limits `connect-src` to the preview origin, so the page's WebSockets cannot leave it; limits on response size and header count; an unreachable port (channel open refused) is a typed "nothing listens" error. (a): GET, HEAD and OPTIONS are forwarded; a request that needs a body gets a 501 with a typed reason; cookies round-trip through the preview's cookie store; a test asserts that no local port is opened. (b): a `ServerSocket` bound to `127.0.0.1` only, on a random port, created on open and closed on close; every connection must present the per-session secret (a random value of at least 128 bits, given once in the first URL and then held in an `HttpOnly`, `SameSite=Strict` cookie) or gets 403 and is closed before any byte reaches the tunnel; the secret is compared in constant time and never logged; HTTP/1.1 heads are parsed and bodies relayed by `Content-Length` or chunked encoding; a 101 upgrade switches the connection to a raw relay so HMR works; a second preview gets a new port and a new secret; tests prove that a connection without the secret, with a wrong secret and after close is refused | `PI` |
+
+**G5 (parallel)**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P13.11 | Preview page logic | P13.5 | `feature/preview/logic/…/page/` | States: opening, loaded, load error (HTTP status of the main frame, network error, nothing listens on the port), connection lost, closed; reload; the address bar takes a path on the preview origin only and normalizes it; the navigation policy keeps the preview origin, asks before opening another `http(s)` address outside the app and refuses every other scheme; a dropped SSH connection moves to connection lost without retrying on its own, and a reload after the reconnect opens a new tunnel; closing releases the tunnel and asks the screen to clear the WebView's data | `PI` |
+| P13.12 | Console logic | P13.5 | `feature/preview/logic/…/console/` | Collects console messages (level, text, source, line), main-frame and sub-resource load errors, HTTP errors and requests refused off the origin; a ring of at most 500 entries, each text cut at 4 KiB; filter by level; clear; an error count for the badge; entries live in memory only, are never logged or written to disk, and are dropped when the preview closes | `PI` |
+| P13.13 | Preview screen with an isolated WebView | P13.5, P13.10 | `feature/preview/ui/…/page/`, `strings_preview_page.xml` (EN and TR) | One factory sets the WebView up: JavaScript on, no `addJavascriptInterface`, `allowFileAccess`, `allowContentAccess` and file-URL access off, mixed content never allowed, geolocation off, permission requests (camera, microphone) denied, file chooser and downloads refused, `setSupportMultipleWindows(false)`, form and password saving off, HTTP auth requests cancelled, TLS errors cancelled, web contents debugging off in release; off-origin requests are refused in `shouldInterceptRequest` and reported to the console; leaving the screen clears cookies, web storage, cache, history and form data and destroys the WebView; reload button and pull to refresh; load error, nothing-listens and connection-lost states with a reload action; another `http(s)` address opens outside the app only after `ConfirmDialog` shows it in full; (a): every request is answered by the transport; (b): the WebView loads the bridge URL and the bridge closes when the screen leaves; `network_security_config.xml` is unchanged; no new dependency; instrumented tests check each setting and the data clearing; TR/EN parity | `EMU` |
+
+**G6 (parallel)**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P13.14 | Console panel | P13.12, P13.13 | `feature/preview/ui/…/page/console/`, `strings_preview_console.xml` (EN and TR) | A collapsible panel over the bottom of the page, fed by `onConsoleMessage` and the load-error callbacks; level icon and colour, source and line; level filter; clear; the toolbar button shows the error count; text is selectable and never sent anywhere; TalkBack reads level and text; 48 dp targets; screen tests in both languages | `CI` |
+| P13.15 | Mobile and desktop viewport | P13.11, P13.13 | `feature/preview/logic/…/viewport/`, `feature/preview/ui/…/page/viewport/`, `strings_preview_viewport.xml` (EN and TR), their tests | A toolbar toggle (named in TR/EN, its state exposed to accessibility) switches between mobile (the WebView's default user agent and viewport) and desktop (a user agent without `Mobile` and `Android`, wide viewport, overview mode, zoom on) and reloads the page; the choice holds across rotation while the preview is open and resets when it closes; logic and screen tests | `CI` |
+| P13.16 | Preview entry points | P13.5, P9.30 | `feature/chat/logic/…/interaction/contract/ActionsContract.kt` (OpenPreview only), `feature/chat/logic/…/actions/`, `feature/chat/ui/…/actions/SessionActionsMenu.kt`, `feature/chat/ui/…/ChatGraph.kt`, `strings_chat_actions.xml`, `feature/sessions/logic/…/contract/SessionListContract.kt` (OpenPreview only), `feature/sessions/logic/…/list/`, `feature/sessions/ui/…/list/`, `feature/sessions/ui/…/SessionsGraph.kt`, `strings_sessions_list.xml` (EN and TR), their tests | The chat's session action menu and the session list's top bar menu have "Live preview", which opens `PreviewRoute.Ports` through `ActionsEvent.OpenPreview` and `SessionListEvent.OpenPreview`; disabled while not connected; navigation only through `core/navigation` routes; boundary and string checks pass; logic, screen and graph tests | `CI` |
+| P13.17 | Release audit knows the preview | P13.10, P13.13, P12.8 | `scripts/audit_release.py`, `scripts/tests/test_audit_release.py` | `NETWORK_CODE` lists the preview transport and the preview screen's WebView with a reason; `LINK_OPENERS` lists the preview's external-link confirmation; a WebView anywhere else still fails the audit; (b): a `ServerSocket` is allowed only in the bridge file, and the audit fails if it binds anything other than the loopback address; each new rule is tested with a faulty sample | `PY` |
+
+**G7 (parallel)**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P13.18 | Security model for the preview | P13.13, P13.17 | `docs/SECURITY-MODEL.md`, `docs/SECURITY-MODEL.tr.md` | A "Live preview" section in both languages, with the same heading levels: the app connects only to a loopback port the user picks and never starts or stops the dev server; the WebView's isolation (no bridge, no file or content access, own data cleared on close, no credentials); off-origin requests refused and the added `Content-Security-Policy`; external links only after confirmation; what a hostile page on your own server can and cannot do; (a): the phone still opens no local port; (b): the bridge is the one exception, on `127.0.0.1`, guarded by a per-session secret, only while the screen is open, and "In short" and "What goes over the network" say so; `test_user_docs.py` passes | `PY` |
+| P13.19 | User docs for the preview | P13.14, P13.15, P13.16 | `docs/INSTALL.md`, `docs/INSTALL.tr.md`, `README.md`, `README.tr.md`, `CHANGELOG.md`, `scripts/tests/test_changelog.py`, `scripts/tests/test_user_docs.py` (only if a new section needs it) | INSTALL (EN, TR): starting the dev server yourself on `127.0.0.1`, opening the preview, the port list, reload, console, viewport, the limits of the chosen option, troubleshooting "nothing listens on this port"; "What the app does on your server" names the read-only port listing; the READMEs list the feature and `feature/preview` in the project structure; `CHANGELOG.md` gets an `## [Unreleased]` section with the preview under "Added" and the version stays 0.1.0; `test_changelog.py` accepts one leading `## [Unreleased]` heading and still checks every version entry; all doc tests pass | `PY` |
+| P13.20 | Preview end-to-end tests | P13.13, P13.14, P13.15, P13.16, P12.7 | `app/src/androidTest/…/e2e/preview/`, `.github/workflows/emulator.yml` (the preview fixture step only), `.github/fixtures/preview/` | On the runner a static page is served by `python3 -m http.server --bind 127.0.0.1` beside sshd; the test connects, finds the port in the list, opens the preview and sees the page's title; a `console.log` of the page appears in the console panel; an off-origin link asks for confirmation and a refused off-origin request is logged; the desktop toggle changes `navigator.userAgent`; a value stored in `localStorage` is gone after the preview is closed and opened again; a dropped connection shows connection lost and a reload after the reconnect works; (b): a connection to the bridge port without the secret gets 403, and the port is closed after leaving the screen | `EMU` |
+
+`CP13`: push, CI and emulator green, `PHONE`: preview a real dev server, change a file through opencode and see the change after a reload (with (b), through hot reload).
+
 ## Parallelism summary
 
 | Phase | Tasks | Groups (task count) | Widest group | On Pi | CI/EMU only |
@@ -728,7 +798,8 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | P10 | 11 | 1, 6, 2, 2 | 6 | 5 | 6 |
 | P11 | 12 | 4, 3, 5 | 5 | 10 | 2 |
 | P12 | 10 | 1, 3, 3, 1, 1, 1 | 3 | 5 | 5 |
-| Total | 152 | 47 groups | 6 | 96 | 56 |
+| P13 | 20 | 1, 3, 2, 4, 3, 4, 3 | 4 | 14 | 6 |
+| Total | 172 | 54 groups | 6 | 110 | 62 |
 
 `logic` and `ui` tasks run at the same time after the contract. The group limit is for the Pi; on a stronger machine, consecutive groups of the same phase can be merged, since the dependency column is sufficient.
 
@@ -755,6 +826,7 @@ Phases run in numerical order. For a phase to finish, its checkpoint must also b
 | Extra | GitHub Actions and Releases | P0.6, P3.10, P12.5, P12.7, P12.9 |
 | Extra | MIT, README, repository skeleton | P0.1, P12.3, P12.6 |
 | Extra | Security and release audit | P12.4, P12.8 |
+| Extra | Live preview of a web frontend running on the server | P13.1-P13.20 |
 | Extra | Infrastructure and contracts | P0.2-P0.5, P1.2-P1.5, P1.7, P1.8, P4.3, P5.1, P6.1, P7.1, P8.2, P10.1 |
 
 ## Out of scope (first release)
