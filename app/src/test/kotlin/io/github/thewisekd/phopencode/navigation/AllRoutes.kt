@@ -6,6 +6,7 @@ import io.github.thewisekd.phopencode.core.navigation.ConnectRoute
 import io.github.thewisekd.phopencode.core.navigation.FilesRoute
 import io.github.thewisekd.phopencode.core.navigation.GitRoute
 import io.github.thewisekd.phopencode.core.navigation.NotifyRoute
+import io.github.thewisekd.phopencode.core.navigation.PreviewRoute
 import io.github.thewisekd.phopencode.core.navigation.Route
 import io.github.thewisekd.phopencode.core.navigation.SessionsRoute
 import io.github.thewisekd.phopencode.core.navigation.SettingsRoute
@@ -60,6 +61,8 @@ val allRoutes: List<Route> = listOf(
     GitRoute.Remote(directory = "/srv/app"),
     NotifyRoute.Setup,
     NotifyRoute.Pending,
+    PreviewRoute.Ports,
+    PreviewRoute.Page(port = 5173),
     SettingsRoute.Preferences,
     SettingsRoute.Licenses,
 )

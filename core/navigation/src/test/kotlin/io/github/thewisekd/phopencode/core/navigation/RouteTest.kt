@@ -50,6 +50,7 @@ class RouteTest {
                 "FilesRoute",
                 "GitRoute",
                 "NotifyRoute",
+                "PreviewRoute",
                 "SettingsRoute",
             ),
             features,

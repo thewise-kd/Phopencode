@@ -41,6 +41,8 @@ internal fun routesWith(text: String): List<Route> = listOf(
     GitRoute.Remote(directory = text),
     NotifyRoute.Setup,
     NotifyRoute.Pending,
+    PreviewRoute.Ports,
+    PreviewRoute.Page(port = 8080),
     SettingsRoute.Preferences,
     SettingsRoute.Licenses,
 )
