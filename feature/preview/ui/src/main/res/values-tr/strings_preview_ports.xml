@@ -1,3 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="preview_ports_title">Canlı önizleme</string>
+    <string name="preview_ports_refresh">Portları yenile</string>
+    <string name="preview_ports_loading">Dinleyen portlar aranıyor…</string>
+    <string name="preview_ports_refreshing">Portlar yenileniyor…</string>
+    <string name="preview_ports_list_heading">Sunucuda dinleyenler</string>
+    <string name="preview_ports_port">Port %1$d</string>
+    <string name="preview_ports_opencode">opencode sunucusu. Önizlenemez.</string>
+    <string name="preview_ports_manual_heading">Port girin</string>
+    <string name="preview_ports_manual_label">Port</string>
+    <string name="preview_ports_manual_hint">Sunucunun 127.0.0.1 adresinde 1 ile 65535 arası bir port</string>
+    <string name="preview_ports_manual_open">Aç</string>
+    <string name="preview_ports_manual_empty">Bir port numarası girin.</string>
+    <string name="preview_ports_manual_not_a_number">Yalnızca rakam kullanın.</string>
+    <string name="preview_ports_manual_out_of_range">1 ile 65535 arası bir port kullanın.</string>
+    <string name="preview_ports_manual_opencode">Bu, opencode sunucusunun portu. Önizlenemez.</string>
+    <string name="preview_ports_empty_title">Geliştirme sunucusu bulunamadı</string>
+    <string name="preview_ports_empty_message">Sunucunun 127.0.0.1 adresinde henüz dinleyen yok. Geliştirme sunucunuzu orada başlatın ya da opencode\'dan başlatmasını isteyin, sonra yenileyin.</string>
+    <string name="preview_ports_empty_refresh">Yenile</string>
+    <string name="preview_ports_unsupported_title">Portlar listelenemiyor</string>
+    <string name="preview_ports_unsupported_message">Bu sunucu portlarını listelemenin bir yolunu sunmuyor. Geliştirme sunucunuzun portunu aşağıya girin.</string>
+    <string name="preview_ports_error_not_connected">Sunucuya bağlı değil. Geri dönüp yeniden bağlanın.</string>
+    <string name="preview_ports_error_connection_lost">Sunucuyla bağlantı koptu. Bağlantı geri gelince tekrar deneyin.</string>
+    <string name="preview_ports_error_timed_out">Portları listelemek çok uzun sürdü.</string>
+    <string name="preview_ports_error_output_too_large">Sunucu, uygulamanın okuduğundan fazlasını listeledi.</string>
+    <string name="preview_ports_error_command_failed">Sunucu portlarını listeleyemedi.</string>
+    <string name="preview_ports_error_other">Portlar listelenemedi.</string>
 </resources>

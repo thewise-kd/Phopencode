@@ -1,3 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="preview_ports_title">Live preview</string>
+    <string name="preview_ports_refresh">Refresh ports</string>
+    <string name="preview_ports_loading">Looking for listening ports…</string>
+    <string name="preview_ports_refreshing">Refreshing ports…</string>
+    <string name="preview_ports_list_heading">Listening on the server</string>
+    <string name="preview_ports_port">Port %1$d</string>
+    <string name="preview_ports_opencode">The opencode server. It cannot be previewed.</string>
+    <string name="preview_ports_manual_heading">Enter a port</string>
+    <string name="preview_ports_manual_label">Port</string>
+    <string name="preview_ports_manual_hint">A port from 1 to 65535 on the server\'s 127.0.0.1</string>
+    <string name="preview_ports_manual_open">Open</string>
+    <string name="preview_ports_manual_empty">Enter a port number.</string>
+    <string name="preview_ports_manual_not_a_number">Use digits only.</string>
+    <string name="preview_ports_manual_out_of_range">Use a port from 1 to 65535.</string>
+    <string name="preview_ports_manual_opencode">This is the opencode server\'s port. It cannot be previewed.</string>
+    <string name="preview_ports_empty_title">No dev server found</string>
+    <string name="preview_ports_empty_message">Nothing listens on the server\'s 127.0.0.1 yet. Start your dev server there, or ask opencode to start it, then refresh.</string>
+    <string name="preview_ports_empty_refresh">Refresh</string>
+    <string name="preview_ports_unsupported_title">Ports cannot be listed</string>
+    <string name="preview_ports_unsupported_message">This server offers no way to list its ports. Enter your dev server\'s port below.</string>
+    <string name="preview_ports_error_not_connected">Not connected to the server. Go back and connect again.</string>
+    <string name="preview_ports_error_connection_lost">The connection to the server was lost. Try again once it is back.</string>
+    <string name="preview_ports_error_timed_out">Listing the ports took too long.</string>
+    <string name="preview_ports_error_output_too_large">The server listed more than the app reads.</string>
+    <string name="preview_ports_error_command_failed">The server could not list its ports.</string>
+    <string name="preview_ports_error_other">The ports could not be listed.</string>
 </resources>
