@@ -83,6 +83,11 @@ internal class SshjSession(
 
     override fun socketFactory(): SocketFactory = features.socketFactory(this)
 
+    override fun openLoopbackTunnel(port: Int): SshSession.LoopbackTunnel {
+        require(port in PORTS) { "Port is out of range" }
+        return features.openLoopbackTunnel(this, port)
+    }
+
     /** @throws SshException.Disconnected once the session is closed or lost. */
     internal fun requireConnected() {
         if (closed.get() || !state.value) throw SshException.Disconnected()
@@ -212,5 +217,6 @@ internal class SshjSession(
         /** Above a process close's own bound (RemoteProcess: 5 s and three short interrupts). */
         const val CLOSE_BUDGET_MILLIS = 7_000L
         const val CLOSER_THREAD = "phopencode-ssh-close"
+        val PORTS = 1..65535
     }
 }

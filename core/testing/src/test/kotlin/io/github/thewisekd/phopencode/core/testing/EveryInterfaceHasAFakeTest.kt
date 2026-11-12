@@ -63,7 +63,7 @@ class EveryInterfaceHasAFakeTest {
         assertFaked(
             "$base.ssh.api",
             "ssh",
-            setOf("SshConnector", "SshSession", "RemoteExec", "SftpClient", "HostKeyVerifier"),
+            setOf("SshConnector", "SshSession", "LoopbackTunnel", "RemoteExec", "SftpClient", "HostKeyVerifier"),
         )
     }
 

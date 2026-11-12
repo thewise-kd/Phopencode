@@ -5,8 +5,10 @@ import io.github.thewisekd.phopencode.core.ssh.api.ExecRequest
 import io.github.thewisekd.phopencode.core.ssh.api.ExecResult
 import io.github.thewisekd.phopencode.core.ssh.api.RemoteExec
 import io.github.thewisekd.phopencode.core.ssh.api.SftpClient
+import io.github.thewisekd.phopencode.core.ssh.api.SshSession
 import io.github.thewisekd.phopencode.core.ssh.exec.ExecFeature
 import io.github.thewisekd.phopencode.core.ssh.sftp.SshjSftpClient
+import io.github.thewisekd.phopencode.core.ssh.tunnel.PinnedTunnel
 import io.github.thewisekd.phopencode.core.ssh.tunnel.TunnelSocketFactory
 import javax.net.SocketFactory
 import kotlinx.coroutines.flow.Flow
@@ -23,12 +25,14 @@ internal interface SessionFeatures {
     suspend fun openSftp(session: SshjSession, root: String): SftpClient
 
     fun socketFactory(session: SshjSession): SocketFactory
+
+    fun openLoopbackTunnel(session: SshjSession, port: Int): SshSession.LoopbackTunnel
 }
 
 /**
  * What the public [SshjConnector] constructor uses: commands from [ExecFeature], one
  * [SshjSftpClient] (read and write over one SFTP channel) per [openSftp], and a
- * [TunnelSocketFactory] per [socketFactory].
+ * [TunnelSocketFactory] per [socketFactory] and a [PinnedTunnel] per [openLoopbackTunnel].
  */
 internal object SshjSessionFeatures : SessionFeatures {
     override fun exec(session: SshjSession): RemoteExec = ExecFeature.exec(session)
@@ -36,6 +40,9 @@ internal object SshjSessionFeatures : SessionFeatures {
     override suspend fun openSftp(session: SshjSession, root: String): SftpClient = SshjSftpClient.open(session, root)
 
     override fun socketFactory(session: SshjSession): SocketFactory = TunnelSocketFactory(session)
+
+    override fun openLoopbackTunnel(session: SshjSession, port: Int): SshSession.LoopbackTunnel =
+        PinnedTunnel.open(session, port)
 }
 
 /** For tests that plug in one feature at a time. Every other use fails loudly. */
@@ -48,6 +55,9 @@ internal object NoSessionFeatures : SessionFeatures {
     }
 
     override fun socketFactory(session: SshjSession): SocketFactory =
+        throw UnsupportedOperationException("Tunnels are not available yet")
+
+    override fun openLoopbackTunnel(session: SshjSession, port: Int): SshSession.LoopbackTunnel =
         throw UnsupportedOperationException("Tunnels are not available yet")
 
     private object Unavailable : RemoteExec {

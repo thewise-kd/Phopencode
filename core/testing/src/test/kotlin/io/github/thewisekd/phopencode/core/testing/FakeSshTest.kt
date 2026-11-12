@@ -22,6 +22,7 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.SocketAddress
 import java.net.SocketException
@@ -209,6 +210,59 @@ class FakeSshTest {
         session.loseConnection()
         assertFailsWith<SshException.Disconnected> { client.list("") }
         assertTrue(socket.isClosed)
+    }
+
+    @Test
+    fun `a pinned tunnel records its connects with the session's tunnels`() = runTest {
+        val session = FakeSshSession()
+        val tunnel = session.openLoopbackTunnel(8080)
+        val socket = tunnel.socketFactory().createSocket("localhost", 8080)
+        assertEquals(listOf("localhost" to 8080), session.tunnels)
+        assertEquals(listOf(tunnel), session.loopbackTunnels)
+        assertSame(socket, tunnel.sockets.single())
+        assertEquals(emptyList(), session.sockets)
+        socket.getOutputStream().write(65)
+        assertContentEquals(byteArrayOf(65), tunnel.sockets.single().written())
+    }
+
+    @Test
+    fun `a pinned tunnel refuses other ports and hosts, and closes the refused socket`() = runTest {
+        val session = FakeSshSession()
+        val factory = session.openLoopbackTunnel(8080).socketFactory()
+        listOf(
+            InetSocketAddress.createUnresolved("127.0.0.1", 8081),
+            InetSocketAddress.createUnresolved("10.0.0.1", 8080),
+            InetSocketAddress(InetAddress.getByName("127.0.0.2"), 8080),
+        ).forEach { address ->
+            val socket = factory.createSocket()
+            assertFailsWith<SocketException> { socket.connect(address) }
+            assertTrue(socket.isClosed, "$address")
+        }
+        assertEquals(emptyList(), session.tunnels)
+        factory.createSocket().connect(InetSocketAddress(InetAddress.getByName("::1"), 8080))
+        assertEquals(1, session.tunnels.size)
+    }
+
+    @Test
+    fun `a pinned tunnel binds nothing locally`() = runTest {
+        val session = FakeSshSession()
+        val factory = session.openLoopbackTunnel(8080).socketFactory()
+        assertFailsWith<SocketException> { factory.createSocket("127.0.0.1", 8080, null, 40_000) }
+        assertFailsWith<SocketException> { factory.createSocket(InetAddress.getByName("127.0.0.1"), 8080, InetAddress.getByName("127.0.0.1"), 0) }
+        assertFailsWith<SocketException> { factory.createSocket().bind(null) }
+        assertEquals(emptyList(), session.tunnels)
+        assertTrue(factory.createSocket("127.0.0.1", 8080, null, 0).isConnected)
+    }
+
+    @Test
+    fun `losing the connection closes the pinned tunnels`() = runTest {
+        val session = FakeSshSession()
+        val tunnel = session.openLoopbackTunnel(8080)
+        val socket = tunnel.socketFactory().createSocket()
+        session.loseConnection()
+        assertTrue(tunnel.isClosed)
+        assertTrue(socket.isClosed)
+        assertFailsWith<SshException.Disconnected> { session.openLoopbackTunnel(8080) }
     }
 
     @Test

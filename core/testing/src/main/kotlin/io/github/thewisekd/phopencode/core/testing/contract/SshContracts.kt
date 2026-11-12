@@ -12,7 +12,11 @@ import io.github.thewisekd.phopencode.core.ssh.api.SshCredential
 import io.github.thewisekd.phopencode.core.ssh.api.SshException
 import io.github.thewisekd.phopencode.core.ssh.api.SshSession
 import io.github.thewisekd.phopencode.core.ssh.api.SshTarget
+import java.io.IOException
+import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.SocketException
+import javax.net.SocketFactory
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
@@ -500,5 +504,145 @@ fun sshSessionContract(newHarness: suspend () -> SshSessionHarness): List<Contra
         harness.session.close()
         expectThat(connected.isClosed, "A connected socket must close with the session")
         expectThat(unconnected.isClosed, "An unconnected socket must close with the session")
+    }
+    pinnedTunnelCases(newHarness)
+}
+
+/** The same host as [this], on [port]; resolved only when [this] is. */
+private fun InetSocketAddress.withPort(port: Int): InetSocketAddress =
+    address?.let { InetSocketAddress(it, port) } ?: InetSocketAddress.createUnresolved(hostString, port)
+
+/** A port next to [port], in range. */
+private fun otherPort(port: Int): Int = if (port == MAX_PORT) port - 1 else port + 1
+
+private const val MAX_PORT = 65535
+
+/** A local port a tunnel socket must refuse to bind. */
+private const val LOCAL_PORT = 40000
+
+private val POLL = 20.milliseconds
+
+/** Fails unless connecting a new socket of [factory] to [address] fails with an IOException. */
+private suspend fun expectRefused(factory: SocketFactory, address: InetSocketAddress, what: String) {
+    expectThrows<IOException>(what) { factory.createSocket().connect(address) }
+}
+
+/** The promises on [SshSession.openLoopbackTunnel], pinned to the port of [SshSessionHarness.tunnelAddress]. */
+private fun ContractCases.pinnedTunnelCases(newHarness: suspend () -> SshSessionHarness) {
+    case("a pinned tunnel reaches its port on the loopback, one tunnel per connect") {
+        val harness = newHarness()
+        val tunnel = harness.session.openLoopbackTunnel(harness.tunnelAddress.port)
+        expectEqual(harness.tunnelAddress.port, tunnel.port, "pinned port")
+        expectEqual(0, harness.tunnelsOpened(), "tunnels before connect")
+        val socket = tunnel.socketFactory().createSocket().apply { connect(harness.tunnelAddress) }
+        expectThat(socket.isConnected, "A socket to the pinned port must connect")
+        expectEqual(1, harness.tunnelsOpened(), "tunnels after one connect")
+        harness.session.close()
+    }
+    case("a pinned tunnel refuses another port before a tunnel opens") {
+        val harness = newHarness()
+        val tunnel = harness.session.openLoopbackTunnel(harness.tunnelAddress.port)
+        val other = otherPort(harness.tunnelAddress.port)
+        expectRefused(tunnel.socketFactory(), harness.tunnelAddress.withPort(other), "connect to another port")
+        expectRefused(tunnel.socketFactory(), InetSocketAddress.createUnresolved("localhost", other), "localhost on another port")
+        expectEqual(0, harness.tunnelsOpened(), "tunnels after refused connects")
+        harness.session.close()
+    }
+    case("a pinned tunnel refuses every host off the loopback before a tunnel opens") {
+        val harness = newHarness()
+        val port = harness.tunnelAddress.port
+        val factory = harness.session.openLoopbackTunnel(port).socketFactory()
+        val refused = listOf(
+            InetSocketAddress(InetAddress.getByAddress(byteArrayOf(10, 0, 0, 1)), port),
+            InetSocketAddress(InetAddress.getByAddress(byteArrayOf(192.toByte(), 168.toByte(), 1, 10)), port),
+            InetSocketAddress.createUnresolved("10.0.0.1", port),
+            InetSocketAddress.createUnresolved("192.168.1.10", port),
+            InetSocketAddress.createUnresolved("127.0.0.2", port),
+            InetSocketAddress.createUnresolved("intranet", port),
+            InetSocketAddress.createUnresolved("localhost.example.invalid", port),
+        )
+        refused.forEach { address -> expectRefused(factory, address, "connect to $address") }
+        expectEqual(0, harness.tunnelsOpened(), "tunnels after refused connects")
+        harness.session.close()
+    }
+    case("a pinned socket whose connect is refused is closed, and cannot connect again") {
+        val harness = newHarness()
+        val factory = harness.session.openLoopbackTunnel(harness.tunnelAddress.port).socketFactory()
+        val socket = factory.createSocket()
+        expectThrows<SocketException>("connect to another port") {
+            socket.connect(harness.tunnelAddress.withPort(otherPort(harness.tunnelAddress.port)))
+        }
+        expectThat(socket.isClosed, "A socket whose connect was refused must be closed")
+        expectThrows<IOException>("connect again to the pinned port") { socket.connect(harness.tunnelAddress) }
+        expectEqual(0, harness.tunnelsOpened(), "tunnels after the refused socket")
+        harness.session.close()
+    }
+    case("a pinned tunnel binds nothing locally") {
+        val harness = newHarness()
+        val port = harness.tunnelAddress.port
+        val factory = harness.session.openLoopbackTunnel(port).socketFactory()
+        val loopback = InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))
+        expectThrows<SocketException>("createSocket(host, port, localAddress, 0)") {
+            factory.createSocket("127.0.0.1", port, loopback, 0)
+        }
+        expectThrows<SocketException>("createSocket(host, port, null, localPort)") {
+            factory.createSocket("127.0.0.1", port, null, LOCAL_PORT)
+        }
+        expectThrows<SocketException>("createSocket(address, port, localAddress, 0)") {
+            factory.createSocket(loopback, port, loopback, 0)
+        }
+        expectThrows<SocketException>("createSocket(address, port, null, localPort)") {
+            factory.createSocket(loopback, port, null, LOCAL_PORT)
+        }
+        expectThrows<SocketException>("bind") { factory.createSocket().bind(InetSocketAddress(loopback, 0)) }
+        expectEqual(0, harness.tunnelsOpened(), "tunnels after refused local bindings")
+        harness.session.close()
+    }
+    case("a pinned tunnel refuses a port outside 1..65535 when it is created") {
+        val harness = newHarness()
+        listOf(0, -1, MAX_PORT + 1).forEach { port ->
+            expectThrows<IllegalArgumentException>("openLoopbackTunnel($port)") { harness.session.openLoopbackTunnel(port) }
+        }
+        harness.session.close()
+    }
+    case("closing a pinned tunnel closes its sockets and refuses new ones") {
+        val harness = newHarness()
+        val tunnel = harness.session.openLoopbackTunnel(harness.tunnelAddress.port)
+        val connected = tunnel.socketFactory().createSocket().apply { connect(harness.tunnelAddress) }
+        val unconnected = tunnel.socketFactory().createSocket()
+        tunnel.close()
+        tunnel.close()
+        expectThat(connected.isClosed, "A connected socket must close with its tunnel")
+        expectThat(unconnected.isClosed, "An unconnected socket must close with its tunnel")
+        expectThrows<SocketException>("createSocket after close") { tunnel.socketFactory().createSocket() }
+        expectEqual(1, harness.tunnelsOpened(), "tunnels after close")
+        expectThat(harness.session.connected.value, "Closing a tunnel must leave the session connected")
+        val general = harness.session.socketFactory().createSocket().apply { connect(harness.tunnelAddress) }
+        expectThat(general.isConnected, "The session's own sockets must still work")
+        harness.session.close()
+    }
+    case("closing the session closes its pinned tunnels") {
+        val harness = newHarness()
+        val tunnel = harness.session.openLoopbackTunnel(harness.tunnelAddress.port)
+        val connected = tunnel.socketFactory().createSocket().apply { connect(harness.tunnelAddress) }
+        harness.session.close()
+        expectThat(connected.isClosed, "A pinned socket must close with the session")
+        expectThrows<SocketException>("createSocket after the session closed") { tunnel.socketFactory().createSocket() }
+    }
+    case("a lost connection closes its pinned tunnels") {
+        val harness = newHarness()
+        val tunnel = harness.session.openLoopbackTunnel(harness.tunnelAddress.port)
+        val connected = tunnel.socketFactory().createSocket().apply { connect(harness.tunnelAddress) }
+        harness.loseConnection()
+        withinTime("the pinned socket closes") { while (!connected.isClosed) delay(POLL) }
+        expectRefused(tunnel.socketFactory(), harness.tunnelAddress, "connect after the connection was lost")
+        harness.session.close()
+    }
+    case("openLoopbackTunnel fails with Disconnected once the session closed") {
+        val harness = newHarness()
+        harness.session.close()
+        expectThrows<SshException.Disconnected>("openLoopbackTunnel") {
+            harness.session.openLoopbackTunnel(harness.tunnelAddress.port)
+        }
     }
 }

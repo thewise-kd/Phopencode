@@ -129,5 +129,34 @@ interface SshSession : AutoCloseable {
      */
     fun socketFactory(): SocketFactory
 
+    /**
+     * Opens a tunnel pinned to [port] on the server's loopback, for showing what a developer serves
+     * there. Its sockets reach only `127.0.0.1`, `::1` or `localhost` on [port], as seen from the
+     * SSH server; any other port or host is refused with a `SocketException` before a channel
+     * opens. Creating the tunnel opens nothing: each socket's `connect` opens one `direct-tcpip`
+     * channel, as with [socketFactory].
+     *
+     * No local port is listened on. Closing the tunnel closes its sockets, including ones in use,
+     * and refuses new ones; closing the session closes the tunnel.
+     *
+     * @throws IllegalArgumentException when [port] is outside 1..65535.
+     * @throws SshException.Disconnected once the session is closed or lost.
+     */
+    fun openLoopbackTunnel(port: Int): LoopbackTunnel
+
     override fun close()
+
+    /** A tunnel from [openLoopbackTunnel]. [close] is safe to call more than once. */
+    interface LoopbackTunnel : AutoCloseable {
+        /** The only port the tunnel reaches. */
+        val port: Int
+
+        /**
+         * Gives sockets that reach [port] on the server's loopback. Once the tunnel is closed,
+         * every `createSocket` fails with a `SocketException`.
+         */
+        fun socketFactory(): SocketFactory
+
+        override fun close()
+    }
 }
