@@ -15,6 +15,7 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
@@ -178,6 +179,7 @@ class FakeSshSession(
     private val clients = mutableListOf<FakeSftpClient>()
     private val socketList = mutableListOf<FakeTunnelSocket>()
     private val addresses = mutableListOf<Pair<String, Int>>()
+    private val pinned = mutableListOf<FakeLoopbackTunnel>()
 
     private val factory = object : SocketFactory() {
         override fun createSocket(): Socket = newSocket()
@@ -201,6 +203,10 @@ class FakeSshSession(
     val tunnels: List<Pair<String, Int>>
         get() = synchronized(socketList) { addresses.toList() }
 
+    /** Every tunnel of [openLoopbackTunnel], oldest first, closed or not. */
+    val loopbackTunnels: List<FakeLoopbackTunnel>
+        get() = synchronized(socketList) { pinned.toList() }
+
     /** Every socket of [socketFactory], oldest first. */
     val sockets: List<FakeTunnelSocket>
         get() = synchronized(socketList) { socketList.toList() }
@@ -214,7 +220,7 @@ class FakeSshSession(
         return socket
     }
 
-    private fun openTunnel(address: InetSocketAddress) = synchronized(socketList) {
+    internal fun openTunnel(address: InetSocketAddress) = synchronized(socketList) {
         if (!isConnected.value) throw SshException.Disconnected()
         addresses += address.hostString to address.port
     }
@@ -242,22 +248,132 @@ class FakeSshSession(
 
     override fun socketFactory(): SocketFactory = factory
 
+    /** A [FakeLoopbackTunnel]; its connects show up in [tunnels] like those of [socketFactory]. */
+    override fun openLoopbackTunnel(port: Int): FakeLoopbackTunnel {
+        require(port in 1..MAX_PORT) { "Port is out of range" }
+        // Under the lock loseConnection takes after turning the flag off: either it sees this
+        // tunnel, or this sees the flag.
+        return synchronized(socketList) {
+            if (!isConnected.value) throw SshException.Disconnected()
+            FakeLoopbackTunnel(this, port).also { pinned += it }
+        }
+    }
+
     /** The connection ends by itself, as with lost keep-alives. */
     fun loseConnection() {
         isConnected.value = false
         exec.disconnect()
         synchronized(clients) { clients.forEach(FakeSftpClient::disconnect) }
         synchronized(socketList) { socketList.toList() }.forEach(Socket::close)
+        synchronized(socketList) { pinned.toList() }.forEach(FakeLoopbackTunnel::close)
     }
 
     override fun close() = loseConnection()
+
+    private companion object {
+        const val MAX_PORT = 65535
+    }
+}
+
+/**
+ * A tunnel of [FakeSshSession.openLoopbackTunnel]. Its sockets are [FakeTunnelSocket]s that reach
+ * only `127.0.0.1`, `::1` or `localhost` on [port], and refuse everything else with a
+ * [SocketException] before a tunnel is recorded, as the real one does. As there, a failed connect
+ * closes the socket, and a local address or port, in a factory call or in `bind`, is refused.
+ */
+class FakeLoopbackTunnel internal constructor(
+    private val session: FakeSshSession,
+    override val port: Int,
+) : SshSession.LoopbackTunnel {
+    private val socketList = mutableListOf<FakeTunnelSocket>()
+    private var closed = false
+
+    private val factory = object : SocketFactory() {
+        override fun createSocket(): Socket = newSocket()
+
+        override fun createSocket(host: String, port: Int): Socket =
+            newSocket().apply { connect(InetSocketAddress.createUnresolved(host, port)) }
+
+        override fun createSocket(host: String, port: Int, localHost: InetAddress?, localPort: Int): Socket {
+            requireNoLocalBinding(localHost, localPort)
+            return createSocket(host, port)
+        }
+
+        override fun createSocket(host: InetAddress, port: Int): Socket =
+            newSocket().apply { connect(InetSocketAddress(host, port)) }
+
+        override fun createSocket(address: InetAddress, port: Int, localAddress: InetAddress?, localPort: Int): Socket {
+            requireNoLocalBinding(localAddress, localPort)
+            return createSocket(address, port)
+        }
+
+        private fun requireNoLocalBinding(localAddress: InetAddress?, localPort: Int) {
+            if (localAddress != null || localPort != 0) throw SocketException(NO_LOCAL_BINDING)
+        }
+    }
+
+    /** Whether [close] ran, directly or with the session. */
+    val isClosed: Boolean
+        get() = synchronized(socketList) { closed }
+
+    /** Every socket of [socketFactory], oldest first. */
+    val sockets: List<FakeTunnelSocket>
+        get() = synchronized(socketList) { socketList.toList() }
+
+    override fun socketFactory(): SocketFactory = factory
+
+    override fun close() {
+        val open = synchronized(socketList) {
+            closed = true
+            socketList.toList()
+        }
+        open.forEach(Socket::close)
+    }
+
+    override fun toString(): String = "FakeLoopbackTunnel(closed=$isClosed)"
+
+    private fun newSocket(): FakeTunnelSocket {
+        val socket = FakeTunnelSocket(pinned = true) { address ->
+            if (!allows(address)) throw SocketException("Tunnel target refused")
+            session.openTunnel(address)
+        }
+        synchronized(socketList) {
+            if (closed) throw SocketException("Tunnel is closed")
+            socketList += socket
+        }
+        return socket
+    }
+
+    private fun allows(address: InetSocketAddress): Boolean {
+        if (address.port != port) return false
+        val resolved = address.address
+        return if (resolved != null) {
+            resolved.isLoopbackAddress && (resolved is Inet6Address || resolved.hostAddress == IPV4_LOOPBACK)
+        } else {
+            val name = address.hostString
+            name.equals(LOCALHOST, ignoreCase = true) || name == IPV4_LOOPBACK || name == IPV6_LOOPBACK || name == "[$IPV6_LOOPBACK]"
+        }
+    }
+
+    private companion object {
+        const val LOCALHOST = "localhost"
+        const val IPV4_LOOPBACK = "127.0.0.1"
+        const val IPV6_LOOPBACK = "::1"
+        const val NO_LOCAL_BINDING = "Tunnel sockets bind nothing locally"
+    }
 }
 
 /**
  * A socket with a test at the far end, reachable with [respond] and [written]. Its streams work in
  * memory, so no local port is ever listened on.
+ *
+ * A [pinned] socket, one of a [FakeLoopbackTunnel], behaves as the real pinned one: a failed connect
+ * closes it, and [bind] is refused.
  */
-class FakeTunnelSocket internal constructor(private val onConnect: (InetSocketAddress) -> Unit) : Socket() {
+class FakeTunnelSocket internal constructor(
+    private val pinned: Boolean = false,
+    private val onConnect: (InetSocketAddress) -> Unit,
+) : Socket() {
     private val incoming = LinkedBlockingQueue<Int>()
     private val sent = ByteArrayOutputStream()
 
@@ -336,8 +452,17 @@ class FakeTunnelSocket internal constructor(private val onConnect: (InetSocketAd
             onConnect(endpoint)
             connected = true
         } finally {
-            if (!connected) open.set(false)
+            if (!connected) {
+                open.set(false)
+                if (pinned) close()
+            }
         }
+    }
+
+    /** A pinned socket binds nothing locally. */
+    override fun bind(bindpoint: SocketAddress?) {
+        if (pinned) throw SocketException("Tunnel sockets bind nothing locally")
+        super.bind(bindpoint)
     }
 
     override fun isConnected(): Boolean = open.get()

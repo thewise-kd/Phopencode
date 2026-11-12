@@ -52,6 +52,16 @@ import io.github.thewisekd.phopencode.core.testing.contract.sshKeyIndexContract
 import io.github.thewisekd.phopencode.core.testing.storage.FakeKnownHostsStore
 import io.github.thewisekd.phopencode.core.testing.storage.FakeRecentFoldersStore
 import io.github.thewisekd.phopencode.core.testing.storage.FakeSshKeyIndex
+import io.github.thewisekd.phopencode.core.ssh.api.SshSession
+import io.github.thewisekd.phopencode.core.testing.contract.SshSessionHarness
+import io.github.thewisekd.phopencode.core.testing.contract.sshSessionContract
+import io.github.thewisekd.phopencode.core.testing.ssh.FakeTunnelSocket
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.Socket
+import java.net.SocketException
+import java.util.concurrent.atomic.AtomicInteger
+import javax.net.SocketFactory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.flow.Flow
@@ -343,6 +353,135 @@ class ContractTeethTest {
             }
         }
         assertEquals(emptyList(), cases.filter { runCatching { it.run() }.isFailure }.map { it.name })
+    }
+
+    /**
+     * Pinned tunnels whose sockets check only what is switched on: the target's port and host, a
+     * local binding, closing a socket whose connect failed, and closing the sockets with the tunnel.
+     */
+    private class LoosePinnedTunnels(
+        private val checkPort: Boolean = true,
+        private val checkHost: Boolean = true,
+        private val closeSockets: Boolean = true,
+        private val closeRefused: Boolean = true,
+        private val refuseBinding: Boolean = true,
+        private val fake: FakeSshSessionHarness = FakeSshSessionHarness(),
+    ) : SshSessionHarness by fake {
+        private val opened = AtomicInteger()
+
+        override val session: SshSession = object : SshSession by fake.session {
+            override fun openLoopbackTunnel(port: Int): SshSession.LoopbackTunnel {
+                require(port in 1..65535)
+                return LooseTunnel(port)
+            }
+        }
+
+        override suspend fun tunnelsOpened(): Int = fake.tunnelsOpened() + opened.get()
+
+        private inner class LooseTunnel(override val port: Int) : SshSession.LoopbackTunnel {
+            private val sockets = mutableListOf<Socket>()
+            private var closed = false
+
+            private val factory = object : SocketFactory() {
+                override fun createSocket(): Socket {
+                    if (closed) throw SocketException("closed")
+                    lateinit var socket: Socket
+                    // pinned closes on a failed connect as well as refusing bind, so it is on only when both are.
+                    socket = FakeTunnelSocket(pinned = refuseBinding && closeRefused) { address ->
+                        val allowed = (!checkPort || address.port == port) &&
+                            (!checkHost || address.hostString in LOOPBACK_NAMES)
+                        if (!allowed) {
+                            if (closeRefused) socket.close()
+                            throw SocketException("refused")
+                        }
+                        opened.incrementAndGet()
+                    }
+                    return socket.also { sockets += it }
+                }
+
+                override fun createSocket(host: String, port: Int): Socket =
+                    createSocket().apply { connect(InetSocketAddress.createUnresolved(host, port)) }
+
+                override fun createSocket(host: String, port: Int, localHost: InetAddress?, localPort: Int): Socket {
+                    checkBinding(localHost, localPort)
+                    return createSocket(host, port)
+                }
+
+                override fun createSocket(host: InetAddress, port: Int): Socket =
+                    createSocket().apply { connect(InetSocketAddress(host, port)) }
+
+                override fun createSocket(address: InetAddress, port: Int, localAddress: InetAddress?, localPort: Int): Socket {
+                    checkBinding(localAddress, localPort)
+                    return createSocket(address, port)
+                }
+
+                private fun checkBinding(localAddress: InetAddress?, localPort: Int) {
+                    if (refuseBinding && (localAddress != null || localPort != 0)) throw SocketException("binding")
+                }
+            }
+
+            override fun socketFactory(): SocketFactory = factory
+
+            override fun close() {
+                closed = true
+                if (closeSockets) sockets.forEach(Socket::close)
+            }
+        }
+
+        private companion object {
+            val LOOPBACK_NAMES = setOf("127.0.0.1", "::1", "localhost")
+        }
+    }
+
+    @Test
+    fun `a pinned tunnel that reaches other ports is caught`() {
+        assertCaught(
+            "a pinned tunnel refuses another port before a tunnel opens",
+            sshSessionContract { LoosePinnedTunnels(checkPort = false) },
+        )
+    }
+
+    @Test
+    fun `a pinned tunnel that reaches other hosts is caught`() {
+        assertCaught(
+            "a pinned tunnel refuses every host off the loopback before a tunnel opens",
+            sshSessionContract { LoosePinnedTunnels(checkHost = false) },
+        )
+    }
+
+    @Test
+    fun `the loose pinned tunnels keep the promises their switches do not break`() {
+        val names = setOf(
+            "a pinned tunnel refuses another port before a tunnel opens",
+            "a pinned tunnel refuses every host off the loopback before a tunnel opens",
+            "closing a pinned tunnel closes its sockets and refuses new ones",
+            "a pinned socket whose connect is refused is closed, and cannot connect again",
+            "a pinned tunnel binds nothing locally",
+        )
+        val cases = sshSessionContract { LoosePinnedTunnels() }.filter { it.name in names }
+        assertEquals(names, cases.map { it.name }.toSet())
+        assertEquals(emptySet(), cases.failing())
+    }
+
+    @Test
+    fun `a pinned socket that stays usable after a refused connect is caught`() {
+        assertCaught(
+            "a pinned socket whose connect is refused is closed, and cannot connect again",
+            sshSessionContract { LoosePinnedTunnels(closeRefused = false) },
+        )
+    }
+
+    @Test
+    fun `a pinned tunnel that binds locally is caught`() {
+        assertCaught("a pinned tunnel binds nothing locally", sshSessionContract { LoosePinnedTunnels(refuseBinding = false) })
+    }
+
+    @Test
+    fun `a pinned tunnel whose close leaves its sockets open is caught`() {
+        assertCaught(
+            "closing a pinned tunnel closes its sockets and refuses new ones",
+            sshSessionContract { LoosePinnedTunnels(closeSockets = false) },
+        )
     }
 
     @Test

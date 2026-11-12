@@ -20,10 +20,14 @@ import javax.net.SocketFactory
  * Give it to OkHttp with `OkHttpClient.Builder.socketFactory`. OkHttp resolves the URL's host
  * itself before connecting, so URLs should name `127.0.0.1` (or `localhost`, which resolves to a
  * loopback address on the phone too); a host that resolves elsewhere is refused.
+ *
+ * [newSocket] makes each unconnected socket; [PinnedTunnel] passes its own.
  */
-internal class TunnelSocketFactory(private val session: SshjSession) : SocketFactory() {
+internal class TunnelSocketFactory(private val newSocket: () -> Socket) : SocketFactory() {
     /** Tracked from here on, so a socket that never connects still closes with the session. */
-    override fun createSocket(): Socket = TunnelSocket(session).also { session.track(it) }
+    constructor(session: SshjSession) : this({ TunnelSocket(session).also { session.track(it) } })
+
+    override fun createSocket(): Socket = newSocket()
 
     /** [host] is not looked up locally; the SSH server resolves it. */
     override fun createSocket(host: String, port: Int): Socket = connected(InetSocketAddress.createUnresolved(host, port))

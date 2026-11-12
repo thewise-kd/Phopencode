@@ -33,8 +33,17 @@ import net.schmizz.sshj.connection.channel.OpenFailException
  * timeout covers sending the open request as well; see [TunnelChannel.openWithin].
  *
  * Socket options that only make sense for TCP are accepted and kept, without effect.
+ *
+ * [hostFor] names the host for the `direct-tcpip` request, or refuses the target with null, in which
+ * case connect fails with [refusal] before anything is sent; [onClose] runs once when the socket
+ * closes. A [PinnedTunnel] narrows the target and tracks its sockets with them.
  */
-internal class TunnelSocket(private val session: SshjSession) : Socket(null as SocketImpl?) {
+internal class TunnelSocket(
+    private val session: SshjSession,
+    private val hostFor: (InetSocketAddress) -> String? = LoopbackTarget::hostFor,
+    private val refusal: String = TARGET_REFUSED,
+    private val onClose: (TunnelSocket) -> Unit = {},
+) : Socket(null as SocketImpl?) {
     private val lock = Any()
     private val inbox = Inbox()
     private val input = Input()
@@ -80,7 +89,7 @@ internal class TunnelSocket(private val session: SshjSession) : Socket(null as S
     }
 
     private fun open(endpoint: InetSocketAddress, timeout: Int) {
-        val host = LoopbackTarget.hostFor(endpoint) ?: throw SocketException(TARGET_REFUSED)
+        val host = hostFor(endpoint) ?: throw SocketException(refusal)
         session.requireConnected()
         // The factory tracked this socket when it made it; a session that closed since closed it.
         if (closed) throw SocketException(SOCKET_IS_CLOSED)
@@ -178,6 +187,7 @@ internal class TunnelSocket(private val session: SshjSession) : Socket(null as S
         inbox.close()
         pumping?.interrupt()
         session.untrack(this)
+        onClose(this)
         if (opened != null) {
             opened.cancel()
             // requestClose() does not block. A connection that is ending needs no close request:
