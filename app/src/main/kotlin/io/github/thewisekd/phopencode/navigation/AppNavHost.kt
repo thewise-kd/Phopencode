@@ -16,6 +16,7 @@ import io.github.thewisekd.phopencode.feature.connect.ui.connectGraph
 import io.github.thewisekd.phopencode.feature.files.ui.filesGraph
 import io.github.thewisekd.phopencode.feature.git.ui.gitGraph
 import io.github.thewisekd.phopencode.feature.notify.ui.notifyGraph
+import io.github.thewisekd.phopencode.feature.preview.ui.previewGraph
 import io.github.thewisekd.phopencode.feature.sessions.ui.sessionsGraph
 import io.github.thewisekd.phopencode.feature.settings.ui.settingsGraph
 
@@ -40,6 +41,7 @@ fun AppNavHost(
         filesGraph(navController)
         gitGraph(navController)
         notifyGraph(navController)
+        previewGraph(navController)
         settingsGraph(navController)
     }
 }

@@ -15,7 +15,7 @@ import kotlin.test.assertEquals
 class AppModulesTest {
     @Test
     fun `the app loads one module per feature`() {
-        assertEquals(8, featureModules.size)
+        assertEquals(9, featureModules.size)
         assertEquals(featureModules.size, featureModules.toSet().size)
     }
 

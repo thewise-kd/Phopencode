@@ -6,6 +6,7 @@ import io.github.thewisekd.phopencode.feature.connect.ui.connectModule
 import io.github.thewisekd.phopencode.feature.files.ui.filesModule
 import io.github.thewisekd.phopencode.feature.git.ui.gitModule
 import io.github.thewisekd.phopencode.feature.notify.ui.notifyModule
+import io.github.thewisekd.phopencode.feature.preview.ui.previewModule
 import io.github.thewisekd.phopencode.feature.sessions.ui.sessionsModule
 import io.github.thewisekd.phopencode.feature.settings.ui.settingsModule
 import org.koin.core.module.Module
@@ -19,6 +20,7 @@ val featureModules: List<Module> = listOf(
     filesModule,
     gitModule,
     notifyModule,
+    previewModule,
     settingsModule,
 )
 
