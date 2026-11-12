@@ -25,6 +25,8 @@ import io.github.thewisekd.phopencode.core.storage_api.KnownHostsStore
 import io.github.thewisekd.phopencode.core.storage_api.SecretStore
 import io.github.thewisekd.phopencode.core.storage_api.SecretValue
 import java.io.IOException
+import java.net.URI
+import java.net.URISyntaxException
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -343,6 +345,35 @@ class ConnectionManager(
     }
 
     /**
+     * Opens a tunnel for a live preview, pinned to [port] on the server's loopback, on the SSH
+     * session of the connection that stands right now, that is while [state] is
+     * [ConnectionState.Connected]. Its sockets reach only `127.0.0.1`, `::1` or `localhost` on
+     * [port], as seen from the SSH server (see [SshSession.openLoopbackTunnel]); opening it opens
+     * no channel and binds no local port.
+     *
+     * The tunnel belongs to that connection, as an [openSftp] client does: it is closed when the
+     * connection drops, when [reconnect], [disconnect], [connect] or [close] ends it, or when the
+     * manager's scope ends, and it never moves to a later connection; a preview opens a new one on
+     * the new session after a reconnect. The caller may close it earlier; it is closed only once
+     * either way. Opening changes no state and is never retried.
+     *
+     * @throws IllegalArgumentException When [port] is outside 1..65535, connected or not.
+     * @throws NotConnectedException When no connection stands, or its session has ended.
+     * @throws OpencodePortRefusedException When [port] is the one this connection's `opencode
+     *   serve` listens on; the connection stays.
+     */
+    fun openPreviewTunnel(port: Int): SshSession.LoopbackTunnel {
+        require(port in TCP_PORTS) { "Port is out of range" }
+        val (run, live) = synchronized(lock) {
+            val run = current
+            val live = run?.live ?: throw NotConnectedException()
+            run to live
+        }
+        if (port == live.opencodePort) throw OpencodePortRefusedException(port)
+        return run.openTunnel(live, port)
+    }
+
+    /**
      * Runs [block] bound to the connection that stands right now, that is while [state] is
      * [ConnectionState.Connected]. Everything [block] gets comes from that one connection, through
      * a [BoundConnection]: its session's command runner, its API client's file search, its SFTP
@@ -546,9 +577,14 @@ class ConnectionManager(
         val opencode: OpencodeLogin?,
         /** Recognises the accepted password when it is read again through [opencode]'s ref. */
         val passwordCheck: PasswordCheck?,
+        /** The port `opencode serve` listens on, which a preview tunnel must not reach. */
+        val opencodePort: Int?,
     ) {
         /** Guarded by the run's held lock: the [openSftp] clients still open on this connection. */
         val sftp = ArrayList<TrackedSftp>()
+
+        /** Guarded by the run's held lock: the [openPreviewTunnel] tunnels still open on this connection. */
+        val tunnels = ArrayList<TrackedTunnel>()
 
         /** Guarded by the run's held lock: the connection dropped; no client is added any more. */
         var ended = false
@@ -586,6 +622,31 @@ class ConnectionManager(
                 inner.close()
             }
         }
+    }
+
+    /**
+     * An [openPreviewTunnel] tunnel, handed to the caller. As with [TrackedSftp], its first
+     * [close], by the caller or the manager, takes it out of the connection's resources and closes
+     * the real tunnel under [lock], the run's held lock; later ones do nothing. Prints no port.
+     */
+    private class TrackedTunnel(
+        private val inner: SshSession.LoopbackTunnel,
+        private val lock: Any,
+        private val untrack: (TrackedTunnel) -> Unit,
+    ) : SshSession.LoopbackTunnel by inner {
+        /** Guarded by [lock]. */
+        private var closed = false
+
+        override fun close() {
+            synchronized(lock) {
+                if (closed) return
+                closed = true
+                untrack(this)
+                inner.close()
+            }
+        }
+
+        override fun toString(): String = "PreviewTunnel(***)"
     }
 
     /** Why a connection that was published as connected ended, and whether its event stream opened. */
@@ -817,6 +878,29 @@ class ConnectionManager(
             throw NotConnectedException()
         }
 
+        /**
+         * Opens a preview tunnel on [live]'s session and takes it into this run and [live], in one
+         * step under the held lock that a stop's release and [endLive] also take: a tunnel either
+         * gets in before them and is closed by them, or is never opened. Opening sends nothing,
+         * so it is safe on the caller's thread and under the lock.
+         */
+        fun openTunnel(live: Live, port: Int): SshSession.LoopbackTunnel = synchronized(held) {
+            if (stopped || live.ended) throw NotConnectedException()
+            val inner = try {
+                live.session.openLoopbackTunnel(port)
+            } catch (_: SshException.Disconnected) {
+                // The session ended before the manager saw the drop.
+                throw NotConnectedException()
+            }
+            val tracked = TrackedTunnel(inner, held) { self ->
+                held.remove(self)
+                live.tunnels.remove(self)
+            }
+            held += tracked
+            live.tunnels += tracked
+            tracked
+        }
+
         /** Publishes [live] as connected, unless a newer [connect], [disconnect] or [close] took over. */
         private fun publishConnected(live: Live, generation: Long) {
             synchronized(lock) {
@@ -831,12 +915,18 @@ class ConnectionManager(
             }
         }
 
-        /** [live] dropped: [openSftp] no longer reaches it, and its SFTP clients close, newest first. */
+        /**
+         * [live] dropped: [openSftp] and [openPreviewTunnel] no longer reach it, and its SFTP
+         * clients and preview tunnels close, newest first, before its session does.
+         */
         private fun endLive(live: Live) {
             synchronized(lock) { if (this.live === live) this.live = null }
             live.gone.complete(Unit)
             synchronized(held) {
                 live.ended = true
+                val tunnels = live.tunnels.toList()
+                live.tunnels.clear()
+                tunnels.asReversed().forEach(::closeQuietly)
                 val clients = live.sftp.toList()
                 live.sftp.clear()
                 clients.asReversed().forEach(::closeQuietly)
@@ -1064,7 +1154,7 @@ class ConnectionManager(
                             // Accepted: keep where it is stored and a keyed digest, never the password.
                             val login = server.passwordRefs.getOrNull(index)?.let { OpencodeLogin(server.baseUrl, it) }
                             val check = login?.let { PasswordCheck.of(password) }
-                            return Live(session, client, info, identity, login, check)
+                            return Live(session, client, info, identity, login, check, portOf(server.baseUrl))
                         } catch (failure: Throwable) {
                             release(client)
                             val refused = failure is ConnectionException &&
@@ -1230,6 +1320,15 @@ class ConnectionManager(
         fun ServerEvent.endsServer(): Boolean =
             this is ServerEvent.Disconnected || (this is ServerEvent.Unknown && rawType == SHUTDOWN_EVENT)
 
+        val TCP_PORTS = 1..65535
+
+        /** The port of [baseUrl], a loopback URL [ServerResolver] made; null when it names none. */
+        fun portOf(baseUrl: String): Int? = try {
+            URI(baseUrl).port.takeIf { it in TCP_PORTS }
+        } catch (_: URISyntaxException) {
+            null
+        }
+
         /** Runs the releases of stopped connections, off their callers' threads. */
         val RELEASES = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -1301,6 +1400,14 @@ interface BoundConnection {
      */
     suspend fun openSftp(root: String): SftpClient
 }
+
+/**
+ * [ConnectionManager.openPreviewTunnel] was asked for the port `opencode serve` listens on: the
+ * preview never reaches the opencode API. [port] is that port on the server's loopback; the message
+ * names no host.
+ */
+class OpencodePortRefusedException(val port: Int) :
+    IllegalArgumentException("The opencode server's port cannot be previewed")
 
 /**
  * How a connection reaches `opencode serve`: [baseUrl] as seen from the SSH server (a loopback
