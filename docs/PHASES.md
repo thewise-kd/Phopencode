@@ -57,7 +57,7 @@ Since P12.11, CI runs no longer start on push, because GitHub Actions costs mone
 
 ## Module map
 
-This list is created in one go in P0.4. 32 modules in total.
+This list is created in one go in P0.4; P13.2 adds the `preview` feature. 34 modules in total.
 
 | Path | Type | Contents |
 |---|---|---|
@@ -80,7 +80,7 @@ This list is created in one go in P0.4. 32 modules in total.
 | `feature/<f>/ui` | Android | Compose screens |
 | `app` | Android | Entry point, NavHost, Koin startup |
 
-`<f>`: `connect`, `sessions`, `chat`, `catalog`, `files`, `git`, `notify`, `settings`. In addition, `helper/` is a Python service, outside Gradle.
+`<f>`: `connect`, `sessions`, `chat`, `catalog`, `files`, `git`, `notify`, `settings`, `preview`. In addition, `helper/` is a Python service, outside Gradle.
 
 ## Parallel work rules
 
@@ -747,7 +747,7 @@ Rules every task of this phase keeps:
 
 | Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
 |---|---|---|---|---|---|
-| P13.2 | `preview` modules | P0.4 | `settings.gradle.kts` (the two module lines), `feature/preview/logic/build.gradle.kts`, `feature/preview/ui/build.gradle.kts`, `feature/preview/ui/src/main/AndroidManifest.xml`, `build-logic/src/test/…/buildlogic/ModuleMap.kt`, `docs/PHASES.md` (module map and this row) | `:feature:preview:logic` applies `phopencode.feature.logic` and depends on `:core:remote`; `:feature:preview:ui` applies `phopencode.feature.ui`; `./gradlew jvmCheck` runs `:feature:preview:logic:jvmCheck` without an SDK and skips the UI module; an Android dependency in the logic module fails its build; `check_boundaries.py` treats it as a JVM module; `./gradlew functionalTest` passes; the module map says 34 modules and lists `preview`; no new catalog entry | `PI` |
+| P13.2 | `preview` modules | P0.4 | `settings.gradle.kts` (the two module lines), `feature/preview/logic/build.gradle.kts`, `feature/preview/ui/build.gradle.kts`, `feature/preview/ui/src/main/AndroidManifest.xml`, `build-logic/src/test/…/buildlogic/ModuleMap.kt`, `build-logic/src/test/…/buildlogic/JvmModuleRulesTest.kt` (the module count only), `docs/PHASES.md` (module map and this row) | `:feature:preview:logic` applies `phopencode.feature.logic` and depends on `:core:remote`; `:feature:preview:ui` applies `phopencode.feature.ui`; `./gradlew jvmCheck` runs `:feature:preview:logic:jvmCheck` without an SDK and skips the UI module; an Android dependency in the logic module fails its build; `check_boundaries.py` treats it as a JVM module; `./gradlew functionalTest` passes; the module map says 34 modules and lists `preview`; no new catalog entry | `PI` |
 | P13.3 | Tunnel pinned to one loopback port | P3.5, P3.11 | `core/ssh/…/api/SshConnector.kt` (the new `SshSession` member only), `core/ssh/…/tunnel/`, `core/ssh/…/connect/SshjSession.kt`, `core/ssh/…/connect/SessionFeatures.kt`, their tests, `core/testing/…/ssh/FakeSsh.kt`, `core/testing/…/contract/SshContracts.kt` (pinned tunnel cases), `docs/PHASES.md` (this row) | `SshSession.openLoopbackTunnel(port)` gives an `AutoCloseable` tunnel whose `SocketFactory` reaches only `127.0.0.1`, `::1` or `localhost` on that port; another port, or any non-loopback host (`10.0.0.1`, `192.168.1.10`, a name other than `localhost`), is refused before a channel opens; a port outside 1..65535 is refused at creation; no local port is bound or listened on; closing the tunnel closes its open sockets and refuses new ones; closing the session closes the tunnel; `socketFactory()` and `LoopbackTarget`'s host rules are unchanged and their existing tests pass untouched; tests against the embedded MINA server and the fake's contract | `PI` |
 | P13.4 | Listening ports on the server | P3.2 | `core/remote/…/preview/` and its tests | Runs the fixed command `ss -ltnH` through `RemoteExec`, with no `sudo`, no `kill` and no variable part; when `ss` is missing it reads `/proc/net/tcp` and `/proc/net/tcp6` (state `0A`); when neither works the result says unsupported. Parses IPv4, IPv6, `*`, `0.0.0.0`, `[::]`, `[::ffff:127.0.0.1]` and `%lo` scope samples; keeps the ports reachable on loopback (bound to a loopback or wildcard address), drops ones bound only to another address, removes duplicates and sorts them; marks the opencode server's port; caps the output it reads and has a timeout; a failed command maps to a typed error without host names or paths | `PI` |
 

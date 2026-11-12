@@ -58,6 +58,7 @@ phopencodeModules {
         ":feature:git:logic",
         ":feature:notify:logic",
         ":feature:settings:logic",
+        ":feature:preview:logic",
     )
     android(
         ":core:storage",
@@ -72,6 +73,7 @@ phopencodeModules {
         ":feature:git:ui",
         ":feature:notify:ui",
         ":feature:settings:ui",
+        ":feature:preview:ui",
         ":app",
     )
 }
