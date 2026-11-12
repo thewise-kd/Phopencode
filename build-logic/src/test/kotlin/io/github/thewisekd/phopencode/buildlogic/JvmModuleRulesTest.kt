@@ -85,9 +85,9 @@ class JvmModuleRulesTest {
     }
 
     @Test
-    fun `with an SDK all 32 modules are projects`() {
+    fun `with an SDK all 34 modules are projects`() {
         val output = build.succeeds("projects", sdk = build.emptySdk()).output
-        assertEquals(32, ModuleMap.jvm.size + ModuleMap.android.size)
+        assertEquals(34, ModuleMap.jvm.size + ModuleMap.android.size)
         (ModuleMap.jvm + ModuleMap.android).forEach { assertContains(output, "'$it'") }
     }
 

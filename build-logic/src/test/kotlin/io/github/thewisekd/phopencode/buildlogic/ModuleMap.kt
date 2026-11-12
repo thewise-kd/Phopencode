@@ -1,8 +1,8 @@
 package io.github.thewisekd.phopencode.buildlogic
 
-/** The 32 modules of "Module map" in docs/PHASES.md, spelled out on the test side. */
+/** The 34 modules of "Module map" in docs/PHASES.md, spelled out on the test side. */
 object ModuleMap {
-    private val FEATURES = listOf("connect", "sessions", "chat", "catalog", "files", "git", "notify", "settings")
+    private val FEATURES = listOf("connect", "sessions", "chat", "catalog", "files", "git", "notify", "settings", "preview")
 
     val jvm: List<String> = listOf(
         ":core:model", ":core:api", ":core:api-http", ":core:session", ":core:ssh", ":core:remote",
