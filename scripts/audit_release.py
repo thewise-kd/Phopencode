@@ -33,7 +33,9 @@ public too. Locations are `path` or `path:line` in the working tree, and
    (`*.jks`, `*.keystore`, `*.p12`, `*.pfx`, `*.bks`), `local.properties`, `.env` or
    `.env.*`, or `google-services.json` ever committed. Each (blob, path) pair is reported
    once, at the oldest commit that holds it; HISTORY_ALLOWLIST applies per path, so content
-   allowed at one path is still reported where it is copied.
+   allowed at one path is still reported where it is copied. A finding that carries no value
+   (check_boundaries' rules) can be allowed only by HISTORY_COMMIT_ALLOWLIST, pinned to one
+   commit, path, blob and line.
 
 2. License headers. This repository puts no license header in its source files: the project
    license is the root `LICENSE` (MIT), and third-party licenses are recorded in
@@ -99,7 +101,11 @@ public too. Locations are `path` or `path:line` in the working tree, and
      APIs (sockets, socket factories, URL connections, OkHttp, sshj, WebView, name lookups,
      and other HTTP clients) appear only in NETWORK_CODE: the SSH connection and the tunnel
      that carries the opencode API to the server's 127.0.0.1. Code that hands a URL to another
-     app (`UriHandler`, `ACTION_VIEW`, custom tabs) appears only in LINK_OPENERS.
+     app (`UriHandler`, `ACTION_VIEW`, custom tabs) appears only in LINK_OPENERS. A file in
+     NETWORK_SCOPES may use only the APIs listed there for it. No main source opens a listening
+     or datagram socket, except the live preview's bridge (PREVIEW_BRIDGE, decision D9), and it
+     only as `ServerSocket(port, backlog, 127.0.0.1)` with the address built from its bytes:
+     another address, a later `bind`, a constructor reference or an alias is reported.
    - A URL literal in main code or resources (comments and XML namespaces aside; assets are
      data that is shown or parsed, never fetched) names 127.0.0.1, a reserved domain, a
      templated host (see url_host: a templated port, path or user does not count), or a host
@@ -157,6 +163,36 @@ HISTORY_ALLOWLIST = {
         "a four-part version string in the server-version contract cases",
     (f"core/remote/{_TESTS}/core/remote/detect/ScanReportTest.kt", "public IP", "5bf3bddbd02dbb6a"):
         "127.0.0.1 written backwards, a listener address that must not count as loopback",
+    (f"core/remote/{_TESTS}/core/remote/preview/ListenTableTest.kt", "public IP", "5bf3bddbd02dbb6a"):
+        "127.0.0.1 with its bytes swapped, a /proc/net row read in the wrong byte order",
+    (f"feature/preview/logic/{_TESTS}/feature/preview/logic/viewport/DesktopUserAgentTest.kt",
+     "public IP", "f8b2a04eb2591ed1"):
+        "a Chrome version (major.0.0.0) inside a sample user-agent string",
+    (f"feature/preview/logic/{_TESTS}/feature/preview/logic/viewport/DesktopUserAgentTest.kt",
+     "public IP", "c074e46d08ab5679"):
+        "the reduced Chrome version (major.0.0.0) the desktop user agent must carry",
+    (f"feature/preview/logic/{_TESTS}/feature/preview/logic/viewport/DesktopUserAgentTest.kt",
+     "public IP", "4afc44877d2ebf3e"):
+        "a full Chrome version in a sample user agent, which the desktop one reduces",
+    (f"feature/preview/logic/{_TESTS}/feature/preview/logic/viewport/ViewportProfileTest.kt",
+     "public IP", "209a65b25164f197"):
+        "a Chrome version in the sample WebView user-agent string",
+    (f"feature/preview/ui/{_TESTS}/feature/preview/ui/page/viewport/ViewportSettingsTest.kt",
+     "public IP", "209a65b25164f197"):
+        "a Chrome version in the sample WebView user-agent string",
+}
+
+# History findings that carry no value (check_boundaries' rules), each pinned to one commit,
+# path, blob and line: {(commit, path, blob, line, rule fragment): why}. The commit is the oldest
+# one holding that blob at that path, where the finding is reported; the same text in any other
+# commit, path or blob is still reported. Only for text already fixed in the working tree whose
+# old commit stays in history.
+HISTORY_COMMIT_ALLOWLIST = {
+    ("135529227e84b7a9796088280f4bd82367d44c44",
+     f"feature/preview/logic/{_TESTS}/feature/preview/logic/page/DefaultPagePresenterTest.kt",
+     "86dc254750a91d6d99ce665ec38f0d81d1c3fc0a", 53, "hard-coded secret"):
+        "P13.11's made-up test value, two string literals joined; the working tree now builds it "
+        "at runtime from parts the rule does not match",
 }
 
 KEYSTORE_SUFFIXES = (".jks", ".keystore", ".p12", ".pfx", ".bks")
@@ -410,8 +446,18 @@ def audit_history(root):
             if kind not in cache:
                 cache[kind] = raw_findings(path, data)
             for line, finding in apply_allowlist(path, cache[kind]):
-                problems.append(f"{where}:{path}:{line}: {finding}")
+                if not commit_allowed(where, path, sha, line, finding):
+                    problems.append(f"{where}:{path}:{line}: {finding}")
     return problems
+
+
+def commit_allowed(where, path, blob, line, finding):
+    """True for a finding HISTORY_COMMIT_ALLOWLIST pins to this commit, path, blob and line."""
+    return len(where) >= 12 and any(
+        commit.startswith(where) and path == entry_path and blob == entry_blob
+        and line == entry_line and fragment in finding
+        for commit, entry_path, entry_blob, entry_line, fragment in HISTORY_COMMIT_ALLOWLIST
+    )
 
 
 def audit_refs(root, add_tree, occurrences):
@@ -1450,6 +1496,12 @@ CLEARTEXT_DOMAIN = "127.0.0.1"
 MAIN_SOURCE = re.compile(r"^((?:app|core/[^/]+|feature/[^/]+/[^/]+))/src/main/")
 _PACKAGE = "src/main/kotlin/io/github/thewisekd/phopencode"
 
+_PREVIEW_LOGIC = f"feature/preview/logic/{_PACKAGE}/feature/preview/logic"
+_PREVIEW_UI = f"feature/preview/ui/{_PACKAGE}/feature/preview/ui"
+# The one main-source file that may listen on a socket (D9): only with a ServerSocket bound to
+# 127.0.0.1 in its constructor, see audit_preview_bridge.
+PREVIEW_BRIDGE = f"{_PREVIEW_LOGIC}/transport/LoopbackBridge.kt"
+
 # Main-source paths (exact files, or directories ending in /) that may use network APIs, read
 # from the code. Nothing else in the app opens a connection.
 NETWORK_CODE = {
@@ -1466,6 +1518,41 @@ NETWORK_CODE = {
         "any host that is not a loopback literal",
     f"core/remote/{_PACKAGE}/core/remote/detect/ScanReport.kt":
         "InetAddress.getByName on an IPv6 literal only, which parses and never looks a name up",
+    f"core/remote/{_PACKAGE}/core/remote/preview/ListenTable.kt":
+        "InetAddress.getByAddress on /proc/net bytes and getByName on an IPv6 literal checked "
+        "by IPV6_LITERAL first: parses address literals, never looks a name up",
+    PREVIEW_BRIDGE:
+        "the live preview's HTTP bridge (D9, option (b)): the app's only listening socket, a "
+        "ServerSocket on 127.0.0.1 alone (audit_preview_bridge), each connection relayed "
+        "through the pinned tunnel",
+    f"{_PREVIEW_LOGIC}/transport/BridgeConnection.kt":
+        "serves one bridge connection: the accepted Socket, and a Socket from the pinned "
+        "tunnel's SocketFactory to the dev server's port on the server's loopback",
+    **{
+        f"{_PREVIEW_UI}/page/{name}.kt": "the preview screen's isolated WebView (P13.13); it "
+        "loads only the bridge's 127.0.0.1 origin, and leaving it goes through ExternalLinks"
+        for name in ("PreviewWebClients", "PreviewWebHolder", "PreviewWebHost", "PreviewWebView", "PreviewWebViews")
+    },
+}
+
+# NETWORK_CODE files that may use only these network APIs (a dotted name, or a package and
+# everything under it). An entry here keeps a file's exemption to what its reason names.
+_WEBVIEW_ONLY = ("android.webkit", "android.net.http.SslError")
+NETWORK_SCOPES = {
+    f"core/remote/{_PACKAGE}/core/remote/preview/ListenTable.kt":
+        ("java.net.InetAddress", "java.net.UnknownHostException"),
+    PREVIEW_BRIDGE: (
+        "java.net.Inet4Address", "java.net.InetAddress", "java.net.InetSocketAddress",
+        "java.net.ServerSocket", "java.net.Socket",
+    ),
+    f"{_PREVIEW_LOGIC}/transport/BridgeConnection.kt": (
+        "java.net.ConnectException", "java.net.InetSocketAddress", "java.net.Socket",
+        "java.net.SocketTimeoutException",
+    ),
+    **{
+        f"{_PREVIEW_UI}/page/{name}.kt": _WEBVIEW_ONLY
+        for name in ("PreviewWebClients", "PreviewWebHolder", "PreviewWebHost", "PreviewWebView", "PreviewWebViews")
+    },
 }
 
 # Main-source files that hand a URL to another app. Each was read: none fetches anything itself.
@@ -1479,6 +1566,9 @@ LINK_OPENERS = {
     f"feature/notify/ui/{_PACKAGE}/feature/notify/ui/setup/SetupScreen.kt":
         "opens the ntfy:// subscription link in the ntfy app, or ntfy's phone-app page when the "
         "user taps it after the app was found missing",
+    f"{_PREVIEW_UI}/page/ExternalLinks.kt":
+        "opens an http(s) address the preview page navigated to in the browser, only after the "
+        "user confirms the dialog that shows it in full",
 }
 
 # Hosts that main code may name in a URL literal, per file, because the URL is only shown or
@@ -1510,6 +1600,15 @@ NETWORK_APIS = (
 )
 NETWORK_WILDCARDS = ("java.net", "javax.net", "java.nio.channels", "android.webkit")
 NETWORK_API = DottedNames(NETWORK_APIS, NETWORK_WILDCARDS)
+# Names that open a listening or datagram socket. Only PREVIEW_BRIDGE may, and only ServerSocket.
+LISTENING_API = re.compile(
+    r"\b(?:ServerSocket|ServerSocketChannel|AsynchronousServerSocketChannel|ServerSocketFactory"
+    r"|SSLServerSocket|SSLServerSocketFactory|createServerSocket|DatagramSocket|MulticastSocket"
+    r"|DatagramChannel|AsynchronousDatagramChannel)\b"
+)
+LOOPBACK_ADDRESS = re.compile(r"(?:java\.net\.)?InetAddress\.getByAddress\(byteArrayOf\(127,0,0,1\)\)")
+FULL_NAME = re.compile(r"\w+(?:\s*\.\s*(?:\w+|\*))*")
+BIND_CALL = re.compile(r"\bbind\b")
 LINK_OPENER = re.compile(r"\b(?:LocalUriHandler|UriHandler|ACTION_VIEW|CustomTabsIntent|openUri)\b")
 URL_LITERAL = re.compile(r"\b(?:https?|wss?|ftp)://([^\s/\"'<>`?#)\],;|]*)")
 XML_COMMENT = re.compile(r"<!--.*?-->", re.S)
@@ -1857,6 +1956,119 @@ def audit_cleartext(root, files):
     return problems
 
 
+def in_scope(name, scope):
+    return any(name == allowed or name.startswith(allowed + ".") for allowed in scope)
+
+
+DECLARING_KEYWORD = re.compile(
+    r"\b(?:val|var|fun|class|interface|object|typealias|vararg|crossinline|noinline)\s+"
+    r"(?:[\w.<>?,\s]*\.\s*)?$"
+)
+DESTRUCTURING_OPEN = re.compile(r"(?:\b(?:val|var)|\{|\bfor\s*\(|,)\s*$")
+
+
+def enclosing_parens(code, start):
+    """(open, close) of the innermost parentheses around `start`, or None."""
+    depth = 0
+    for index in range(start - 1, -1, -1):
+        char = code[index]
+        if char in ")]}":
+            depth += 1
+        elif char in "([{":
+            if depth == 0:
+                if char != "(":
+                    return None
+                arguments = call_arguments(code, index)
+                return None if arguments is None else (index, index + 1 + len(arguments))
+            depth -= 1
+    return None
+
+
+def is_declaration(code, start, end):
+    """True when the name at code[start:end] declares something rather than uses it.
+
+    Strict on purpose: a `val`/`var`/`fun`/... name (extension receivers included), a typed
+    name (parameters, typed lambda parameters, `catch`, typed loop variables), a name before
+    `->` (lambda parameters; a `when` branch on the name counts too), a loop variable before
+    `in`, and a name in a destructuring list (`val (a, x)`, `for ((a, x) in`, `{ (a, x) -> }`).
+    """
+    before, after = code[:start], code[end:]
+    if DECLARING_KEYWORD.search(before):
+        return True
+    if re.match(r"\s*(?::(?!:)|(?:,[^;{}()]*)?->|in\b)", after):
+        return True
+    span = enclosing_parens(code, start)
+    if span and re.match(r"\s*[,)]", after):
+        opened, closed = span
+        if DESTRUCTURING_OPEN.search(code[:opened]) or re.match(r"\s*(?:=(?!=)|->|in\b|:)", code[closed + 1 :]):
+            return True
+    return False
+
+
+def declarations_of(code, name):
+    """Offsets of every declaration of `name` in a code view; backticked names count the same."""
+    code = code.replace("`", " ")
+    word = re.compile(r"(?<![\w$])" + re.escape(name) + r"(?![\w$])")
+    return [m.start() for m in word.finditer(code) if is_declaration(code, m.start(), m.end())]
+
+
+def loopback_constant(code, name, neighbours=()):
+    """True when `name` is declared exactly once in the bridge, as a `val` holding 127.0.0.1
+    from its bytes, and nowhere else: not again in the file (a local, a loop variable, a
+    parameter or lambda parameter that would shadow it), and not in another main source of
+    the bridge's module, whose members could reach it through a receiver or a supertype."""
+    declared = declarations_of(code, name)
+    if len(declared) != 1 or any(declarations_of(other, name) for other in neighbours):
+        return False
+    view, at = code.replace("`", " "), declared[0]
+    value = re.compile(re.escape(name) + r"\s*(?::\s*[\w.?]+\s*)?=\s*([^\n]+)").match(view, at)
+    return (
+        re.search(r"\bval\s+$", view[:at]) is not None
+        and value is not None
+        and LOOPBACK_ADDRESS.fullmatch(re.sub(r"\s+", "", value.group(1))) is not None
+    )
+
+
+def audit_preview_bridge(path, code, neighbours=()):
+    """The bridge listens only through `ServerSocket(port, backlog, <127.0.0.1>)`.
+
+    The address is the literal `InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))` or a
+    `val` holding it, declared nowhere else (loopback_constant). Any other listening API, a constructor with another
+    or no address, a constructor reference, an alias of ServerSocket or a later `bind` fails.
+    """
+    problems = []
+
+    def report(offset, what):
+        problems.append(f"{path}:{line_of(code, offset)}: preview bridge {what}; it may listen on the loopback address only")
+
+    for match in LISTENING_API.finditer(code):
+        start, end = match.start(), match.end()
+        line_start = code.rfind("\n", 0, start) + 1
+        line_end = code.find("\n", end)
+        line = code[line_start : len(code) if line_end < 0 else line_end]
+        if match.group() != "ServerSocket":
+            report(start, f"uses {match.group()}")
+        elif code[:start].rstrip().endswith("::"):
+            report(start, "takes a ServerSocket constructor reference")
+        elif re.search(r"\btypealias\b", line) or re.match(r"\s*import\b.*\bas\b", line):
+            report(start, "renames ServerSocket")
+        else:
+            paren = re.compile(r"\s*\(").match(code, end)
+            if not paren:
+                continue  # a type, an import or an `is` check
+            arguments = call_arguments(code, paren.end() - 1)
+            parts = split_arguments(arguments) if arguments is not None else []
+            address = re.sub(r"\s+", "", parts[2]) if len(parts) == 3 else ""
+            if not (
+                LOOPBACK_ADDRESS.fullmatch(address)
+                or (IDENTIFIER.fullmatch(address) and loopback_constant(code, address, neighbours))
+            ):
+                report(start, "creates a ServerSocket not bound to 127.0.0.1")
+    for match in BIND_CALL.finditer(code):
+        report(match.start(), "binds a socket after creating it")
+    return problems
+
+
 def audit_app_network(root, files, test_support):
     problems = []
     for path in files:
@@ -1869,6 +2081,27 @@ def audit_app_network(root, files, test_support):
                 for match in NETWORK_API.finditer(code):
                     problems.append(
                         f"{path}:{line_of(code, match.start())}: network API outside the SSH and tunnel code"
+                    )
+            elif path in NETWORK_SCOPES:
+                for match in NETWORK_API.finditer(code):
+                    full = FULL_NAME.match(code, match.start()).group()
+                    if not in_scope(re.sub(r"\s+", "", full), NETWORK_SCOPES[path]):
+                        problems.append(
+                            f"{path}:{line_of(code, match.start())}: network API beyond the use "
+                            "NETWORK_CODE reviewed for this file"
+                        )
+            if path == PREVIEW_BRIDGE:
+                module = MAIN_SOURCE.match(path).group(0)
+                neighbours = [
+                    source_view(root, other, keep_strings=False)
+                    for other in files
+                    if other != path and other.startswith(module) and other.endswith((".kt", ".java"))
+                ]
+                problems.extend(audit_preview_bridge(path, code, neighbours))
+            else:
+                for match in LISTENING_API.finditer(code):
+                    problems.append(
+                        f"{path}:{line_of(code, match.start())}: listening socket outside the preview bridge"
                     )
             if not listed(path, LINK_OPENERS):
                 for match in LINK_OPENER.finditer(code):
