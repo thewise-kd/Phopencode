@@ -25,6 +25,7 @@ import io.github.thewisekd.phopencode.core.navigation.ChatRoute
 import io.github.thewisekd.phopencode.core.navigation.ConnectRoute
 import io.github.thewisekd.phopencode.core.navigation.FilesRoute
 import io.github.thewisekd.phopencode.core.navigation.GitRoute
+import io.github.thewisekd.phopencode.core.navigation.PreviewRoute
 import io.github.thewisekd.phopencode.core.navigation.Route
 import io.github.thewisekd.phopencode.core.navigation.SessionsRoute
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
@@ -307,6 +308,8 @@ class ChatGraphTest {
                         // Stand-ins for the files and git features' graphs, which this module cannot see.
                         composable<FilesRoute.Tree> { Box(Modifier.fillMaxSize().testTag("files")) }
                         composable<GitRoute.Status> { Box(Modifier.fillMaxSize().testTag("git")) }
+                        // A stand-in for the preview feature's graph.
+                        composable<PreviewRoute.Ports> { Box(Modifier.fillMaxSize().testTag("preview")) }
                         composable<SessionsRoute.SessionList> { Box(Modifier.fillMaxSize().testTag("sessions")) }
                         chatGraph(navController)
                     }
@@ -331,6 +334,7 @@ class ChatGraphTest {
             destination.hasRoute<ChatRoute.TurnDiff>() -> entry.toRoute<ChatRoute.TurnDiff>()
             destination.hasRoute<FilesRoute.Tree>() -> entry.toRoute<FilesRoute.Tree>()
             destination.hasRoute<GitRoute.Status>() -> entry.toRoute<GitRoute.Status>()
+            destination.hasRoute<PreviewRoute.Ports>() -> PreviewRoute.Ports
             destination.hasRoute<SessionsRoute.SessionList>() -> entry.toRoute<SessionsRoute.SessionList>()
             else -> null // The graph itself.
         }
@@ -865,6 +869,19 @@ class ChatGraphTest {
 
         assertEquals(listOf(ConnectRoute.ServerList, chat, GitRoute.Status(FOLDER)), backStack())
         compose.onNodeWithTag("git").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the chat opens the live preview's port list on top of it`() {
+        setNavHost()
+        val chat = ChatRoute.Chat(SESSION)
+        open(chat)
+
+        actions.getValue(chat).eventChannel.trySend(ActionsEvent.OpenPreview)
+        compose.waitForIdle()
+
+        assertEquals(listOf(ConnectRoute.ServerList, chat, PreviewRoute.Ports), backStack())
+        compose.onNodeWithTag("preview").assertIsDisplayed()
     }
 
     @Test

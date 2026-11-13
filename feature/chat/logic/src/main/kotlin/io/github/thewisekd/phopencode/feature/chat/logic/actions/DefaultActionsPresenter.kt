@@ -53,6 +53,8 @@ import kotlinx.coroutines.yield
  * - [ActionsState.directory] is the loaded session's folder, kept as long as the session is kept
  *   (through a reconnect too); a blank one counts as none. [ActionsIntent.OpenFiles] and
  *   [ActionsIntent.OpenGit] emit their event for it, and nothing while it is null.
+ * - [ActionsIntent.OpenPreview] closes the menu and emits [ActionsEvent.OpenPreview] only while
+ *   [ActionsState.enabled]: the preview reaches the server through the live connection.
  *
  * Nothing runs in the constructor: work starts in [scope] after a `yield()`. Nothing here logs,
  * and the state prints no message IDs.
@@ -125,6 +127,7 @@ class DefaultActionsPresenter(
             ActionsIntent.OpenFiles -> state.value.directory?.let { eventChannel.trySend(ActionsEvent.OpenFiles(it)) }
             ActionsIntent.OpenGit -> state.value.directory?.let { eventChannel.trySend(ActionsEvent.OpenGit(it)) }
             ActionsIntent.NewSession -> newSession()
+            ActionsIntent.OpenPreview -> openPreview()
         }
     }
 
@@ -133,6 +136,15 @@ class DefaultActionsPresenter(
     /** Whether [action] may start now: none runs, and no compaction is already on its way. */
     private fun allowed(state: ActionsState, action: SessionAction): Boolean =
         state.canAct && !(action == SessionAction.Compact && state.compacting)
+
+    /** Closes the menu and opens the preview, only while the session is loaded and connected. */
+    private fun openPreview() {
+        val enabled = synchronized(lock) {
+            commit(model.withState { copy(menuOpen = false) })
+            model.state.enabled
+        }
+        if (enabled) eventChannel.trySend(ActionsEvent.OpenPreview)
+    }
 
     // Following the session
 

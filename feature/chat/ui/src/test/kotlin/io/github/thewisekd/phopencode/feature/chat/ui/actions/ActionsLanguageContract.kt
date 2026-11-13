@@ -24,6 +24,8 @@ internal data class ExpectedActionsStrings(
     val compactDetail: String,
     val fork: String,
     val forkDetail: String,
+    val preview: String,
+    val previewDetail: String,
     val busy: String,
     val compactTitle: String,
     val compactMessage: String,
@@ -73,6 +75,7 @@ abstract class ActionsLanguageContract {
         assertEquals(strings.close, merged(ActionsTags.MENU_CLOSE).text())
         merged(ActionsTags.COMPACT).assert(hasText(strings.compact)).assert(hasText(strings.compactDetail))
         merged(ActionsTags.FORK).assert(hasText(strings.fork)).assert(hasText(strings.forkDetail))
+        merged(ACTIONS_PREVIEW_TAG).assert(hasText(strings.preview)).assert(hasText(strings.previewDetail))
 
         show(READY.copy(menuOpen = true, running = SessionAction.Compact))
         assertEquals(strings.busy, node(ActionsTags.BUSY).text())

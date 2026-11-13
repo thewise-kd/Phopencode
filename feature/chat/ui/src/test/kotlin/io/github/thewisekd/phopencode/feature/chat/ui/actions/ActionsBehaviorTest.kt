@@ -106,6 +106,38 @@ class ActionsBehaviorTest {
     }
 
     @Test
+    fun `the open menu offers the live preview, which opens it at once`() {
+        val harness = compose.setActions(READY.copy(menuOpen = true))
+
+        merged(ACTIONS_PREVIEW_TAG).assert(hasText("Live preview")).assertIsEnabled().assertTouchSizeIsAtLeast(48.dp)
+
+        click(ACTIONS_PREVIEW_TAG)
+
+        assertEquals(listOf<ActionsIntent>(ActionsIntent.OpenPreview), harness.intents)
+    }
+
+    @Test
+    fun `the live preview stays open to a tap while an action runs`() {
+        val harness = compose.setActions(READY.copy(menuOpen = true, running = SessionAction.Compact))
+
+        merged(ACTIONS_PREVIEW_TAG).assertIsEnabled()
+        click(ACTIONS_PREVIEW_TAG)
+
+        assertEquals(listOf<ActionsIntent>(ActionsIntent.OpenPreview), harness.intents)
+    }
+
+    @Test
+    fun `the live preview is disabled while not connected`() {
+        val harness = compose.setActions(ActionsState(menuOpen = true))
+
+        merged(ACTIONS_PREVIEW_TAG).assertIsNotEnabled()
+        compose.onNodeWithTag(ACTIONS_PREVIEW_TAG).performClick()
+        compose.waitForIdle()
+
+        assertEquals(emptyList(), harness.intents)
+    }
+
+    @Test
     fun `the menu closes by its button`() {
         val harness = compose.setActions(READY.copy(menuOpen = true))
 

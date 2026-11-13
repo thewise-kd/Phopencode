@@ -25,6 +25,8 @@ import kotlin.time.Instant
  * @property endReached No page follows the last one loaded.
  * @property error Loading or refreshing the first page failed; shown over [rows] when there are any.
  * @property loadMoreError Loading the next page failed; [rows] stay, and asking again retries it.
+ * @property connected The active connection stands (`ConnectionState.Connected`), so the live
+ *   preview (P13.16, [SessionListIntent.OpenPreview]) can open.
  */
 data class SessionListState(
     val directory: String? = null,
@@ -37,6 +39,7 @@ data class SessionListState(
     val endReached: Boolean = false,
     val error: SessionsFailure? = null,
     val loadMoreError: SessionsFailure? = null,
+    val connected: Boolean = false,
 ) {
     /** Loaded, with nothing to show and nothing failed: the empty state. */
     val isEmpty: Boolean
@@ -56,7 +59,7 @@ data class SessionListState(
     override fun toString(): String =
         "SessionListState(directory=$directory, loading=$loading, refreshing=$refreshing, rows=$rows, " +
             "query=***, showArchived=$showArchived, loadingMore=$loadingMore, endReached=$endReached, " +
-            "error=$error, loadMoreError=$loadMoreError)"
+            "error=$error, loadMoreError=$loadMoreError, connected=$connected)"
 }
 
 /**
@@ -131,6 +134,9 @@ sealed interface SessionListIntent {
     /** Opens git for [SessionListState.directory]; nothing when the list has no folder. */
     data object OpenGit : SessionListIntent
 
+    /** Opens the live preview; nothing while not [SessionListState.connected]. */
+    data object OpenPreview : SessionListIntent
+
     data object DismissError : SessionListIntent
 }
 
@@ -147,6 +153,9 @@ sealed interface SessionListEvent {
 
     /** Opens `GitRoute.Status` for [directory], the list's folder. */
     data class OpenGit(val directory: String) : SessionListEvent
+
+    /** Opens `PreviewRoute.Ports`: the connected server's listening ports, to pick one to preview. */
+    data object OpenPreview : SessionListEvent
 }
 
 interface SessionListPresenter : Presenter<SessionListState, SessionListIntent, SessionListEvent>

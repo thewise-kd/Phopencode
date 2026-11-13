@@ -43,6 +43,8 @@ internal data class ExpectedSessionListStrings(
     val catalogItems: Map<CatalogDestination, String>,
     /** The same menu's notification items, by where they lead. */
     val notifyItems: Map<NotifyDestination, String>,
+    /** The same menu's last item, which opens the live preview. */
+    val preview: String,
     val search: String,
     val showArchived: String,
     val archived: String,
@@ -108,6 +110,17 @@ abstract class SessionListScreenLanguageContract {
         compose.onNodeWithContentDescription(strings.catalog).performClick()
 
         strings.notifyItems.values.forEach { compose.onNodeWithText(it).assertIsDisplayed() }
+    }
+
+    @Test
+    fun `the menu's live preview item is labelled`() {
+        val labels = strings.catalogItems.values + strings.notifyItems.values + strings.preview
+        assertEquals(labels.size, labels.toSet().size, "menu labels must differ")
+        compose.setSessionList(listed.copy(connected = true))
+
+        compose.onNodeWithContentDescription(strings.catalog).performClick()
+
+        compose.onNodeWithText(strings.preview).assertIsDisplayed()
     }
 
     @Test

@@ -18,6 +18,8 @@ class EnglishActionsTest : ActionsLanguageContract() {
         compactDetail = "Summarize the conversation so far to free up the model's context.",
         fork = "Fork session",
         forkDetail = "Copy the whole conversation into a new session.",
+        preview = "Live preview",
+        previewDetail = "Show a web app running on the server, such as a dev server, on this phone.",
         busy = "Wait until the current action finishes.",
         compactTitle = "Compact this session?",
         compactMessage = "The server summarizes the conversation so far, and the model continues from the summary. This can take a while.",

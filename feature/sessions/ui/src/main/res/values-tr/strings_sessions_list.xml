@@ -22,6 +22,8 @@
     <!-- The same menu's items to the notification screens. -->
     <string name="sessions_list_notify_setup">Bildirimler</string>
     <string name="sessions_list_notify_pending">Bekleyen öğeler</string>
+    <!-- The same menu's last item, which opens the live preview's port list. -->
+    <string name="sessions_list_preview">Canlı önizleme</string>
     <string name="sessions_list_search">Oturum ara</string>
     <string name="sessions_list_show_archived">Arşivdekileri göster</string>
     <string name="sessions_list_archived">Arşivde</string>

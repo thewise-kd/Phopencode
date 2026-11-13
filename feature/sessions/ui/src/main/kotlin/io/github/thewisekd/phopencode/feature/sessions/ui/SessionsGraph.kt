@@ -23,6 +23,7 @@ import io.github.thewisekd.phopencode.core.navigation.ChatRoute
 import io.github.thewisekd.phopencode.core.navigation.FilesRoute
 import io.github.thewisekd.phopencode.core.navigation.GitRoute
 import io.github.thewisekd.phopencode.core.navigation.NotifyRoute
+import io.github.thewisekd.phopencode.core.navigation.PreviewRoute
 import io.github.thewisekd.phopencode.core.navigation.SessionsRoute
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.Presenter
 import io.github.thewisekd.phopencode.feature.sessions.logic.contract.SessionCreateEvent
@@ -51,7 +52,8 @@ import org.koin.mp.KoinPlatform
  * The flow: the list opens a session's chat, the creation screen or a session's management, and a
  * folder's list also that folder's files ([FilesRoute.Tree]) and git ([GitRoute.Status]). Every
  * list's menu opens the catalog's skills, registry and status ([CatalogRoute]), and the
- * notification setup and pending items ([NotifyRoute]). A
+ * notification setup and pending items ([NotifyRoute]), and the live preview's port list
+ * ([PreviewRoute.Ports]). A
  * created session's chat replaces the creation screen; a deleted session's screens are left behind.
  */
 fun NavGraphBuilder.sessionsGraph(navController: NavController) {
@@ -65,6 +67,7 @@ fun NavGraphBuilder.sessionsGraph(navController: NavController) {
                 is SessionListEvent.OpenCreate -> navController.navigate(SessionsRoute.Create(directory = event.directory))
                 is SessionListEvent.OpenFiles -> navController.navigate(FilesRoute.Tree(event.directory))
                 is SessionListEvent.OpenGit -> navController.navigate(GitRoute.Status(event.directory))
+                SessionListEvent.OpenPreview -> navController.navigate(PreviewRoute.Ports)
             }
         }
         val state by presenter.state.collectAsStateWithLifecycle()

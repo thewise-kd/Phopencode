@@ -19,6 +19,9 @@ import io.github.thewisekd.phopencode.feature.chat.logic.contract.Presenter
  * - **Files and git** of the session's folder (`Session.directory`): [ActionsEvent.OpenFiles] and
  *   [ActionsEvent.OpenGit], only while [ActionsState.directory] is known. They ask the server
  *   nothing here, so they do not wait for [ActionsState.enabled].
+ * - **Live preview** (P13.16), from the menu: [ActionsEvent.OpenPreview] opens `PreviewRoute.Ports`
+ *   on the connected server. It needs the connection, so only while [ActionsState.enabled]; it
+ *   asks the server nothing and needs no folder, so it does not wait for a running action.
  *
  * - **New session** (the `/new` built-in): `SessionApi.create` with the session's folder as its
  *   location, nothing else, as the session list's creation leaves the rest to the server; through
@@ -108,6 +111,9 @@ sealed interface ActionsIntent {
 
     /** Creates a session in [ActionsState.directory] and switches to it; nothing while it is not known. */
     data object NewSession : ActionsIntent
+
+    /** Closes the menu and opens the live preview; nothing while not [ActionsState.enabled]. */
+    data object OpenPreview : ActionsIntent
 }
 
 sealed interface ActionsEvent {
@@ -129,6 +135,9 @@ sealed interface ActionsEvent {
     data class OpenGit(val directory: String) : ActionsEvent {
         override fun toString(): String = "OpenGit(***)"
     }
+
+    /** Opens `PreviewRoute.Ports`: the connected server's listening ports, to pick one to preview. */
+    data object OpenPreview : ActionsEvent
 }
 
 interface ActionsPresenter : Presenter<ActionsState, ActionsIntent, ActionsEvent>

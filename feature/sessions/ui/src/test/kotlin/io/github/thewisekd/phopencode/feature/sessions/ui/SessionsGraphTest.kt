@@ -21,6 +21,7 @@ import io.github.thewisekd.phopencode.core.navigation.ConnectRoute
 import io.github.thewisekd.phopencode.core.navigation.FilesRoute
 import io.github.thewisekd.phopencode.core.navigation.GitRoute
 import io.github.thewisekd.phopencode.core.navigation.NotifyRoute
+import io.github.thewisekd.phopencode.core.navigation.PreviewRoute
 import io.github.thewisekd.phopencode.core.navigation.Route
 import io.github.thewisekd.phopencode.core.navigation.SessionsRoute
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
@@ -116,6 +117,7 @@ class SessionsGraphTest {
                     composable<ChatRoute.TokenUsage> { Stand("usage") }
                     composable<FilesRoute.Tree> { Stand("files") }
                     composable<GitRoute.Status> { Stand("git") }
+                    composable<PreviewRoute.Ports> { Stand("preview") }
                     composable<CatalogRoute.Skills> { Stand("skills") }
                     composable<CatalogRoute.Registry> { Stand("registry") }
                     composable<CatalogRoute.Status> { Stand("status") }
@@ -156,6 +158,7 @@ class SessionsGraphTest {
             destination.hasRoute<SessionsRoute.Manage>() -> entry.toRoute<SessionsRoute.Manage>()
             destination.hasRoute<FilesRoute.Tree>() -> entry.toRoute<FilesRoute.Tree>()
             destination.hasRoute<GitRoute.Status>() -> entry.toRoute<GitRoute.Status>()
+            destination.hasRoute<PreviewRoute.Ports>() -> PreviewRoute.Ports
             destination.hasRoute<CatalogRoute.Skills>() -> CatalogRoute.Skills
             destination.hasRoute<CatalogRoute.Registry>() -> CatalogRoute.Registry
             destination.hasRoute<CatalogRoute.Status>() -> CatalogRoute.Status
@@ -193,6 +196,17 @@ class SessionsGraphTest {
             listOf(ConnectRoute.ServerList, SessionsRoute.SessionList(directory = FOLDER), GitRoute.Status(FOLDER)),
             backStack(),
         )
+    }
+
+    @Test
+    fun `a list opens the live preview's port list on top of it`() {
+        setNavHost()
+        open(SessionsRoute.SessionList())
+
+        listEvents.trySend(SessionListEvent.OpenPreview)
+        compose.waitForIdle()
+
+        assertEquals(listOf(ConnectRoute.ServerList, SessionsRoute.SessionList(), PreviewRoute.Ports), backStack())
     }
 
     @Test

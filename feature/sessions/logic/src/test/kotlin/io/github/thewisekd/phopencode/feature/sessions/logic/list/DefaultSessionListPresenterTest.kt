@@ -897,4 +897,46 @@ class DefaultSessionListPresenterTest {
 
         assertEquals(emptyList(), env.events)
     }
+
+    // Live preview
+
+    @Test
+    fun `connected follows the connection`() = runTest {
+        val env = env(connect = false)
+        val presenter = env.presenter()
+        runCurrent()
+        assertFalse(presenter.state.value.connected)
+
+        env.connection.connect()
+        runCurrent()
+        assertTrue(presenter.state.value.connected)
+
+        env.connection.manager.disconnect()
+        runCurrent()
+        assertFalse(presenter.state.value.connected)
+    }
+
+    @Test
+    fun `the live preview opens while connected, for any list`() = runTest {
+        val env = env()
+        val every = env.presenter(directory = null)
+        val folder = env.presenter(directory = "/srv/app")
+        runCurrent()
+
+        send(every, SessionListIntent.OpenPreview)
+        send(folder, SessionListIntent.OpenPreview)
+
+        assertEquals(listOf<SessionListEvent>(SessionListEvent.OpenPreview, SessionListEvent.OpenPreview), env.events)
+    }
+
+    @Test
+    fun `the live preview does nothing while not connected`() = runTest {
+        val env = env(connect = false)
+        val presenter = env.presenter()
+        runCurrent()
+
+        send(presenter, SessionListIntent.OpenPreview)
+
+        assertEquals(emptyList(), env.events)
+    }
 }

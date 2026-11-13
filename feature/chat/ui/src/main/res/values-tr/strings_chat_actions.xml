@@ -12,6 +12,9 @@
     <string name="chat_actions_compact_detail">Modelin bağlamında yer açmak için şimdiye kadarki konuşmayı özetler.</string>
     <string name="chat_actions_fork">Oturumu çatalla</string>
     <string name="chat_actions_fork_detail">Konuşmanın tamamını yeni bir oturuma kopyalar.</string>
+    <!-- The menu's action that opens the live preview's port list. -->
+    <string name="chat_actions_preview">Canlı önizleme</string>
+    <string name="chat_actions_preview_detail">Sunucuda çalışan bir web uygulamasını, örneğin bir geliştirme sunucusunu, bu telefonda gösterir.</string>
     <!-- In the menu while a compaction or a fork is on its way. -->
     <string name="chat_actions_busy">Süren işlemin bitmesini bekleyin.</string>
     <!-- The confirmations. -->

@@ -12,6 +12,9 @@
     <string name="chat_actions_compact_detail">Summarize the conversation so far to free up the model\'s context.</string>
     <string name="chat_actions_fork">Fork session</string>
     <string name="chat_actions_fork_detail">Copy the whole conversation into a new session.</string>
+    <!-- The menu's action that opens the live preview's port list. -->
+    <string name="chat_actions_preview">Live preview</string>
+    <string name="chat_actions_preview_detail">Show a web app running on the server, such as a dev server, on this phone.</string>
     <!-- In the menu while a compaction or a fork is on its way. -->
     <string name="chat_actions_busy">Wait until the current action finishes.</string>
     <!-- The confirmations. -->

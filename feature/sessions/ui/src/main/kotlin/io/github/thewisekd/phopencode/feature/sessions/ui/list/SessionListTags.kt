@@ -5,6 +5,9 @@ import io.github.thewisekd.phopencode.core.model.SessionId
 /** The scrolling list of sessions, which a pull down refreshes. */
 internal const val SESSION_LIST_TAG = "sessions_list:list"
 
+/** The top bar menu's "Live preview" item. */
+internal const val SESSION_PREVIEW_ITEM_TAG = "sessions_list:preview"
+
 /** A row's folder chip, shown only when the list spans every folder. Carries no path. */
 internal const val SESSION_FOLDER_CHIP_TAG = "sessions_list:folder-chip"
 

@@ -21,6 +21,7 @@ import androidx.navigation.toRoute
 import io.github.thewisekd.phopencode.core.navigation.ChatRoute
 import io.github.thewisekd.phopencode.core.navigation.FilesRoute
 import io.github.thewisekd.phopencode.core.navigation.GitRoute
+import io.github.thewisekd.phopencode.core.navigation.PreviewRoute
 import io.github.thewisekd.phopencode.core.navigation.SessionsRoute
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatSession
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ComposerEvent
@@ -70,7 +71,8 @@ import org.koin.mp.KoinPlatform
  * - [ChatRoute.Chat]: every part of the chat, with a back arrow when a screen is under it. The
  *   composer's draft goes to the palette as its query; a palette pick comes back to the composer as its new draft and an attachment. Session
  *   actions open a turn's diff or switch to a fork; subagents open their list. The session's
- *   folder opens the files ([FilesRoute.Tree]) and git ([GitRoute.Status]) screens on top.
+ *   folder opens the files ([FilesRoute.Tree]) and git ([GitRoute.Status]) screens on top, and the
+ *   menu's live preview the port list ([PreviewRoute.Ports]).
  *   Sending a draft that starts with a slash word goes to the palette ([PaletteIntent.Submit]), not
  *   the composer; the palette hands back a prompt to send, or a skill to send with the rest of
  *   the draft, both through the composer, or a built-in, which runs here: see [runBuiltIn].
@@ -146,6 +148,7 @@ fun NavGraphBuilder.chatGraph(navController: NavController) {
                 ActionsEvent.CompactionStarted -> timeline.onIntent(TimelineIntent.JumpToLatest)
                 is ActionsEvent.OpenFiles -> navController.navigate(FilesRoute.Tree(event.directory))
                 is ActionsEvent.OpenGit -> navController.navigate(GitRoute.Status(event.directory))
+                ActionsEvent.OpenPreview -> navController.navigate(PreviewRoute.Ports)
             }
         }
         ForwardDraft(composer, palette)

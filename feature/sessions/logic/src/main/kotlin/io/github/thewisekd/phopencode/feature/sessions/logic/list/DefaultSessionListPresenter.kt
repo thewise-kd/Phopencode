@@ -53,7 +53,8 @@ import kotlinx.coroutines.yield
  * nothing that happens in between is missed. A connection made for another profile clears the
  * rows first, so one server's sessions never show under another. Without a connection (`Idle`,
  * `Error`, `Closed`) the list shows [SessionsFailure.NotConnected]; while one is being made, the
- * list waits as it is.
+ * list waits as it is. [SessionListState.connected] is true only while a connection is served,
+ * and [SessionListIntent.OpenPreview] opens the live preview only then.
  *
  * Loading: a first page lists roots only, newest first, with the search and archive filters; then
  * the running sessions (`activeStatuses`) and the pending forms and permissions are fetched. Those
@@ -213,6 +214,8 @@ class DefaultSessionListPresenter(
             SessionListIntent.Create -> eventChannel.trySend(SessionListEvent.OpenCreate(directory))
             SessionListIntent.OpenFiles -> folder()?.let { eventChannel.trySend(SessionListEvent.OpenFiles(it)) }
             SessionListIntent.OpenGit -> folder()?.let { eventChannel.trySend(SessionListEvent.OpenGit(it)) }
+            SessionListIntent.OpenPreview ->
+                if (mutableState.value.connected) eventChannel.trySend(SessionListEvent.OpenPreview)
             SessionListIntent.DismissError -> mutableState.update { it.copy(error = null) }
         }
     }
@@ -249,6 +252,7 @@ class DefaultSessionListPresenter(
             invalidateLocked()
             mutableState.update {
                 it.copy(
+                    connected = false,
                     loading = if (failed) false else it.loading,
                     refreshing = false,
                     loadingMore = false,
@@ -274,6 +278,7 @@ class DefaultSessionListPresenter(
                 if (shownProfile != null) clearLocked()
                 shownProfile = profile
             }
+            mutableState.update { it.copy(connected = true) }
         }
         try {
             connected.client.events.events(EVENT_TYPES).collect { event -> onServerEvent(current, event) }

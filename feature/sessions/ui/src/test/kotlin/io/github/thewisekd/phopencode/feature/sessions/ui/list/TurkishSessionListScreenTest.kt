@@ -40,6 +40,7 @@ internal val TURKISH_SESSION_LIST_STRINGS = ExpectedSessionListStrings(
         NotifyDestination.Setup to "Bildirimler",
         NotifyDestination.Pending to "Bekleyen öğeler",
     ),
+    preview = "Canlı önizleme",
     search = "Oturum ara",
     showArchived = "Arşivdekileri göster",
     archived = "Arşivde",
