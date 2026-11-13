@@ -68,9 +68,12 @@ enum class BridgeProblem {
  * on a random port, for as long as the preview screen is open. Every connection must present the
  * per-session secret (at least [MIN_SECRET_BITS] random bits, compared in constant time, never
  * logged) or gets 403 and is closed before any byte reaches the tunnel. Requests are rewritten for
- * the dev server and relayed through the tunnel; responses come back with an added
- * `Content-Security-Policy` that keeps `connect-src` on [origin]; a `101` upgrade becomes a raw
- * relay, so hot reload works.
+ * the dev server and relayed through the tunnel; responses, the bridge's own answers included,
+ * come back with an added `Content-Security-Policy` (P13.21) that keeps the page on [origin]:
+ * `default-src` allows only [origin], `data:` and `blob:`, so every fetch directive, redirects
+ * included, stays on it; `script-src` and `style-src` add only inline code (and `eval` for scripts);
+ * `connect-src` allows [origin] over http and ws; `form-action` allows only [origin]. The page's own
+ * policy is passed through unchanged. A `101` upgrade becomes a raw relay, so hot reload works.
  */
 interface PreviewBridge : AutoCloseable {
     val origin: PreviewOrigin

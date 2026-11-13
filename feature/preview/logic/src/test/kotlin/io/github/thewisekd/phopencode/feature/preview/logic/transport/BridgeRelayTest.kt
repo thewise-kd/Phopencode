@@ -136,8 +136,26 @@ class BridgeRelayTest {
         }
     }
 
+    /**
+     * The policy the bridge adds, pinned to the character: every fetch directive falls back to
+     * `default-src` on the preview origin, scripts and styles may also be inline (and scripts use
+     * `eval`), `connect-src` names the origin over http and ws, and forms post only to the origin.
+     */
+    private fun expectedPolicy(port: Int): String {
+        val origin = "http://127.0.0.1:$port"
+        return "default-src $origin data: blob:; " +
+            "script-src $origin 'unsafe-inline' 'unsafe-eval' data: blob:; " +
+            "style-src $origin 'unsafe-inline' data: blob:; " +
+            "connect-src $origin ws://127.0.0.1:$port; " +
+            "form-action $origin"
+    }
+
+    /** The added policy among the response's policies: the one that is not the page's own. */
+    private fun ours(reply: Reply, port: Int): String =
+        reply.all("Content-Security-Policy").single { it == expectedPolicy(port) }
+
     @Test
-    fun `every response carries a Content-Security-Policy that keeps connect-src on the preview origin`() {
+    fun `every response carries the exact added Content-Security-Policy and keeps the page's own`() {
         val dev = devServer { _, _, socket ->
             socket.write(ok("<html></html>", "Content-Security-Policy: default-src *\r\n"))
         }
@@ -148,13 +166,52 @@ class BridgeRelayTest {
             client.reply()
         }
 
-        val policies = reply.all("Content-Security-Policy")
-        assertTrue("default-src *" in policies, "The page's own policy was dropped")
-        val ours = policies.single { it.startsWith("connect-src") }
-        val sources = ours.removePrefix("connect-src").trim().split(' ').toSet()
-        val host = "127.0.0.1:${bridge.origin.bridgePort}"
-        assertEquals(setOf("http://$host", "ws://$host"), sources)
+        val port = bridge.origin.bridgePort
+        assertEquals(listOf("default-src *", expectedPolicy(port)), reply.all("Content-Security-Policy"))
         assertEquals("<html></html>", reply.text)
+    }
+
+    @Test
+    fun `the added policy names no source off the preview origin`() {
+        val dev = devServer { _, _, socket -> socket.write(ok()) }
+        val (bridge, _) = bridgeTo(dev)
+        val cookie = bridge.cookie()
+        val port = bridge.origin.bridgePort
+        val reply = Client(port).use { client ->
+            client.send("GET / HTTP/1.1\r\nHost: x\r\nCookie: $cookie\r\n\r\n")
+            client.reply()
+        }
+
+        val directives = ours(reply, port).split(';').map { it.trim().split(' ') }.associate { it.first() to it.drop(1) }
+        assertEquals(listOf("default-src", "script-src", "style-src", "connect-src", "form-action"), directives.keys.toList())
+        val allowed = setOf("http://127.0.0.1:$port", "ws://127.0.0.1:$port", "'unsafe-inline'", "'unsafe-eval'", "data:", "blob:")
+        directives.forEach { (name, sources) ->
+            assertTrue(sources.isNotEmpty(), "$name allows nothing")
+            assertTrue(sources.all { it in allowed }, "$name allows $sources")
+            assertFalse(sources.any { '*' in it || it == "'self'" || it == "http:" || it == "https:" || it == "ws:" }, name)
+        }
+        assertEquals(listOf("http://127.0.0.1:$port", "ws://127.0.0.1:$port"), directives.getValue("connect-src"))
+        assertTrue("http://127.0.0.1:$port" in directives.getValue("default-src"))
+        assertEquals(setOf("'unsafe-inline'", "'unsafe-eval'"), directives.getValue("script-src").filter { it.startsWith("'") }.toSet())
+        assertEquals(setOf("'unsafe-inline'"), directives.getValue("style-src").filter { it.startsWith("'") }.toSet())
+    }
+
+    @Test
+    fun `a redirect off the origin still carries the policy, so the WebView cannot follow it`() {
+        val dev = devServer { _, _, socket ->
+            socket.write("HTTP/1.1 302 Found\r\nLocation: http://203.0.113.7:9/x.js\r\nContent-Length: 0\r\n\r\n")
+        }
+        val (bridge, _) = bridgeTo(dev)
+        val cookie = bridge.cookie()
+        val port = bridge.origin.bridgePort
+        val reply = Client(port).use { client ->
+            client.send("GET /app.js HTTP/1.1\r\nHost: x\r\nCookie: $cookie\r\n\r\n")
+            client.reply()
+        }
+
+        assertEquals(302, reply.status)
+        assertEquals("http://203.0.113.7:9/x.js", reply.header("Location"))
+        assertEquals(listOf(expectedPolicy(port)), reply.all("Content-Security-Policy"))
     }
 
     @Test
@@ -165,8 +222,14 @@ class BridgeRelayTest {
             client.send("GET / HTTP/1.1\r\nHost: x\r\n\r\n")
             val reply = client.reply()
             assertEquals(403, reply.status)
-            assertTrue(reply.all("Content-Security-Policy").any { it.startsWith("connect-src") })
+            assertEquals(listOf(expectedPolicy(bridge.origin.bridgePort)), reply.all("Content-Security-Policy"))
         }
+        val entry = Client(bridge.origin.bridgePort).use { client ->
+            client.send("GET ${bridge.entryTarget()} HTTP/1.1\r\nHost: x\r\n\r\n")
+            client.reply()
+        }
+        assertEquals(302, entry.status)
+        assertEquals(listOf(expectedPolicy(bridge.origin.bridgePort)), entry.all("Content-Security-Policy"))
     }
 
     @Test
