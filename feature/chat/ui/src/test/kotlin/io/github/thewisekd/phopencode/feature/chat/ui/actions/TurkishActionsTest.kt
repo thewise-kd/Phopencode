@@ -18,6 +18,8 @@ class TurkishActionsTest : ActionsLanguageContract() {
         compactDetail = "Modelin bağlamında yer açmak için şimdiye kadarki konuşmayı özetler.",
         fork = "Oturumu çatalla",
         forkDetail = "Konuşmanın tamamını yeni bir oturuma kopyalar.",
+        preview = "Canlı önizleme",
+        previewDetail = "Sunucuda çalışan bir web uygulamasını, örneğin bir geliştirme sunucusunu, bu telefonda gösterir.",
         busy = "Süren işlemin bitmesini bekleyin.",
         compactTitle = "Bu oturum sıkıştırılsın mı?",
         compactMessage = "Sunucu şimdiye kadarki konuşmayı özetler ve model özetten devam eder. Bu biraz sürebilir.",

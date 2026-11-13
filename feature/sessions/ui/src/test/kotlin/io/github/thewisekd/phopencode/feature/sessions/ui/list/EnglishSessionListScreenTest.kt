@@ -40,6 +40,7 @@ internal val ENGLISH_SESSION_LIST_STRINGS = ExpectedSessionListStrings(
         NotifyDestination.Setup to "Notifications",
         NotifyDestination.Pending to "Pending items",
     ),
+    preview = "Live preview",
     search = "Search sessions",
     showArchived = "Show archived",
     archived = "Archived",

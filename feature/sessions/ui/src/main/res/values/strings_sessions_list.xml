@@ -22,6 +22,8 @@
     <!-- The same menu's items to the notification screens. -->
     <string name="sessions_list_notify_setup">Notifications</string>
     <string name="sessions_list_notify_pending">Pending items</string>
+    <!-- The same menu's last item, which opens the live preview's port list. -->
+    <string name="sessions_list_preview">Live preview</string>
     <string name="sessions_list_search">Search sessions</string>
     <string name="sessions_list_show_archived">Show archived</string>
     <string name="sessions_list_archived">Archived</string>

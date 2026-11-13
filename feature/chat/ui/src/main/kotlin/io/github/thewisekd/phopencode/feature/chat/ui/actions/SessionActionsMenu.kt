@@ -50,6 +50,9 @@ private val STATUS_MAX_WIDTH = 120.dp
 /** How faint a menu action's text is while it cannot be tapped. */
 private const val DISABLED_ALPHA = 0.38f
 
+/** The menu's "Live preview" action (P13.16). Kept here, as this task owns only this file of the menu. */
+internal const val ACTIONS_PREVIEW_TAG: String = "actions:preview"
+
 /**
  * The session's action menu (P7.15), at the end of the chat's top bar. Draws [state] and sends
  * every tap to [onIntent]; what shows next comes only from the state.
@@ -62,8 +65,10 @@ private const val DISABLED_ALPHA = 0.38f
  *   line, so the row grows no taller.
  * - **The menu:** while [ActionsState.menuOpen], a dialog with compact and fork, the whole session,
  *   each with a line on what it does; each sends [ActionsIntent.Request], and both are disabled
- *   while an action runs, with a note saying so. Its button, back or a tap outside sends
- *   [ActionsIntent.CloseMenu]. The last failure, if any, shows at its top.
+ *   while an action runs, with a note saying so. Below them, "Live preview" sends
+ *   [ActionsIntent.OpenPreview]; it asks the server nothing, so a running action does not disable
+ *   it, only a session that is not loaded and connected ([ActionsState.enabled]). Its button, back
+ *   or a tap outside sends [ActionsIntent.CloseMenu]. The last failure, if any, shows at its top.
  * - **The confirmation:** while [ActionsState.confirming], for the menu's actions and a prompt's
  *   "fork from here" alike, a dialog that says what the action does; confirming sends
  *   [ActionsIntent.Confirm], and its cancel button, back or a tap outside [ActionsIntent.Cancel].
@@ -182,6 +187,12 @@ private fun Menu(state: ActionsState, onIntent: (ActionsIntent) -> Unit) {
             enabled = state.canAct,
             tag = ActionsTags.FORK,
         ) { onIntent(ActionsIntent.Request(SessionAction.Fork(null))) }
+        MenuAction(
+            title = R.string.chat_actions_preview,
+            detail = R.string.chat_actions_preview_detail,
+            enabled = state.enabled,
+            tag = ACTIONS_PREVIEW_TAG,
+        ) { onIntent(ActionsIntent.OpenPreview) }
     }
 }
 

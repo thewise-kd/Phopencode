@@ -771,4 +771,62 @@ class DefaultActionsPresenterTest {
         assertFalse(presenter.toString().contains("first"))
         assertFalse(presenter.toString().contains(FIRST.value))
     }
+
+    // Live preview
+
+    @Test
+    fun `OpenPreview closes the menu and opens the preview, asking the server nothing`() = runTest {
+        val (chat, presenter, events) = setup()
+        presenter.onIntent(ActionsIntent.OpenMenu)
+
+        presenter.onIntent(ActionsIntent.OpenPreview)
+        runCurrent()
+
+        assertFalse(presenter.state.value.menuOpen)
+        assertEquals(listOf<ActionsEvent>(ActionsEvent.OpenPreview), events)
+        assertEquals(emptyList(), chat.calls)
+    }
+
+    @Test
+    fun `OpenPreview needs no folder and opens while an action runs`() = runTest {
+        val (chat, presenter, events) = setup()
+        chat.client.control.stall()
+        presenter.onIntent(ActionsIntent.Request(SessionAction.Compact))
+        presenter.onIntent(ActionsIntent.Confirm)
+        runCurrent()
+        assertEquals(SessionAction.Compact, presenter.state.value.running)
+        assertNull(presenter.state.value.directory)
+
+        presenter.onIntent(ActionsIntent.OpenPreview)
+        runCurrent()
+
+        assertEquals(listOf<ActionsEvent>(ActionsEvent.OpenPreview), events)
+    }
+
+    @Test
+    fun `OpenPreview does nothing while not connected`() = runTest {
+        val (chat, presenter, events) = setup(live = false)
+
+        presenter.onIntent(ActionsIntent.OpenPreview)
+        runCurrent()
+        assertEquals(emptyList(), events)
+
+        chat.live(history)
+        runCurrent()
+        chat.mutableState.value = chat.mutableState.value.copy(availability = ChatAvailability.Reconnecting)
+        runCurrent()
+        presenter.onIntent(ActionsIntent.OpenPreview)
+        runCurrent()
+        assertEquals(emptyList(), events)
+    }
+
+    @Test
+    fun `a route other than the chat opens no preview`() = runTest {
+        val (_, presenter, events) = setup(route = ChatRoute.Subagents(MAIN.value))
+
+        presenter.onIntent(ActionsIntent.OpenPreview)
+        runCurrent()
+
+        assertEquals(emptyList(), events)
+    }
 }

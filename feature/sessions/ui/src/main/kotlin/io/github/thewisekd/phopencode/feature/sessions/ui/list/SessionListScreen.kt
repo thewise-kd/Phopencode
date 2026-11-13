@@ -112,7 +112,8 @@ private const val LOAD_AHEAD = 3
  * under its title and has buttons that open the folder's files and git, before the refresh button;
  * the list of every folder has none. Last in the bar, one menu button opens the catalog's screens
  * through [onOpenCatalog] and the notification screens through [onOpenNotify]: plain navigation, so
- * it bypasses the presenter.
+ * it bypasses the presenter. Its last item, "Live preview", sends [SessionListIntent.OpenPreview]
+ * and is disabled while not [SessionListState.connected].
  *
  * Above the rows sit the search field and the archived switch; each row is a rounded card with the
  * session's title, how long ago it changed, its tokens and cost, and its status badge. Pulling the list down, or
@@ -162,7 +163,12 @@ fun SessionListScreen(
                     contentDescription = stringResource(R.string.sessions_list_refresh),
                 )
             }
-            CatalogMenu(onOpenCatalog, onOpenNotify)
+            CatalogMenu(
+                onOpen = onOpenCatalog,
+                onOpenNotify = onOpenNotify,
+                previewEnabled = state.connected,
+                onOpenPreview = { onIntent(SessionListIntent.OpenPreview) },
+            )
         },
         floatingActionButton = {
             // The empty state has its own button; one is enough. The content overload, so the
@@ -245,11 +251,18 @@ fun SessionListScreen(
 /**
  * One icon button that drops down the catalog's screens: skills; commands, agents and models; and
  * the status of MCP servers and plugins. Below a divider follow the notification screens: the
- * notification setup and the pending items. A single button keeps the bar narrow enough for the title
- * on a small phone. Choosing an item closes the menu and hands [onOpen] or [onOpenNotify] where to go.
+ * notification setup and the pending items, and below another the live preview, which only
+ * [previewEnabled] lets be chosen. A single button keeps the bar narrow enough for the title on a
+ * small phone. Choosing an item closes the menu and hands [onOpen] or [onOpenNotify] where to go,
+ * or calls [onOpenPreview].
  */
 @Composable
-private fun CatalogMenu(onOpen: (CatalogDestination) -> Unit, onOpenNotify: (NotifyDestination) -> Unit) {
+private fun CatalogMenu(
+    onOpen: (CatalogDestination) -> Unit,
+    onOpenNotify: (NotifyDestination) -> Unit,
+    previewEnabled: Boolean,
+    onOpenPreview: () -> Unit,
+) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     Box {
         IconButton(onClick = { expanded = true }) {
@@ -280,6 +293,17 @@ private fun CatalogMenu(onOpen: (CatalogDestination) -> Unit, onOpenNotify: (Not
                     leadingIcon = { Icon(imageVector = destination.icon, contentDescription = null) },
                 )
             }
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.sessions_list_preview)) },
+                onClick = {
+                    expanded = false
+                    onOpenPreview()
+                },
+                modifier = Modifier.testTag(SESSION_PREVIEW_ITEM_TAG),
+                enabled = previewEnabled,
+                leadingIcon = { Icon(imageVector = PhopencodeIcons.Server, contentDescription = null) },
+            )
         }
     }
 }
