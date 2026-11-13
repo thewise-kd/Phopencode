@@ -1,3 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="preview_page_title">Live preview</string>
+    <string name="preview_page_port">Port %1$d</string>
+    <string name="preview_page_reload">Reload</string>
+    <string name="preview_page_opening">Opening the preview…</string>
+    <string name="preview_page_loading">Loading the page…</string>
+    <string name="preview_page_pulling">Release to reload</string>
+    <string name="preview_page_connection_lost_title">Connection lost</string>
+    <string name="preview_page_connection_lost_message">The connection to the server dropped. Reload once it is back.</string>
+    <string name="preview_page_nothing_listens_title">Nothing listens on port %1$d</string>
+    <string name="preview_page_nothing_listens_message">Start your dev server on the server\'s 127.0.0.1, or ask opencode to start it, then reload.</string>
+    <string name="preview_page_load_failed_title">The page did not load</string>
+    <string name="preview_page_load_failed_http">The dev server answered with HTTP %1$d.</string>
+    <string name="preview_page_load_failed_network">The preview could not reach the dev server.</string>
+    <string name="preview_page_not_connected_title">Not connected</string>
+    <string name="preview_page_not_connected_message">Go back and connect to the server, then reload.</string>
+    <string name="preview_page_opencode_title">This is the opencode server\'s port</string>
+    <string name="preview_page_opencode_message">It cannot be previewed. Go back and pick another port.</string>
+    <string name="preview_page_start_failed_title">The preview did not open</string>
+    <string name="preview_page_bridge_failed_message">The preview could not start on this phone. Reload to try again.</string>
+    <string name="preview_page_start_failed_message">Something went wrong while opening the preview. Reload to try again.</string>
+    <string name="preview_page_external_title">Open outside the app?</string>
+    <string name="preview_page_external_message">The page wants to open an address off the preview. It opens in another app, such as your browser:\n\n%1$s</string>
+    <string name="preview_page_external_open">Open</string>
+    <string name="preview_page_external_failed">No app on this phone can open that address.</string>
 </resources>

@@ -1,3 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="preview_page_title">Canlı önizleme</string>
+    <string name="preview_page_port">Port %1$d</string>
+    <string name="preview_page_reload">Yeniden yükle</string>
+    <string name="preview_page_opening">Önizleme açılıyor…</string>
+    <string name="preview_page_loading">Sayfa yükleniyor…</string>
+    <string name="preview_page_pulling">Yeniden yüklemek için bırakın</string>
+    <string name="preview_page_connection_lost_title">Bağlantı koptu</string>
+    <string name="preview_page_connection_lost_message">Sunucuyla bağlantı koptu. Bağlantı geri gelince yeniden yükleyin.</string>
+    <string name="preview_page_nothing_listens_title">%1$d numaralı portu dinleyen yok</string>
+    <string name="preview_page_nothing_listens_message">Geliştirme sunucunuzu sunucunun 127.0.0.1 adresinde başlatın ya da opencode\'dan başlatmasını isteyin, sonra yeniden yükleyin.</string>
+    <string name="preview_page_load_failed_title">Sayfa yüklenemedi</string>
+    <string name="preview_page_load_failed_http">Geliştirme sunucusu HTTP %1$d ile yanıt verdi.</string>
+    <string name="preview_page_load_failed_network">Önizleme geliştirme sunucusuna ulaşamadı.</string>
+    <string name="preview_page_not_connected_title">Bağlı değil</string>
+    <string name="preview_page_not_connected_message">Geri dönüp sunucuya bağlanın, sonra yeniden yükleyin.</string>
+    <string name="preview_page_opencode_title">Bu, opencode sunucusunun portu</string>
+    <string name="preview_page_opencode_message">Önizlenemez. Geri dönüp başka bir port seçin.</string>
+    <string name="preview_page_start_failed_title">Önizleme açılamadı</string>
+    <string name="preview_page_bridge_failed_message">Önizleme bu telefonda başlatılamadı. Tekrar denemek için yeniden yükleyin.</string>
+    <string name="preview_page_start_failed_message">Önizleme açılırken bir sorun oluştu. Tekrar denemek için yeniden yükleyin.</string>
+    <string name="preview_page_external_title">Uygulama dışında açılsın mı?</string>
+    <string name="preview_page_external_message">Sayfa, önizlemenin dışındaki bir adresi açmak istiyor. Adres, tarayıcınız gibi başka bir uygulamada açılır:\n\n%1$s</string>
+    <string name="preview_page_external_open">Aç</string>
+    <string name="preview_page_external_failed">Bu telefonda o adresi açabilecek bir uygulama yok.</string>
 </resources>
