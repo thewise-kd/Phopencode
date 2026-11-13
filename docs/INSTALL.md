@@ -3,8 +3,8 @@
 <p><strong>English</strong> | <a href="INSTALL.tr.md">Türkçe</a></p>
 
 This guide takes you from an empty phone to a working connection: what the phone and the server
-need, how to install and check the app, how the first connection works, and how to set up push
-notifications with ntfy. How the app protects your data is described in
+need, how to install and check the app, how the first connection works, how to set up push
+notifications with ntfy, and how to preview a web app that runs on your server. How the app protects your data is described in
 [SECURITY-MODEL.md](SECURITY-MODEL.md); the project overview is in the [README](../README.md).
 
 In the examples, `example.com` stands for your server. Replace it with your own, and never post
@@ -38,6 +38,14 @@ your real server address, keys, passwords or ntfy topic in an issue.
 - A way to keep the service running: a `systemd --user` manager with lingering enabled for your
   user (`loginctl enable-linger`, which you run yourself; the app never enables it), or `crontab`.
 - The server must be able to reach the ntfy server over HTTPS, `ntfy.sh` by default.
+
+### For the live preview (optional)
+
+- A web app or dev server that you can start on the server yourself, listening on `127.0.0.1`.
+- `ss`, or a readable `/proc/net/tcp`, to list the listening ports. Without either you can still
+  type the port by hand.
+- Nothing else: the preview uses the same SSH connection and the same kind of SSH tunnel as
+  opencode.
 
 You do not need root, `sudo` or any open port besides SSH.
 
@@ -253,6 +261,110 @@ the service right away. It never enables lingering, never uses `sudo` and never 
 or signals a process: if the service already runs, it refuses, and a reinstall removes the old
 one first.
 
+## 5. Live preview (optional)
+
+The live preview shows a web app that runs on your server, for example the dev server of the
+frontend that opencode is working on, in a screen of the app. It travels through the same SSH
+connection, so nothing new is exposed on the server's network. It is not part of v0.1.0; it is
+listed under *Unreleased* in [CHANGELOG.md](../CHANGELOG.md) and comes with the next release.
+
+### Start the dev server yourself
+
+The app does not start your dev server. Start it on the server yourself, in a terminal, or ask
+opencode in the chat to start it. Bind it to `127.0.0.1`, so that it is reachable only from the
+server itself, for example:
+
+```sh
+# on the server, in your project
+npm run dev -- --host 127.0.0.1 --port 5173   # Vite
+python3 -m http.server --bind 127.0.0.1 8080  # a folder of static files
+```
+
+The app reaches the port on the server's loopback through SSH. A server bound to all addresses
+(`0.0.0.0` or `::`) works too, but it is then also open to your network; one bound only to
+another address, such as the server's LAN address, cannot be previewed.
+
+### Open the preview
+
+While connected, open **Live preview** from either place:
+
+- in a chat, from the **Session actions** menu;
+- in the session list, from the top bar's menu.
+
+Both are disabled while the app is not connected.
+
+### Pick a port
+
+The first screen lists the TCP ports that listen on the server and can be reached on its
+loopback, lowest first. Tap one to open it. The opencode server's own port is in the list too,
+greyed out: it cannot be previewed. Tap the refresh button in the top bar after starting a dev
+server.
+
+When nothing but opencode listens, the screen says so and asks you to start your dev server, or
+ask opencode to, and refresh. When the server offers no way to list its ports, the screen says
+so as well.
+
+Under **Enter a port** you can type a port by hand, from 1 to 65535, and tap **Open**. This is
+useful when the list is empty or cannot be read. The opencode port is refused here too.
+
+### Reload
+
+The page shows a progress line while it loads. To load it again, tap the reload button in the
+top bar, or pull the page down from its top. Most dev servers (Vite, webpack and similar) also
+update the page by themselves when a file changes, through hot reload.
+
+If the SSH connection drops, the preview shows **Connection lost** and does not retry on its own.
+Once the app has reconnected, tap **Reload**.
+
+### Console
+
+The console button in the top bar shows how many errors the page has logged; tap it to open the
+console panel over the bottom of the page. It lists:
+
+- the page's own console messages (`console.log`, `console.error` and the rest) with their
+  source and line;
+- pages and resources that failed to load, and HTTP errors;
+- requests the preview refused because they leave the page's origin.
+
+You can filter by level and clear the list. The text can be selected and copied. The console
+keeps at most the 500 newest entries, cuts each at 4 KiB, holds them in memory only, never sends
+them anywhere and drops them when the preview closes.
+
+### Mobile and desktop view
+
+The **Desktop view** toggle in the top bar switches between:
+
+- **Mobile:** the WebView's own user agent and phone layout, so the page sees a phone;
+- **Desktop:** a user agent without `Mobile` and `Android`, a wide page that is zoomed out to fit
+  the screen, and pinch zoom.
+
+Switching reloads the page. The choice holds while the preview is open, also when you rotate the
+phone, and goes back to mobile when you close it.
+
+### How it works and its limits
+
+- **A temporary bridge on the phone.** While the preview screen is open, the app runs a small
+  bridge on the phone's own `127.0.0.1`, on a random port, and the preview loads the page from
+  there; the bridge passes each request through the SSH tunnel to the port you picked. Every
+  connection to the bridge must carry a random secret made for that preview; without it the
+  bridge answers 403 and passes nothing on. The bridge closes when you leave the screen, and the
+  next preview gets a new port and a new secret. This is the one place where the app opens a
+  local port on the phone; see [Live preview](SECURITY-MODEL.md#live-preview) in the security
+  model.
+- **Hot reload and request bodies work.** WebSocket connections on the page's own origin are
+  passed through, so hot reload works, and so do forms and `fetch` calls that send a body (POST,
+  PUT and the rest).
+- **The page can load nothing off its own origin.** Fonts, scripts, styles and images from a CDN
+  or any other address are refused, and each refused request shows in the console. Serve such
+  files from the dev server itself while you preview.
+- **External links ask first.** When the page opens another `http` or `https` address, the app
+  shows it in full and asks whether to open it outside the app, for example in your browser.
+  Other kinds of links are refused.
+- **The preview leaves nothing behind.** The page has no access to files, the camera, the
+  microphone or the location, and cannot download files. Its cookies, storage, cache and history
+  are deleted when you close the preview, so a login or a value in `localStorage` does not
+  survive it.
+
 ## What the app does on your server
 
 Everything runs as your SSH user. The app:
@@ -267,7 +379,11 @@ Everything runs as your SSH user. The app:
   that server's log;
 - reads and writes files over SFTP in the folders you open, and runs `git`, `rg` or `grep` there
   when you use those screens;
-- installs and removes the notification service only when you tap the buttons for it.
+- installs and removes the notification service only when you tap the buttons for it;
+- for the live preview, lists the listening TCP ports read-only with `ss -ltnH`, falling back to
+  reading `/proc/net/tcp` and `/proc/net/tcp6` when `ss` is missing, and opens an SSH tunnel to
+  the loopback port you pick. For the preview the app never starts, stops or kills a process:
+  your dev server is yours to start and stop.
 
 It never uses `sudo`, never reboots, shuts down or resets the server, and never stops, kills or
 replaces an `opencode serve` that is already running. The only processes it stops are its own: a
@@ -288,6 +404,15 @@ fast-forward, and discarding changes needs your confirmation.
 - **The service is installed but no notification arrives:** check the subscription in the ntfy
   app, send a test, and reinstall the service if `opencode serve` was restarted since the
   install.
+- **"Nothing listens on port …" in the preview:** the dev server is not running on that port, or
+  it listens only on another address. Start it on the server on `127.0.0.1` with that port, or
+  ask opencode to, check that it stays running, then tap **Reload**.
+- **"No dev server found" in the port list:** the same: start the dev server on `127.0.0.1`, then
+  refresh the list.
+- **"Ports cannot be listed":** the server has neither `ss` nor a readable `/proc/net/tcp`. Type
+  your dev server's port under **Enter a port**.
+- **A font, script or style is missing in the preview:** it comes from another address, such as
+  a CDN, and was refused; the console shows it. Serve the file from the dev server instead.
 
 ## Removing everything
 
