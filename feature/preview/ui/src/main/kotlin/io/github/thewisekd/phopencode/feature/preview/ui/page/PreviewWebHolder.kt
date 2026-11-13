@@ -19,6 +19,7 @@ import io.github.thewisekd.phopencode.feature.preview.logic.contract.PageIntent
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PageState
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PageStatus
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewOrigin
+import io.github.thewisekd.phopencode.feature.preview.ui.page.viewport.ViewportSettings
 
 private const val LOADED = 100
 
@@ -86,6 +87,8 @@ internal class PreviewWebHolder(
         loadedId = load.id
         val view = webView ?: create(MutableContextWrapper(context), this).also { webView = it }
         progress = 0
+        // A user agent takes effect on the next load only, so the mode is set before each one.
+        ViewportSettings.apply(view.settings, state.viewport, context)
         view.loadUrl(load.url)
     }
 

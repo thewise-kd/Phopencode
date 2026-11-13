@@ -55,6 +55,7 @@ import io.github.thewisekd.phopencode.feature.preview.logic.contract.PageIntent
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PageState
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PageStatus
 import io.github.thewisekd.phopencode.feature.preview.ui.R
+import io.github.thewisekd.phopencode.feature.preview.ui.page.viewport.ViewportToggle
 
 /** The key of the WebView's holder in the destination's view model store. */
 private const val WEB_HOLDER_KEY = "preview_page_web"
@@ -105,6 +106,7 @@ fun PageScreen(
         modifier = modifier.fillMaxSize().testTag("placeholder:$route"),
         onBack = { onIntent(PageIntent.Close) },
         actions = {
+            ViewportToggle(mode = state.viewport, onIntent = onIntent, enabled = canReload)
             IconButton(onClick = reload, enabled = canReload, modifier = Modifier.testTag(PageTags.RELOAD)) {
                 Icon(imageVector = PhopencodeIcons.Refresh, contentDescription = stringResource(R.string.preview_page_reload))
             }
