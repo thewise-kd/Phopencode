@@ -1,0 +1,25 @@
+<!doctype html>
+<!--
+  P13.20: the page the live preview's end-to-end tests open. .github/workflows/emulator.yml serves
+  this folder with Python's http.server on the runner's loopback. 203.0.113.10 is in a documentation
+  range (RFC 5737): no real host answers, and the preview must never fetch it anyway.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>phopencode preview fixture</title>
+</head>
+<body>
+  <h1>phopencode preview fixture</h1>
+  <p><a id="external" href="http://203.0.113.10/fixture-link">An address off the preview</a></p>
+  <script>
+    console.log("phopencode-fixture: loaded");
+    window.offOriginFetch = "pending";
+    fetch("http://203.0.113.10/fixture-fetch").then(
+      function () { window.offOriginFetch = "fetched"; },
+      function () { window.offOriginFetch = "refused"; }
+    );
+  </script>
+</body>
+</html>
