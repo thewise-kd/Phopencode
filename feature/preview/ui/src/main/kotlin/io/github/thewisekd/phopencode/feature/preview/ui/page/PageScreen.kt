@@ -55,6 +55,8 @@ import io.github.thewisekd.phopencode.feature.preview.logic.contract.PageIntent
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PageState
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PageStatus
 import io.github.thewisekd.phopencode.feature.preview.ui.R
+import io.github.thewisekd.phopencode.feature.preview.ui.page.console.ConsoleButton
+import io.github.thewisekd.phopencode.feature.preview.ui.page.console.ConsolePanel
 import io.github.thewisekd.phopencode.feature.preview.ui.page.viewport.ViewportToggle
 
 /** The key of the WebView's holder in the destination's view model store. */
@@ -72,6 +74,8 @@ private const val WEB_HOLDER_KEY = "preview_page_web"
  *   closes the bridge.
  * - **Top bar:** back closes the preview; reload loads the page again. A determinate line shows the
  *   page's load progress.
+ * - **Console (P13.14):** the top bar's [ConsoleButton] shows the error count and opens the
+ *   [ConsolePanel] over the bottom of the page.
  * - **Pull to refresh:** pulling the page down past its top, or pulling a problem panel down, reloads.
  * - **Problems:** opening, a load error, nothing listening on the port and a lost connection each
  *   take the WebView's place, with a reload action.
@@ -97,6 +101,7 @@ fun PageScreen(
         holder.sync(context, state)
     }
     var openFailed by rememberSaveable { mutableStateOf(false) }
+    var consoleOpen by rememberSaveable { mutableStateOf(false) }
     val canReload = state.status != PageStatus.Closed
     val reload = { onIntent(PageIntent.Reload) }
 
@@ -107,6 +112,11 @@ fun PageScreen(
         onBack = { onIntent(PageIntent.Close) },
         actions = {
             ViewportToggle(mode = state.viewport, onIntent = onIntent, enabled = canReload)
+            ConsoleButton(
+                errorCount = state.console.errorCount,
+                expanded = consoleOpen,
+                onToggle = { consoleOpen = !consoleOpen },
+            )
             IconButton(onClick = reload, enabled = canReload, modifier = Modifier.testTag(PageTags.RELOAD)) {
                 Icon(imageVector = PhopencodeIcons.Refresh, contentDescription = stringResource(R.string.preview_page_reload))
             }
@@ -133,6 +143,14 @@ fun PageScreen(
             PageOverlay(state, hasWebView = holder.webView != null, onReload = reload)
             if (holder.webView != null && holder.progress < 100 && state.status.showsPage) {
                 LoadProgress(holder.progress, Modifier.align(Alignment.TopCenter))
+            }
+            if (consoleOpen) {
+                ConsolePanel(
+                    console = state.console,
+                    onIntent = onIntent,
+                    onHide = { consoleOpen = false },
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
             }
             if (openFailed) {
                 ErrorBanner(

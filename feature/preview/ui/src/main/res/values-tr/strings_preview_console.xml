@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_console_title">Konsol</string>
+    <string name="preview_console_show">Konsolu göster</string>
+    <string name="preview_console_hide">Konsolu gizle</string>
+    <plurals name="preview_console_errors">
+        <item quantity="one">%1$d hata</item>
+        <item quantity="other">%1$d hata</item>
+    </plurals>
+    <string name="preview_console_button_errors">%1$s, %2$s</string>
+    <string name="preview_console_clear">Temizle</string>
+    <string name="preview_console_filter_all">Tümü</string>
+    <string name="preview_console_level_debug">Hata ayıklama</string>
+    <string name="preview_console_level_log">Günlük</string>
+    <string name="preview_console_level_info">Bilgi</string>
+    <string name="preview_console_level_warning">Uyarı</string>
+    <string name="preview_console_level_error">Hata</string>
+    <string name="preview_console_source_line">%1$s, satır %2$d</string>
+    <string name="preview_console_line">Satır %1$d</string>
+    <string name="preview_console_entry">%1$s: %2$s</string>
+    <string name="preview_console_entry_at">%1$s: %2$s. %3$s</string>
+    <string name="preview_console_empty">Henüz ileti yok.</string>
+    <string name="preview_console_empty_filtered">Bu düzeyde ileti yok.</string>
+</resources>

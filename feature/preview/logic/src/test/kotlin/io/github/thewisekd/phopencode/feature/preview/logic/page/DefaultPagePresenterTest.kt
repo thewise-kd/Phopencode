@@ -798,6 +798,137 @@ class DefaultPagePresenterTest {
         assertEquals(ViewportMode.Mobile, second.state.value.viewport)
     }
 
+    // Console
+
+    private fun report(level: ConsoleLevel, text: String, source: String? = null) =
+        PageIntent.Report(ConsoleEntry(ConsoleKind.Console, level, text, source, line = null))
+
+    @Test
+    fun `reports from the open page are recorded in the console, oldest first`() = runTest {
+        val presenter = loaded()
+
+        presenter.onIntent(report(ConsoleLevel.Log, "first"))
+        presenter.onIntent(report(ConsoleLevel.Error, "second"))
+
+        val console = presenter.state.value.console
+        assertEquals(listOf("first", "second"), console.entries.map { it.text })
+        assertEquals(1, console.errorCount)
+    }
+
+    @Test
+    fun `a report is recorded while the page opens or after its load failed`() = runTest {
+        val presenter = opened()
+        presenter.onIntent(report(ConsoleLevel.Log, "opening"))
+        presenter.onIntent(PageIntent.LoadFailed(LoadError.Network))
+        presenter.onIntent(report(ConsoleLevel.Error, "failed"))
+
+        assertEquals(listOf("opening", "failed"), presenter.state.value.console.entries.map { it.text })
+    }
+
+    @Test
+    fun `a recorded text is cut to the console's limit`() = runTest {
+        val presenter = loaded()
+
+        presenter.onIntent(report(ConsoleLevel.Log, "x".repeat(ConsoleState.MAX_TEXT_LENGTH + 10)))
+
+        assertEquals(ConsoleState.MAX_TEXT_LENGTH, presenter.state.value.console.entries.single().text.length)
+    }
+
+    @Test
+    fun `the filter shows one level and clearing drops the entries but keeps the filter`() = runTest {
+        val presenter = loaded()
+        presenter.onIntent(report(ConsoleLevel.Log, "log"))
+        presenter.onIntent(report(ConsoleLevel.Error, "error"))
+
+        presenter.onIntent(PageIntent.FilterConsole(ConsoleLevel.Error))
+        assertEquals(ConsoleLevel.Error, presenter.state.value.console.filter)
+        assertEquals(listOf("error"), presenter.state.value.console.shown.map { it.text })
+        assertEquals(2, presenter.state.value.console.entries.size)
+
+        presenter.onIntent(PageIntent.FilterConsole(null))
+        assertEquals(2, presenter.state.value.console.shown.size)
+
+        presenter.onIntent(PageIntent.FilterConsole(ConsoleLevel.Warning))
+        presenter.onIntent(PageIntent.ClearConsole)
+        assertEquals(ConsoleState(filter = ConsoleLevel.Warning), presenter.state.value.console)
+    }
+
+    @Test
+    fun `a report that arrives without an open bridge is not recorded`() = runTest {
+        tunnels.opens()
+        val presenter = presenter()
+        presenter.onIntent(report(ConsoleLevel.Log, "before the bridge"))
+        runCurrent()
+        presenter.onIntent(report(ConsoleLevel.Log, "kept"))
+        tunnels.opened.single().lose()
+        runCurrent()
+
+        presenter.onIntent(report(ConsoleLevel.Error, "from the old bridge"))
+
+        assertEquals(PageStatus.ConnectionLost, presenter.status)
+        assertEquals(listOf("kept"), presenter.state.value.console.entries.map { it.text })
+    }
+
+    @Test
+    fun `a late report from an earlier bridge is not recorded once a new one is open`() = runTest {
+        val presenter = loaded()
+        val old = bridges.opened.single().origin
+        tunnels.opened.single().lose()
+        runCurrent()
+        tunnels.opens()
+        presenter.onIntent(PageIntent.Reload)
+        runCurrent()
+        val current = bridges.opened.last().origin
+        assertNotEquals(old, current)
+
+        presenter.onIntent(report(ConsoleLevel.Error, "old script", source = "${old.url}/app.js"))
+        presenter.onIntent(
+            PageIntent.Report(ConsoleEntry(ConsoleKind.LoadError, ConsoleLevel.Error, "old page", "${old.url}/", line = null)),
+        )
+        presenter.onIntent(report(ConsoleLevel.Log, "current script", source = "${current.url}/app.js"))
+        presenter.onIntent(report(ConsoleLevel.Log, "no source"))
+
+        assertEquals(listOf("current script", "no source"), presenter.state.value.console.entries.map { it.text })
+    }
+
+    @Test
+    fun `the bridge's secret never reaches the console`() = runTest {
+        val presenter = loaded()
+        val entry = bridges.opened.single().entry.url
+
+        presenter.onIntent(
+            PageIntent.Report(ConsoleEntry(ConsoleKind.LoadError, ConsoleLevel.Error, "failed: $entry", entry, line = null)),
+        )
+
+        val recorded = presenter.state.value.console.entries.single()
+        assertFalse(SECRET in recorded.text)
+        assertFalse(SECRET in recorded.source.orEmpty())
+    }
+
+    @Test
+    fun `closing drops the console and its filter`() = runTest {
+        val presenter = loaded()
+        presenter.onIntent(report(ConsoleLevel.Error, "error"))
+        presenter.onIntent(PageIntent.FilterConsole(ConsoleLevel.Error))
+
+        presenter.onIntent(PageIntent.Close)
+
+        assertEquals(ConsoleState(), presenter.state.value.console)
+    }
+
+    @Test
+    fun `a closed page ignores reports, filters and clearing`() = runTest {
+        val presenter = loaded()
+        presenter.onIntent(PageIntent.Close)
+
+        presenter.onIntent(report(ConsoleLevel.Error, "late"))
+        presenter.onIntent(PageIntent.FilterConsole(ConsoleLevel.Error))
+        presenter.onIntent(PageIntent.ClearConsole)
+
+        assertEquals(PageStatus.Closed, presenter.status)
+        assertEquals(ConsoleState(), presenter.state.value.console)
+    }
+
     // Closing
 
     @Test
