@@ -20,6 +20,7 @@
     <string name="preview_page_start_failed_title">The preview did not open</string>
     <string name="preview_page_bridge_failed_message">The preview could not start on this phone. Reload to try again.</string>
     <string name="preview_page_start_failed_message">Something went wrong while opening the preview. Reload to try again.</string>
+    <string name="preview_page_webview_too_old">The system WebView on this phone is too old for the live preview. Update Android System WebView, then open the preview again.</string>
     <string name="preview_page_external_title">Open outside the app?</string>
     <string name="preview_page_external_message">The page wants to open an address off the preview. It opens in another app, such as your browser:\n\n%1$s</string>
     <string name="preview_page_external_open">Open</string>

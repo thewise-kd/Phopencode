@@ -290,10 +290,24 @@ could reach nothing beyond what it already reaches.
   the added policy and the address rules are covered by tests that run on any computer; the
   WebView's own behaviour, such as its settings, the refused requests and the data cleared on
   close, is checked only by tests on an Android emulator in the project's CI.
-- WebRTC is covered neither by the request check nor by the policy, so a page may make the
-  WebView contact a STUN or TURN server of its choice. A page may likewise ask for a host name to
-  be looked up in advance (`dns-prefetch`). A page you preview can therefore send a small amount
-  of data off the phone this way.
+- WebRTC and DNS prefetching are covered neither by the request check nor by the policy, so they
+  are closed separately, and only in part:
+  - **WebRTC.** Before a page's own scripts run, `RTCPeerConnection`, its prefixed forms,
+    `RTCDataChannel` and the other WebRTC interfaces are made `undefined` in each frame the system
+    WebView runs its document start scripts in; the page cannot assign or delete them back. A
+    system WebView that cannot run such scripts gets no preview: the screen says it is too old.
+  - **DNS prefetching.** The bridge adds `X-DNS-Prefetch-Control: off` to every response, its own
+    answers included, in place of any value the page sends. This asks the WebView not to look up
+    the host names of the page's links in advance.
+  - **What may remain.** A frame the WebView does not run document start scripts in may still have
+    WebRTC, and through it a page could make the WebView contact a STUN or TURN server of its
+    choice. An empty `about:blank` frame that a script creates and uses at once may be such a
+    frame. A hint such as `<link rel="dns-prefetch">` or `<link rel="preconnect">` naming another
+    host may still make the phone look that name up, as the header is not certain to cover it. A
+    page you preview may therefore still send a small amount of data off the phone.
+  - **How it is checked.** Only the tests on an Android emulator in the project's CI check what
+    the WebView does. The tests that run on any computer check the header and the script's text,
+    not their effect.
 - `script-src` allows inline code and `eval`, because dev servers need them. The added policy
   keeps the page on its origin; it does not protect the page from its own scripts.
 

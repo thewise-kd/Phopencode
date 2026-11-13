@@ -47,6 +47,11 @@ internal val ENGLISH_PAGE_STRINGS = ExpectedPageStrings(
         "The preview did not open",
         "Something went wrong while opening the preview. Reload to try again.",
     ),
+    webViewTooOld = ExpectedProblem(
+        "The preview did not open",
+        "The system WebView on this phone is too old for the live preview. Update Android System WebView, " +
+            "then open the preview again.",
+    ),
     externalTitle = "Open outside the app?",
     externalMessage = { url ->
         "The page wants to open an address off the preview. It opens in another app, such as your browser:\n\n$url"

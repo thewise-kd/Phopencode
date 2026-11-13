@@ -291,10 +291,26 @@ sayfa, zaten ulaştığı yerlerin ötesine geçemezdi.
   politika ve adres kuralları her bilgisayarda çalışan testlerle sınanır; WebView'ın kendi
   davranışı, yani ayarları, reddedilen istekler ve kapanınca silinen veriler, yalnızca projenin
   CI'ında bir Android emülatöründe çalışan testlerle denetlenir.
-- WebRTC ne istek denetiminin ne de politikanın kapsamındadır; bir sayfa WebView'ı kendi seçtiği bir
-  STUN ya da TURN sunucusuyla konuşturabilir. Aynı şekilde bir alan adının önceden çözülmesini
-  (`dns-prefetch`) isteyebilir. Yani önizlediğin bir sayfa bu yollarla telefondan dışarı az
-  miktarda veri gönderebilir.
+- WebRTC ve DNS ön çözümlemesi ne istek denetiminin ne de politikanın kapsamındadır; bu yüzden
+  ayrıca ve yalnızca kısmen kapatılırlar:
+  - **WebRTC.** Sayfanın kendi betikleri çalışmadan önce `RTCPeerConnection`, onun önekli
+    biçimleri, `RTCDataChannel` ve diğer WebRTC arayüzleri, sistem WebView'ının belge başı
+    betiklerini çalıştırdığı her çerçevede `undefined` yapılır; sayfa bunları atama ya da silme
+    yoluyla geri getiremez. Böyle betikleri çalıştıramayan bir sistem WebView'ı önizleme açmaz:
+    ekran, sistem WebView'ının çok eski olduğunu söyler.
+  - **DNS ön çözümlemesi.** Köprü, kendi yanıtları da dahil her yanıta, sayfanın gönderdiği değerin
+    yerine `X-DNS-Prefetch-Control: off` ekler. Bu, WebView'dan sayfadaki bağlantıların alan
+    adlarını önceden çözmemesini ister.
+  - **Kalabilecekler.** WebView'ın belge başı betiklerini çalıştırmadığı bir çerçevede WebRTC hâlâ
+    bulunabilir ve bir sayfa onunla WebView'ı kendi seçtiği bir STUN ya da TURN sunucusuyla
+    konuşturabilir. Bir betiğin oluşturup hemen kullandığı boş bir `about:blank` çerçevesi böyle bir
+    çerçeve olabilir. Başka bir alan adını gösteren `<link rel="dns-prefetch">` ya da
+    `<link rel="preconnect">` gibi bir ipucu, başlığın bunu kapsadığı kesin olmadığından, telefona
+    yine o adı çözdürebilir. Yani önizlediğin bir sayfa telefondan dışarı hâlâ az miktarda veri
+    gönderebilir.
+  - **Nasıl denetlendiği.** WebView'ın ne yaptığını yalnızca projenin CI'ında bir Android
+    emülatöründe çalışan testler denetler. Her bilgisayarda çalışan testler başlığı ve betiğin
+    metnini denetler, etkilerini değil.
 - Geliştirme sunucuları ihtiyaç duyduğu için `script-src` satır içi koda ve `eval`'e izin verir.
   Eklenen politika sayfayı kendi kökeninde tutar; sayfayı kendi betiklerine karşı korumaz.
 

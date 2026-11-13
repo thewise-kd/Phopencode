@@ -233,6 +233,57 @@ class BridgeRelayTest {
     }
 
     @Test
+    fun `every response turns DNS prefetching off and replaces the page's own value`() {
+        val dev = devServer { _, _, socket ->
+            socket.write(ok("<html></html>", "X-DNS-Prefetch-Control: on\r\nx-dns-prefetch-control: on\r\n"))
+        }
+        val (bridge, _) = bridgeTo(dev)
+        val cookie = bridge.cookie()
+        val reply = Client(bridge.origin.bridgePort).use { client ->
+            client.send("GET / HTTP/1.1\r\nHost: x\r\nCookie: $cookie\r\n\r\n")
+            client.reply()
+        }
+
+        assertEquals(200, reply.status)
+        assertEquals(listOf("off"), reply.all("X-DNS-Prefetch-Control"))
+        assertEquals("<html></html>", reply.text)
+    }
+
+    @Test
+    fun `a relayed redirect turns DNS prefetching off`() {
+        val dev = devServer { _, _, socket ->
+            socket.write("HTTP/1.1 302 Found\r\nLocation: /next\r\nX-DNS-Prefetch-Control: on\r\nContent-Length: 0\r\n\r\n")
+        }
+        val (bridge, _) = bridgeTo(dev)
+        val cookie = bridge.cookie()
+        val reply = Client(bridge.origin.bridgePort).use { client ->
+            client.send("GET / HTTP/1.1\r\nHost: x\r\nCookie: $cookie\r\n\r\n")
+            client.reply()
+        }
+
+        assertEquals(302, reply.status)
+        assertEquals(listOf("off"), reply.all("X-DNS-Prefetch-Control"))
+    }
+
+    @Test
+    fun `the bridge's own answers turn DNS prefetching off too`() {
+        val dev = devServer { _, _, socket -> socket.write(ok()) }
+        val (bridge, _) = bridgeTo(dev)
+        Client(bridge.origin.bridgePort).use { client ->
+            client.send("GET / HTTP/1.1\r\nHost: x\r\n\r\n")
+            val reply = client.reply()
+            assertEquals(403, reply.status)
+            assertEquals(listOf("off"), reply.all("X-DNS-Prefetch-Control"))
+        }
+        val entry = Client(bridge.origin.bridgePort).use { client ->
+            client.send("GET ${bridge.entryTarget()} HTTP/1.1\r\nHost: x\r\n\r\n")
+            client.reply()
+        }
+        assertEquals(302, entry.status)
+        assertEquals(listOf("off"), entry.all("X-DNS-Prefetch-Control"))
+    }
+
+    @Test
     fun `request and response bodies are relayed by Content-Length`() {
         val dev = devServer { head, input, socket ->
             val body = String(input.readExactly(field(head, "Content-Length")!!.toInt()))
