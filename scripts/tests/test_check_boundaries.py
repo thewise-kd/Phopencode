@@ -238,7 +238,7 @@ class ModuleMapDrift(unittest.TestCase):
         android_block = re.search(r"^\s+android\((.*?)^\s+\)", settings, re.S | re.M).group(1)
         jvm = re.findall(r'":([^"]+)"', jvm_block)
         android = re.findall(r'":([^"]+)"', android_block)
-        self.assertEqual(len(jvm) + len(android), 32)
+        self.assertEqual(len(jvm) + len(android), 34)
         for name in jvm:
             path = name.replace(":", "/") + "/src/main/kotlin/A.kt"
             self.assertTrue(module.is_jvm_module(path), path)

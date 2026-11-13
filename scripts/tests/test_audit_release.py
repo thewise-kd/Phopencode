@@ -1483,6 +1483,301 @@ class NetworkRules(AuditCase):
         self.assert_problem("helper/install.sh:2", "network")
 
 
+PREVIEW_LOGIC = f"feature/preview/logic/{KT}/feature/preview/logic"
+PREVIEW_UI = f"feature/preview/ui/{KT}/feature/preview/ui"
+BRIDGE = f"{PREVIEW_LOGIC}/transport/LoopbackBridge.kt"
+BRIDGE_CONNECTION = f"{PREVIEW_LOGIC}/transport/BridgeConnection.kt"
+WEB_CLIENTS = f"{PREVIEW_UI}/page/PreviewWebClients.kt"
+WEB_FACTORY = f"{PREVIEW_UI}/page/PreviewWebViews.kt"
+EXTERNAL_LINKS = f"{PREVIEW_UI}/page/ExternalLinks.kt"
+PAGE_SCREEN = f"{PREVIEW_UI}/page/PageScreen.kt"
+LISTEN_TABLE = f"core/remote/{KT}/core/remote/preview/ListenTable.kt"
+LISTEN_TABLE_TEST = (
+    "core/remote/src/test/kotlin/io/github/thewisekd/phopencode/core/remote/preview/ListenTableTest.kt"
+)
+
+LOOPBACK_VALUE = "InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))"
+
+
+def bridge_source(listen="ServerSocket(0, BACKLOG, LOOPBACK)", extra=""):
+    """A LoopbackBridge.kt shaped like the real one, with the listening call replaceable."""
+    return (
+        "package x\n\n"
+        "import java.net.Inet4Address\n"
+        "import java.net.InetAddress\n"
+        "import java.net.InetSocketAddress\n"
+        "import java.net.ServerSocket\n"
+        "import java.net.Socket\n\n"
+        "class LoopbackBridgeFactory(private val listen: () -> ServerSocket = ::listenOnLoopback) {\n"
+        "    private companion object {\n"
+        f"        val LOOPBACK: InetAddress = {LOOPBACK_VALUE}\n"
+        "        const val BACKLOG = 16\n"
+        "        // A comment naming ServerSocket(0) is not code.\n"
+        f"        fun listenOnLoopback(): ServerSocket = {listen}\n"
+        "    }\n"
+        "}\n\n"
+        "internal class LoopbackBridge(private val server: ServerSocket) {\n"
+        "    private val sockets = HashSet<Socket>()\n"
+        "    val bound: InetSocketAddress get() = InetSocketAddress(server.inetAddress, server.localPort)\n"
+        "    val v4 = server.inetAddress is Inet4Address\n"
+        "}\n" + extra
+    )
+
+
+class PreviewNetworkRules(AuditCase):
+    """P13.17: the live preview's bridge, WebView and link opener, and nothing more."""
+
+    def setUp(self):
+        super().setUp()
+        self.make_clean_repo()
+
+    def track_preview(self):
+        self.track(BRIDGE, bridge_source())
+        self.track(
+            BRIDGE_CONNECTION,
+            "package x\n\nimport java.net.ConnectException\nimport java.net.InetSocketAddress\n"
+            "import java.net.Socket\nimport java.net.SocketTimeoutException\n",
+        )
+        self.track(
+            WEB_CLIENTS,
+            "package x\n\nimport android.net.http.SslError\nimport android.webkit.WebView\n"
+            "import android.webkit.WebViewClient\n",
+        )
+        self.track(WEB_FACTORY, "package x\n\nimport android.webkit.WebSettings\nimport android.webkit.WebView\n")
+        self.track(
+            EXTERNAL_LINKS,
+            "package x\n\nimport android.content.Intent\n\nfun f(u: Any) = Intent(Intent.ACTION_VIEW, u)\n",
+        )
+        self.track(
+            LISTEN_TABLE,
+            "package x\n\nimport java.net.InetAddress\nimport java.net.UnknownHostException\n\n"
+            "fun any(literal: String) = InetAddress.getByName(literal).isAnyLocalAddress\n",
+        )
+        self.track(PAGE_SCREEN, "package x\n\nfun f(holder: Any) = holder.bind(1)\n")
+
+    def test_the_reviewed_preview_files_pass(self):
+        self.track_preview()
+        self.commit()
+        self.assert_clean()
+
+    def test_a_webview_anywhere_else_is_reported(self):
+        self.track_preview()
+        self.track(PAGE_SCREEN, "package x\n\nimport android.webkit.WebView\n")
+        self.track(f"{PREVIEW_LOGIC}/transport/HeadRewriter.kt", "package x\n\nimport android.webkit.WebView\n")
+        self.track(FEATURE_FILE, "package x\n\nfun f(c: Any) = android.webkit.WebView(c)\n")
+        self.commit()
+        result = self.check()
+        self.assert_problem(f"{PAGE_SCREEN}:3", "network API", result)
+        self.assert_problem(f"{PREVIEW_LOGIC}/transport/HeadRewriter.kt:3", "network API", result)
+        self.assert_problem(f"{FEATURE_FILE}:3", "network API", result)
+
+    def test_a_reviewed_preview_file_using_another_network_api_is_reported(self):
+        self.track_preview()
+        self.track(WEB_CLIENTS, "package x\n\nimport android.webkit.WebView\nimport okhttp3.OkHttpClient\n")
+        self.track(WEB_FACTORY, "package x\n\nimport java.net.*\n")
+        self.track(BRIDGE_CONNECTION, "package x\n\nimport java.net.Socket\nimport java.net.URL\n")
+        self.track(
+            LISTEN_TABLE,
+            "package x\n\nimport java.net.InetAddress\nimport java.net.Socket\n"
+            "fun f() = java.net.URL(\"x\")\n",
+        )
+        self.commit()
+        result = self.check()
+        self.assert_problem(f"{WEB_CLIENTS}:4", "network API", result)
+        self.assertNotIn(f"{WEB_CLIENTS}:3:", result.stdout)
+        self.assert_problem(f"{WEB_FACTORY}:3", "network API", result)
+        self.assert_problem(f"{BRIDGE_CONNECTION}:4", "network API", result)
+        self.assertNotIn(f"{BRIDGE_CONNECTION}:3:", result.stdout)
+        self.assert_problem(f"{LISTEN_TABLE}:4", "network API", result)
+        self.assert_problem(f"{LISTEN_TABLE}:5", "network API", result)
+        self.assertNotIn(f"{LISTEN_TABLE}:3:", result.stdout)
+
+    def test_the_preview_link_opener_elsewhere_is_reported(self):
+        self.track_preview()
+        self.track(
+            PAGE_SCREEN,
+            "package x\n\nimport android.content.Intent\n\nfun f(u: Any) = Intent(Intent.ACTION_VIEW, u)\n",
+        )
+        self.commit()
+        self.assert_problem(f"{PAGE_SCREEN}:5", "opens links")
+
+    def test_a_listening_socket_outside_the_bridge_file_is_reported(self):
+        self.track_preview()
+        samples = {
+            f"core/ssh/{KT}/core/ssh/Forward.kt": "fun f() = java.net.ServerSocket(0)\n",
+            f"core/api-http/{KT}/core/api_http/Udp.kt": "import java.net.DatagramSocket\n",
+            BRIDGE_CONNECTION: "import java.nio.channels.ServerSocketChannel\n",
+            f"{PREVIEW_LOGIC}/transport/Other.kt": "fun f(s: Any) = (s as ServerSocketFactory).createServerSocket(0)\n",
+        }
+        for path, line in samples.items():
+            self.track(path, "package x\n\n" + line)
+        self.commit()
+        result = self.check()
+        for path in samples:
+            with self.subTest(path=path):
+                self.assert_problem(f"{path}:3", "listening socket", result)
+
+    def test_a_bridge_listening_anywhere_but_loopback_is_reported(self):
+        cases = {
+            "port only": ("ServerSocket(0)", ""),
+            "backlog only": ("ServerSocket(0, BACKLOG)", ""),
+            "any address": ("ServerSocket(0, BACKLOG, ANY)",
+                            "private val ANY: InetAddress = InetAddress.getByAddress(byteArrayOf(0, 0, 0, 0))\n"),
+            "a name lookup": ("ServerSocket(0, BACKLOG, InetAddress.getByName(\"localhost\"))", ""),
+            "null address": ("ServerSocket(0, BACKLOG, null)", ""),
+            "bound later": ("ServerSocket().also { it.bind(InetSocketAddress(0)) }", ""),
+            "a constructor reference": ("listOf(0).map(::ServerSocket).first()", ""),
+            "a channel": ("ServerSocket(0, BACKLOG, LOOPBACK)",
+                          "fun c() = java.nio.channels.ServerSocketChannel.open()\n"),
+            "a shadowed name": ("ServerSocket(0, BACKLOG, LOOPBACK)",
+                                "fun g(LOOPBACK: InetAddress) = ServerSocket(0, 1, LOOPBACK)\n"),
+            "a lambda parameter": ("ServerSocket(0, BACKLOG, LOOPBACK)",
+                                   "fun h() = listOf(ANY).map { LOOPBACK -> ServerSocket(0, 1, LOOPBACK) }\n"),
+            "a loop variable": ("ServerSocket(0, BACKLOG, LOOPBACK)",
+                                "fun h() { for (LOOPBACK in listOf(ANY)) ServerSocket(0, 1, LOOPBACK) }\n"),
+            "a typed loop variable": ("ServerSocket(0, BACKLOG, LOOPBACK)",
+                                      "fun h() { for (LOOPBACK: InetAddress in listOf(ANY)) ServerSocket(0, 1, LOOPBACK) }\n"),
+            "a typed lambda parameter": ("ServerSocket(0, BACKLOG, LOOPBACK)",
+                                         "fun h() = listOf(ANY).map { LOOPBACK: InetAddress -> ServerSocket(0, 1, LOOPBACK) }\n"),
+            "a second lambda parameter": ("ServerSocket(0, BACKLOG, LOOPBACK)",
+                                          "fun h() = mapOf(1 to ANY).map { k, LOOPBACK -> ServerSocket(0, 1, LOOPBACK) }\n"),
+            "a destructured lambda parameter": ("ServerSocket(0, BACKLOG, LOOPBACK)",
+                                                "fun h() = mapOf(1 to ANY).map { (k, LOOPBACK) -> ServerSocket(0, 1, LOOPBACK) }\n"),
+            "a destructured loop variable": ("ServerSocket(0, BACKLOG, LOOPBACK)",
+                                             "fun h() { for ((k, LOOPBACK) in mapOf(1 to ANY)) ServerSocket(0, 1, LOOPBACK) }\n"),
+            "a destructured local": ("ServerSocket(0, BACKLOG, LOOPBACK)",
+                                     "fun h() { val (k, LOOPBACK) = 1 to ANY; ServerSocket(0, 1, LOOPBACK) }\n"),
+            "a local variable": ("ServerSocket(0, BACKLOG, LOOPBACK)",
+                                 "fun h() { var LOOPBACK = ANY; ServerSocket(0, 1, LOOPBACK) }\n"),
+            "a backticked local": ("ServerSocket(0, BACKLOG, LOOPBACK)",
+                                   "fun h() { val `LOOPBACK` = ANY; ServerSocket(0, 1, LOOPBACK) }\n"),
+            "a caught exception": ("ServerSocket(0, BACKLOG, LOOPBACK)",
+                                   "fun h() { try {} catch (LOOPBACK: Exception) {} }\n"),
+            "an extension property": ("ServerSocket(0, BACKLOG, LOOPBACK)",
+                                      "val Any.LOOPBACK get() = ANY\n"),
+            "a second declaration": ("ServerSocket(0, BACKLOG, LOOPBACK)",
+                                     "object O { val LOOPBACK = InetAddress.getByName(\"0.0.0.0\") }\n"),
+            "an import alias": ("ServerSocket(0, BACKLOG, LOOPBACK)", "import java.net.ServerSocket as Listener\n"),
+            "a type alias": ("ServerSocket(0, BACKLOG, LOOPBACK)", "typealias Listener = ServerSocket\n"),
+        }
+        for name, (listen, extra) in cases.items():
+            with self.subTest(case=name):
+                self.track_preview()
+                self.track(BRIDGE, bridge_source(listen, extra))
+                self.commit(name)
+                result = self.check()
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertTrue(
+                    any(line.startswith(BRIDGE + ":") and "loopback" in line for line in result.stdout.splitlines()),
+                    result.stdout,
+                )
+
+    def test_the_loopback_name_declared_in_another_file_of_the_module_is_reported(self):
+        self.track_preview()
+        self.track(
+            f"{PREVIEW_LOGIC}/transport/Base.kt",
+            "package x\n\nopen class Base { val LOOPBACK = java.net.InetAddress.getByName(host) }\n",
+        )
+        self.commit()
+        self.assert_problem(f"{BRIDGE}:14", "not bound to 127.0.0.1")
+
+    def test_the_bridge_on_the_loopback_literal_passes(self):
+        self.track_preview()
+        self.track(
+            BRIDGE,
+            bridge_source(f"java.net.ServerSocket(0, BACKLOG, {LOOPBACK_VALUE.replace(', ', ',')})"),
+        )
+        self.commit()
+        self.assert_clean()
+
+    def test_the_bridge_rule_holds_only_at_the_bridge_path(self):
+        moved = f"{PREVIEW_LOGIC}/LoopbackBridge.kt"
+        self.track(moved, bridge_source())
+        self.commit()
+        result = self.check()
+        self.assert_problem(f"{moved}:6", "network API", result)
+        self.assert_problem(f"{moved}:6", "listening socket", result)
+
+    def test_the_listen_table_address_sample_passes_only_at_its_path(self):
+        sample = ".".join(["1", "0", "0", "127"])  # 127.0.0.1 with its bytes swapped
+        content = f"// 0100007F is {sample} on a big-endian server\n"
+        self.track(LISTEN_TABLE_TEST, content)
+        self.commit("tests")
+        self.assert_clean()
+        self.track("docs/copy.kt", content)
+        self.commit("copy")
+        commit = self.head()[:12]
+        self.assert_problem(f"{commit}:docs/copy.kt:1", "public IP")
+
+
+VIEWPORT_TEST = (
+    "feature/preview/logic/src/test/kotlin/io/github/thewisekd/phopencode/feature/preview/logic/viewport/"
+    "ViewportProfileTest.kt"
+)
+
+
+class PreviewHistoryAllowlist(AuditCase):
+    """P13.17: the preview's history hits are allowed only where they were reviewed."""
+
+    def setUp(self):
+        super().setUp()
+        self.make_clean_repo()
+
+    def rev_parse(self, name):
+        return subprocess.run(
+            ["git", "-C", str(self.root), "rev-parse", name],
+            env=clean_env(self.base), stdout=subprocess.PIPE, universal_newlines=True, check=True,
+        ).stdout.strip()
+
+    def test_a_user_agent_version_passes_only_in_its_viewport_test(self):
+        version = ".".join(["121", "0", "1", "2"])  # a Chrome version, not an address
+        content = f'val agent = "Mozilla/5.0 Chrome/{version} Mobile Safari/537.36"\n'
+        self.track(VIEWPORT_TEST, content)
+        self.commit("viewport")
+        self.assert_clean()
+        self.track("docs/agents.kt", content)
+        self.commit("copy")
+        commit = self.head()[:12]
+        self.assert_problem(f"{commit}:docs/agents.kt:1", "public IP")
+
+    def history(self, audit):
+        return audit.audit_history(self.root)
+
+    def test_a_commit_allowlist_entry_covers_one_commit_path_blob_and_line(self):
+        path = "feature/x/src/test/kotlin/XTest.kt"
+        secret_line = join("private val SEC", 'RET = "s3', 'cr3t-" + "value"\n')
+        self.track(path, "package x\n\n" + secret_line)
+        self.commit("test")
+        commit, blob = self.rev_parse("HEAD"), self.rev_parse(f"HEAD:{path}")
+        audit = load_audit()
+        audit.HISTORY_COMMIT_ALLOWLIST = {(commit, path, blob, 3, "hard-coded secret"): "a fixture"}
+        self.assertEqual([], self.history(audit))
+        for wrong in (
+            ("0" * 40, path, blob, 3, "hard-coded secret"),
+            (commit, "feature/x/src/test/kotlin/Other.kt", blob, 3, "hard-coded secret"),
+            (commit, path, "0" * 40, 3, "hard-coded secret"),
+            (commit, path, blob, 4, "hard-coded secret"),
+            (commit, path, blob, 3, "AWS"),
+        ):
+            with self.subTest(entry=wrong[1:]):
+                audit.HISTORY_COMMIT_ALLOWLIST = {wrong: "a fixture"}
+                self.assertEqual([f"{commit[:12]}:{path}:3: secret scan: hard-coded secret"],
+                                 [p.split(": use")[0] for p in self.history(audit)])
+        audit.HISTORY_COMMIT_ALLOWLIST = {(commit, path, blob, 3, "hard-coded secret"): "a fixture"}
+        self.track("feature/x/src/test/kotlin/Copy.kt", "package x\n\n" + secret_line)
+        self.track(path, "package y\n\n" + secret_line)  # a new blob at the same path and line
+        self.commit("copies")
+        later = self.head()[:12]
+        found = [p.split(": use")[0] for p in self.history(audit)]
+        self.assertEqual(
+            sorted([
+                f"{later}:feature/x/src/test/kotlin/Copy.kt:3: secret scan: hard-coded secret",
+                f"{later}:{path}:3: secret scan: hard-coded secret",
+            ]),
+            sorted(found),
+        )
+
+
 def load_audit():
     spec = importlib.util.spec_from_file_location("audit_release", SCRIPTS / "audit_release.py")
     module = importlib.util.module_from_spec(spec)
