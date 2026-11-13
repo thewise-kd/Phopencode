@@ -12,6 +12,9 @@ who gets hold of your phone, your server or your ntfy topic can do. Setup is des
 
 - The phone talks only to your server, and only over SSH. The opencode API is reached through
   that SSH connection; `opencode serve` listens on `127.0.0.1` only.
+- The phone opens no local port, with one exception: while the live preview screen is open, a
+  bridge listens on the phone's `127.0.0.1`, on a random port, and answers only requests that
+  carry a secret drawn for that session. See [Live preview](#live-preview).
 - A server's host key is approved by you on the first connection; a changed key stops the
   connection.
 - Passwords, private keys, key passphrases and the ntfy settings are encrypted on the phone with
@@ -83,18 +86,28 @@ servers; see [INSTALL.md](INSTALL.md#removing-everything).
 ```text
  Phone (Phopencode) ---- SSH ----> your server ---- HTTPS ----> ntfy server ----> ntfy app
                                      |                          (ntfy.sh by
-                                     '- opencode serve           default)
+                                     |- opencode serve           default)
+                                     |  on 127.0.0.1
+                                     '- your dev server (live preview)
                                         on 127.0.0.1
 ```
 
 - **Phone to your server: SSH only.** Commands, SFTP file transfers and the opencode HTTP API
   share one SSH connection. The API and its event stream go through an SSH channel to
-  `127.0.0.1` on the server; the phone opens no local port, so other apps on the phone cannot
-  reach it.
+  `127.0.0.1` on the server; the phone opens no local port for them, so other apps on the phone
+  cannot reach them.
+- **The live preview is the one exception.** While the preview screen is open, its bridge
+  listens on the phone's `127.0.0.1` only, on a random port, and relays the preview's requests
+  through the same SSH connection to the one port on the server's loopback that you picked.
+  Every connection to the bridge must carry a secret drawn for that session; without it the
+  answer is 403 and nothing reaches the server. Leaving the screen closes the port. Commands,
+  SFTP and the opencode API still open no local port. Details are in
+  [Live preview](#live-preview).
 - **No other connections from the app.** The app's network security configuration forbids
-  unencrypted traffic, except to `127.0.0.1`, which only the SSH channel reaches. Images in chat
-  Markdown are not loaded. A link in a chat message opens in your browser only after you confirm
-  a dialog that shows its full address.
+  unencrypted traffic, except to `127.0.0.1`, which on the phone is either the SSH channel or the
+  preview's bridge. Images in chat Markdown are not loaded. A link in a chat message, or a link
+  in the preview that leaves the previewed site, opens in your browser only after you confirm a
+  dialog that shows its full address.
 - **Your server to ntfy: HTTPS only.** The notification service posts each notification to the
   ntfy server over HTTPS; it refuses plain `http://` servers.
 - **ntfy to your phone:** the ntfy app receives the notification. Phopencode itself never
@@ -131,10 +144,158 @@ tracking library, and sends nothing about you or your use of it to anyone.
 The app runs as your SSH user and never uses `sudo`. It never reboots, shuts down or resets the
 server, and never stops, kills or replaces an `opencode serve` that is already running; it starts
 one only when none runs. The only processes it stops are its own: a command you cancel, and a
-server it has just started that did not come up in time. Every command is fixed shell text with
+server it has just started that did not come up in time. It never starts or stops the dev
+server you preview; to show which ports you can preview, it only reads the list of listening
+ports. Every command is fixed shell text with
 each variable part shell-quoted. Git commands never force-push, never run `git reset --hard` or
 `git clean`, and pull fast-forward only. The full list is in
 [INSTALL.md](INSTALL.md#what-the-app-does-on-your-server).
+
+## Live preview
+
+The live preview shows, in a WebView on the phone, a web app that a dev server runs on your
+server's loopback, for example `npm run dev` on `127.0.0.1`. Its traffic goes through a temporary
+bridge on the phone. That is option (b) of decision D9, chosen over a design without a local port
+because it lets forms, requests with a body and hot reload work; the two options are compared in
+[preview-transport.md](dev-setup/preview-transport.md).
+
+### What it connects to
+
+- **Only the port you pick.** The preview screen lists the TCP ports that listen on the server's
+  loopback, and you pick one. The list comes from a fixed, read-only command (`ss`, or the
+  kernel's `/proc/net/tcp` tables when `ss` is missing); nothing is started, stopped or signalled,
+  and `sudo` is never used.
+- **Only on the server's loopback.** The preview's SSH channel reaches only `127.0.0.1`, `::1` or
+  `localhost` on that port, as seen from the server. It cannot reach another host, and it refuses
+  the port `opencode serve` listens on.
+- **Never the dev server's process.** The app never starts, stops or restarts your dev server. If
+  nothing listens on the port, the preview says so.
+- The channel belongs to the SSH connection it was opened on: it closes when that connection
+  drops and never moves to a later one. Reloading after a reconnect opens a new one.
+
+### The bridge on the phone
+
+- When the preview screen opens, the bridge listens on `127.0.0.1` only, never on a network
+  interface, on a port the system picks at random. The release audit checks that this is the only
+  place in the app that listens on a socket, and only on the loopback address.
+- Each bridge draws a new secret of 256 bits from a secure random source. The WebView presents it
+  once, in its first address; the bridge moves it into a cookie marked `HttpOnly` and
+  `SameSite=Strict` and sends the WebView on to the same page without the secret in the address.
+- Every request must carry the secret, in that cookie or in the first address, and the secret is
+  compared in constant time. A request without it gets 403, and its connection is closed before
+  any byte reaches the SSH channel. Such refusals are not reported anywhere, so other apps cannot
+  fill the preview's console.
+- The secret never reaches the dev server: the bridge removes its cookie from every request and
+  drops any cookie of that name the dev server tries to set. It is never logged, and the console
+  removes it from every address and message it shows.
+- The bridge limits what one connection may cost: the size of request and response heads and
+  bodies, the number of headers, how long a client or the dev server may stall, and the number of
+  connections at once.
+- Leaving the preview screen closes the bridge's port, every connection through it and the SSH
+  channel. Opening the preview again draws a new port and a new secret.
+
+### The WebView
+
+The preview's WebView is the only WebView in the app, and it is isolated from the rest of it:
+
+- **No bridge into the app.** Pages run JavaScript, which dev servers need, but no app object,
+  message channel or other interface is handed to them.
+- **No files or content.** File and content access are switched off, for the page and for
+  `file:` addresses. The file chooser and downloads are refused.
+- **No device access.** Camera, microphone and every other permission request is denied, and
+  geolocation is off. Pop-up windows are not opened.
+- **No credentials.** The WebView never sees your SSH keys, passwords or ntfy settings. HTTP
+  authentication requests, client certificate requests and pages with TLS errors are cancelled.
+  Form data and passwords are not saved, and the autofill service is not offered the page.
+- **Nothing kept.** The page may use cookies and web storage while the preview is open. Closing
+  the preview clears its cookies, web storage, HTTP cache, history, form data and saved HTTP
+  authentication, and destroys the WebView. Rotating the phone keeps the page; leaving the
+  screen does not.
+- **No debugging in releases.** The WebView can be debugged remotely only in a debug build of the
+  app.
+
+### Requests off the preview origin
+
+The preview origin is `http://127.0.0.1:<bridge port>`. Everything the page loads must come from
+it:
+
+- **Refused in the WebView.** Every request the WebView makes is checked before it leaves. One
+  that is not on the preview origin, and is not `data:`, `about:blank`, `about:srcdoc` or a `blob:`
+  made on the origin, gets an empty 403 and is listed in the console as refused; the phone never
+  fetches it. Another port on the phone's loopback is off the origin too.
+- **An added `Content-Security-Policy`.** The bridge adds a policy to every response it relays
+  and to its own answers. The WebView does not check a redirected sub-resource again, so this
+  policy is what stops a redirect that leaves the origin:
+  - `default-src` allows only the origin, `data:` and `blob:`; images, fonts, media, frames,
+    workers and the rest fall back to it.
+  - `script-src` and `style-src` add inline code, and `script-src` also `eval`, which Vite and
+    webpack dev servers rely on.
+  - `connect-src` allows the origin over `http` and `ws`, so `fetch`, `XMLHttpRequest`,
+    `EventSource` and the hot reload WebSocket stay on it.
+  - `form-action` allows only the origin.
+
+  The page's own policy, if it has one, is passed on unchanged and applies as well.
+- **Addresses on the server.** The dev server sees requests addressed to `localhost`, as from a
+  browser on the server, and its redirects to its own `localhost` address are mapped back to the
+  preview origin.
+
+### External links
+
+A link that leaves the preview origin is never loaded in the WebView. If it is an `http` or
+`https` address in the main page, the app shows a dialog with the full address and opens it in
+your browser only after you confirm. A frame that tries to leave the origin is refused without a
+dialog, and every other kind of address (`file:`, `content:`, `intent:`, `javascript:` and the
+rest) is refused.
+
+### A hostile page on your server
+
+The dev server and the pages it serves are code that runs on your server as your user, so the
+preview trusts them no more and no less than the rest of the server. A hostile or compromised page
+can:
+
+- run JavaScript in the preview and show anything, including a page that imitates a login form;
+- send any request, with any body, to the dev server on the port you picked, and open WebSockets
+  there; what the dev server then does on your server is outside the app;
+- keep the WebView busy or use up the bridge's limits, which slows or stops the preview;
+- write to the preview's console, and ask to open an external address, which still needs your
+  confirmation.
+
+It cannot:
+
+- reach another port or host through the preview: not `opencode serve`, not another port on the
+  server, not the phone's other loopback ports, not the internet (but see
+  [Known limits](#known-limits));
+- read or change anything in the app: your servers, keys, passwords, chats or settings;
+- read files on the phone, use the camera, microphone or location, download files or open
+  windows;
+- keep anything on the phone after you close the preview;
+- run commands on your server through the app.
+
+The bridge's secret guards the bridge against other apps, not against the page, which is the
+bridge's own client. Its scripts cannot read the secret's cookie, and even with the secret the page
+could reach nothing beyond what it already reaches.
+
+### Who else can reach the bridge
+
+- **Other apps on the phone** can connect to the bridge's port while the preview is open. Without
+  the secret they get 403, and nothing reaches your server. By opening many connections they can
+  slow the preview down.
+- **A site open in the phone's browser** can send requests to the port too. It cannot read the
+  WebView's cookie, which lives in another app's storage, so it gets 403 as well.
+- **The network** cannot reach the bridge: it listens on the loopback address only.
+
+### Known limits
+
+- The WebView cannot be built or tested without the Android SDK. The bridge, its secret check,
+  the added policy and the address rules are covered by tests that run on any computer; the
+  WebView's own behaviour, such as its settings, the refused requests and the data cleared on
+  close, is checked only by tests on an Android emulator in the project's CI.
+- WebRTC is covered neither by the request check nor by the policy, so a page may make the
+  WebView contact a STUN or TURN server of its choice. A page may likewise ask for a host name to
+  be looked up in advance (`dns-prefetch`). A page you preview can therefore send a small amount
+  of data off the phone this way.
+- `script-src` allows inline code and `eval`, because dev servers need them. The added policy
+  keeps the page on its origin; it does not protect the page from its own scripts.
 
 ## Notifications
 
@@ -178,6 +339,8 @@ each variable part shell-quoted. Git commands never force-push, never run `git r
   your SSH password if you log in with one, as with any SSH client; prefer key login.
 - Chat links still need your confirmation before they open, and Markdown images are not loaded,
   so content from the server cannot make the phone fetch an address on its own.
+- A page they serve to the live preview stays inside the preview's isolated WebView; see
+  [what a hostile page can do](#a-hostile-page-on-your-server).
 
 ### On the network
 

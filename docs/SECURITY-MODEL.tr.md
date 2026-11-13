@@ -12,6 +12,9 @@ telefonunu, sunucunu ya da ntfy konunu ele geçiren birinin neler yapabileceği.
 
 - Telefon yalnızca senin sunucunla ve yalnızca SSH üzerinden konuşur. opencode API'sine o SSH
   bağlantısı üzerinden ulaşılır; `opencode serve` yalnızca `127.0.0.1`'i dinler.
+- Telefon yerel port açmaz; tek istisna canlı önizlemedir. Önizleme ekranı açıkken telefonun
+  `127.0.0.1` adresinde, rastgele bir portta bir köprü dinler ve yalnızca o oturum için üretilen
+  gizli değeri taşıyan isteklere cevap verir. Bkz. [Canlı önizleme](#canlı-önizleme).
 - Bir sunucunun anahtarını ilk bağlantıda sen onaylarsın; değişen bir anahtar bağlantıyı
   durdurur.
 - Parolalar, özel anahtarlar, anahtar parolaları ve ntfy ayarları telefonda, Android Keystore'da
@@ -83,16 +86,26 @@ kaldırmaz; bkz. [INSTALL.tr.md](INSTALL.tr.md#her-şeyi-kaldırma).
 ```text
  Telefon (Phopencode) --- SSH ---> sunucun ---- HTTPS ----> ntfy sunucusu ----> ntfy uygulaması
                                      |                      (varsayılan:
-                                     '- opencode serve       ntfy.sh)
+                                     |- opencode serve       ntfy.sh)
+                                     |  127.0.0.1 üzerinde
+                                     '- geliştirme sunucun (canlı önizleme)
                                         127.0.0.1 üzerinde
 ```
 
 - **Telefondan sunucuna: yalnızca SSH.** Komutlar, SFTP dosya aktarımları ve opencode HTTP API'si
   tek bir SSH bağlantısını paylaşır. API ve olay akışı, sunucudaki `127.0.0.1`'e giden bir SSH
-  kanalından geçer; telefon yerel port açmaz, yani telefondaki diğer uygulamalar ona erişemez.
+  kanalından geçer; telefon bunlar için yerel port açmaz, yani telefondaki diğer uygulamalar
+  onlara erişemez.
+- **Tek istisna canlı önizleme.** Önizleme ekranı açıkken köprüsü yalnızca telefonun
+  `127.0.0.1` adresinde, rastgele bir portta dinler ve önizlemenin isteklerini aynı SSH bağlantısı
+  üzerinden, sunucunun loopback'inde senin seçtiğin tek porta iletir. Köprüye gelen her bağlantı o
+  oturum için üretilen gizli değeri taşımak zorundadır; taşımayan 403 alır ve sunucuya hiçbir şey
+  ulaşmaz. Ekrandan çıkınca port kapanır. Komutlar, SFTP ve opencode API'si için yine yerel port
+  açılmaz. Ayrıntılar [Canlı önizleme](#canlı-önizleme) bölümünde.
 - **Uygulamadan başka bağlantı yok.** Uygulamanın ağ güvenliği yapılandırması şifresiz trafiği
-  yasaklar; tek istisna, yalnızca SSH kanalının ulaştığı `127.0.0.1`'dir. Sohbetteki Markdown
-  resimleri yüklenmez. Bir sohbet mesajındaki bağlantı, tam adresini gösteren bir iletişim
+  yasaklar; tek istisna `127.0.0.1`'dir ve telefonda bu adres ya SSH kanalına ya da önizlemenin
+  köprüsüne çıkar. Sohbetteki Markdown resimleri yüklenmez. Bir sohbet mesajındaki ya da
+  önizlemede, önizlenen siteden dışarı çıkan bir bağlantı, tam adresini gösteren bir iletişim
   kutusunu onaylamadan tarayıcıda açılmaz.
 - **Sunucundan ntfy'a: yalnızca HTTPS.** Bildirim servisi her bildirimi ntfy sunucusuna HTTPS ile
   gönderir; düz `http://` sunucularını reddeder.
@@ -131,10 +144,159 @@ Uygulama SSH kullanıcın olarak çalışır ve hiçbir zaman `sudo` kullanmaz. 
 başlatmaz, kapatmaz ya da sıfırlamaz; zaten çalışan bir `opencode serve` sürecini asla durdurmaz,
 öldürmez ya da yerine başkasını koymaz; yalnızca hiçbiri çalışmıyorsa yenisini başlatır.
 Durdurduğu tek süreçler kendi süreçleridir: iptal ettiğin bir komut ve az önce başlatıp zamanında
-ayağa kalkmayan bir sunucu. Her komut sabit bir kabuk metnidir ve her değişken parçası kabuk için
+ayağa kalkmayan bir sunucu. Önizlediğin geliştirme sunucusunu asla başlatmaz ya da durdurmaz;
+hangi portları önizleyebileceğini göstermek için yalnızca dinleyen portların listesini okur. Her
+komut sabit bir kabuk metnidir ve her değişken parçası kabuk için
 tırnaklanır. Git komutları asla zorla push yapmaz, `git reset --hard` ya da `git clean`
 çalıştırmaz ve pull yalnızca fast-forward yapar. Listenin tamamı
 [INSTALL.tr.md](INSTALL.tr.md#uygulamanın-sunucunda-yaptıkları) dosyasındadır.
+
+## Canlı önizleme
+
+Canlı önizleme, sunucunun loopback'inde bir geliştirme sunucusunun çalıştırdığı web uygulamasını
+(örneğin `127.0.0.1` üzerinde `npm run dev`) telefondaki bir WebView'da gösterir. Trafiği
+telefondaki geçici bir köprüden geçer. Bu, D9 kararındaki (b) seçeneğidir; yerel port açmayan
+tasarım yerine seçildi, çünkü formlar, gövdeli istekler ve anında yenileme (hot reload) ancak
+böyle çalışır. İki seçeneğin karşılaştırması
+[preview-transport.md](dev-setup/preview-transport.md) dosyasındadır (İngilizce).
+
+### Neye bağlanır
+
+- **Yalnızca senin seçtiğin port.** Önizleme ekranı, sunucunun loopback'inde dinleyen TCP
+  portlarını listeler; sen birini seçersin. Liste sabit ve yalnızca okuyan bir komuttan gelir
+  (`ss` ya da o yoksa çekirdeğin `/proc/net/tcp` tabloları); hiçbir süreç başlatılmaz,
+  durdurulmaz ya da ona sinyal gönderilmez, `sudo` hiç kullanılmaz.
+- **Yalnızca sunucunun loopback'i.** Önizlemenin SSH kanalı, sunucunun gözünden yalnızca o
+  porttaki `127.0.0.1`, `::1` ya da `localhost`'a ulaşır. Başka bir makineye ulaşamaz ve
+  `opencode serve`'ün dinlediği portu reddeder.
+- **Geliştirme sunucusunun sürecine dokunmaz.** Uygulama geliştirme sunucunu asla başlatmaz,
+  durdurmaz ya da yeniden başlatmaz. Portta dinleyen yoksa önizleme bunu söyler.
+- Kanal, açıldığı SSH bağlantısına aittir: o bağlantı koparsa kapanır ve hiçbir zaman sonraki bir
+  bağlantıya geçmez. Yeniden bağlandıktan sonra sayfayı yenilemek yeni bir kanal açar.
+
+### Telefondaki köprü
+
+- Önizleme ekranı açılınca köprü, bir ağ arayüzünde değil yalnızca `127.0.0.1` üzerinde, sistemin
+  rastgele seçtiği bir portta dinlemeye başlar. Sürüm denetimi, uygulamada soket dinleyen tek
+  yerin burası olduğunu ve yalnızca loopback adresini kullandığını doğrular.
+- Her köprü, güvenli bir rastgele kaynaktan 256 bitlik yeni bir gizli değer üretir. WebView bu
+  değeri bir kez, ilk adresinde gösterir; köprü onu `HttpOnly` ve `SameSite=Strict` işaretli bir
+  çereze taşır ve WebView'ı aynı sayfaya, bu kez adreste gizli değer olmadan yönlendirir.
+- Her istek gizli değeri ya o çerezde ya da ilk adreste taşımak zorundadır; karşılaştırma sabit
+  sürede yapılır. Taşımayan istek 403 alır ve bağlantısı, SSH kanalına tek bayt ulaşmadan kapanır.
+  Bu retler hiçbir yere bildirilmez; böylece diğer uygulamalar önizlemenin konsolunu dolduramaz.
+- Gizli değer geliştirme sunucusuna hiç ulaşmaz: köprü kendi çerezini her istekten çıkarır ve
+  geliştirme sunucusunun aynı adla çerez koyma girişimlerini yok sayar. Hiçbir zaman loglanmaz;
+  konsol da gösterdiği her adresten ve mesajdan onu siler.
+- Köprü tek bir bağlantının neye mal olabileceğini sınırlar: istek ve cevap başlıklarının ve
+  gövdelerinin boyutu, başlık sayısı, bir istemcinin ya da geliştirme sunucusunun ne kadar
+  oyalanabileceği ve aynı anda kaç bağlantı olabileceği.
+- Önizleme ekranından çıkınca köprünün portu, ondan geçen her bağlantı ve SSH kanalı kapanır.
+  Önizlemeyi yeniden açmak yeni bir port ve yeni bir gizli değer üretir.
+
+### WebView
+
+Önizlemenin WebView'ı uygulamadaki tek WebView'dır ve uygulamanın geri kalanından yalıtılmıştır:
+
+- **Uygulamaya köprü yok.** Sayfalar, geliştirme sunucularının ihtiyaç duyduğu JavaScript'i
+  çalıştırır; ama onlara hiçbir uygulama nesnesi, mesaj kanalı ya da başka bir arayüz verilmez.
+- **Dosya ve içerik erişimi yok.** Dosya ve içerik erişimi, hem sayfa hem `file:` adresleri için
+  kapalıdır. Dosya seçici ve indirmeler reddedilir.
+- **Cihaz erişimi yok.** Kamera, mikrofon ve diğer bütün izin istekleri reddedilir; konum kapalıdır.
+  Açılır pencere açılmaz.
+- **Kimlik bilgisi yok.** WebView SSH anahtarlarını, parolalarını ya da ntfy ayarlarını hiç görmez.
+  HTTP kimlik doğrulama istekleri, istemci sertifikası istekleri ve TLS hatası veren sayfalar iptal
+  edilir. Form verileri ve parolalar kaydedilmez; otomatik doldurma servisine sayfa gösterilmez.
+- **Hiçbir şey kalmaz.** Sayfa, önizleme açıkken çerez ve web depolama kullanabilir. Önizleme
+  kapanınca çerezleri, web depolaması, HTTP önbelleği, geçmişi, form verileri ve kaydedilmiş HTTP
+  kimlik doğrulaması silinir ve WebView yok edilir. Telefonu döndürmek sayfayı korur; ekrandan
+  çıkmak korumaz.
+- **Sürümlerde hata ayıklama yok.** WebView'da uzaktan hata ayıklama yalnızca uygulamanın hata
+  ayıklama derlemesinde mümkündür.
+
+### Önizleme kökeni dışındaki istekler
+
+Önizleme kökeni (origin) `http://127.0.0.1:<köprü portu>` adresidir. Sayfanın yüklediği her şey
+buradan gelmek zorundadır:
+
+- **WebView'da reddedilir.** WebView'ın yaptığı her istek, dışarı çıkmadan denetlenir. Önizleme
+  kökeninde olmayan, `data:`, `about:blank`, `about:srcdoc` ya da kökende üretilmiş bir `blob:` da
+  olmayan istek boş bir 403 alır ve konsolda reddedilmiş olarak listelenir; telefon onu hiç
+  getirmez. Telefonun loopback'indeki başka bir port da kökenin dışındadır.
+- **Eklenen bir `Content-Security-Policy`.** Köprü, ilettiği her cevaba ve kendi cevaplarına bir
+  politika ekler. WebView yönlendirilen bir alt kaynağı yeniden denetlemez; kökenin dışına çıkan
+  bir yönlendirmeyi durduran bu politikadır:
+  - `default-src` yalnızca kökene, `data:` ve `blob:`'a izin verir; resimler, yazı tipleri, medya,
+    çerçeveler, worker'lar ve geri kalanı buna düşer.
+  - `script-src` ve `style-src` satır içi koda da izin verir; `script-src` ayrıca Vite ve webpack
+    geliştirme sunucularının dayandığı `eval`'e izin verir.
+  - `connect-src` kökene `http` ve `ws` üzerinden izin verir; böylece `fetch`, `XMLHttpRequest`,
+    `EventSource` ve anında yenilemenin WebSocket'i kökende kalır.
+  - `form-action` yalnızca kökene izin verir.
+
+  Sayfanın kendi politikası varsa değiştirilmeden iletilir ve o da geçerlidir.
+- **Sunucudaki adresler.** Geliştirme sunucusu, istekleri sunucudaki bir tarayıcıdan geliyormuş
+  gibi `localhost`'a yazılmış görür; kendi `localhost` adresine yaptığı yönlendirmeler de önizleme
+  kökenine geri çevrilir.
+
+### Dış bağlantılar
+
+Önizleme kökeninden çıkan bir bağlantı WebView'da hiçbir zaman yüklenmez. Ana sayfadaki bir
+`http` ya da `https` adresiyse uygulama tam adresi gösteren bir iletişim kutusu açar ve onu ancak
+sen onaylarsan tarayıcında açar. Kökenden çıkmaya çalışan bir çerçeve soru sorulmadan reddedilir;
+diğer her türlü adres (`file:`, `content:`, `intent:`, `javascript:` ve diğerleri) de reddedilir.
+
+### Sunucundaki kötü niyetli bir sayfa
+
+Geliştirme sunucusu ve sunduğu sayfalar, sunucunda senin kullanıcın olarak çalışan kodlardır;
+önizleme onlara sunucunun geri kalanına güvendiği kadar güvenir, ne az ne çok. Kötü niyetli ya da
+ele geçirilmiş bir sayfa şunları yapabilir:
+
+- önizlemede JavaScript çalıştırmak ve her şeyi göstermek, giriş formunu taklit eden bir sayfa
+  dahil;
+- seçtiğin porttaki geliştirme sunucusuna her türlü isteği, her türlü gövdeyle göndermek ve orada
+  WebSocket açmak; geliştirme sunucusunun sonra sunucunda ne yaptığı uygulamanın dışındadır;
+- WebView'ı meşgul etmek ya da köprünün sınırlarını tüketmek, bu da önizlemeyi yavaşlatır ya da
+  durdurur;
+- önizlemenin konsoluna yazmak ve bir dış adresi açmayı istemek; bu yine senin onayına bağlıdır.
+
+Şunları yapamaz:
+
+- önizleme üzerinden başka bir porta ya da makineye ulaşmak: `opencode serve`'e, sunucudaki başka
+  bir porta, telefonun loopback'indeki diğer portlara ya da internete (ama
+  [Bilinen sınırlar](#bilinen-sınırlar) bölümüne bak);
+- uygulamadaki herhangi bir şeyi okumak ya da değiştirmek: sunucularını, anahtarlarını,
+  parolalarını, sohbetlerini ya da ayarlarını;
+- telefondaki dosyaları okumak, kamerayı, mikrofonu ya da konumu kullanmak, dosya indirmek ya da
+  pencere açmak;
+- önizlemeyi kapattıktan sonra telefonda bir şey bırakmak;
+- uygulama üzerinden sunucunda komut çalıştırmak.
+
+Köprünün gizli değeri köprüyü sayfaya karşı değil, diğer uygulamalara karşı korur; sayfa zaten
+köprünün kendi istemcisidir. Sayfanın betikleri gizli değerin çerezini okuyamaz; okusalar bile
+sayfa, zaten ulaştığı yerlerin ötesine geçemezdi.
+
+### Köprüye başka kimler ulaşabilir
+
+- **Telefondaki diğer uygulamalar**, önizleme açıkken köprünün portuna bağlanabilir. Gizli değer
+  olmadan 403 alırlar ve sunucuna hiçbir şey ulaşmaz. Çok sayıda bağlantı açarak önizlemeyi
+  yavaşlatabilirler.
+- **Telefonun tarayıcısında açık bir site** de porta istek gönderebilir. WebView'ın çerezi başka
+  bir uygulamanın depolamasında durduğu için onu okuyamaz; o da 403 alır.
+- **Ağ** köprüye ulaşamaz: köprü yalnızca loopback adresinde dinler.
+
+### Bilinen sınırlar
+
+- WebView, Android SDK olmadan derlenemez ve sınanamaz. Köprü, gizli değer denetimi, eklenen
+  politika ve adres kuralları her bilgisayarda çalışan testlerle sınanır; WebView'ın kendi
+  davranışı, yani ayarları, reddedilen istekler ve kapanınca silinen veriler, yalnızca projenin
+  CI'ında bir Android emülatöründe çalışan testlerle denetlenir.
+- WebRTC ne istek denetiminin ne de politikanın kapsamındadır; bir sayfa WebView'ı kendi seçtiği bir
+  STUN ya da TURN sunucusuyla konuşturabilir. Aynı şekilde bir alan adının önceden çözülmesini
+  (`dns-prefetch`) isteyebilir. Yani önizlediğin bir sayfa bu yollarla telefondan dışarı az
+  miktarda veri gönderebilir.
+- Geliştirme sunucuları ihtiyaç duyduğu için `script-src` satır içi koda ve `eval`'e izin verir.
+  Eklenen politika sayfayı kendi kökeninde tutar; sayfayı kendi betiklerine karşı korumaz.
 
 ## Bildirimler
 
@@ -179,6 +341,8 @@ tırnaklanır. Git komutları asla zorla push yapmaz, `git reset --hard` ya da `
   giriş yapıyorsan, her SSH istemcisinde olduğu gibi SSH parolanı görür; anahtarla girişi tercih et.
 - Sohbet bağlantıları açılmadan önce yine onayını ister ve Markdown resimleri yüklenmez; yani
   sunucudan gelen içerik telefona kendiliğinden bir adres getirtemez.
+- Canlı önizlemeye sundukları bir sayfa, önizlemenin yalıtılmış WebView'ının içinde kalır; bkz.
+  [kötü niyetli bir sayfanın yapabilecekleri](#sunucundaki-kötü-niyetli-bir-sayfa).
 
 ### Ağda
 
