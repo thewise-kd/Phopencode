@@ -18,6 +18,8 @@ import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewFail
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewTunnel
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewTunnelSource
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.ViewportMode
+import io.github.thewisekd.phopencode.feature.preview.logic.viewport.ViewportChange
+import io.github.thewisekd.phopencode.feature.preview.logic.viewport.ViewportSwitch
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -132,8 +134,9 @@ class DefaultPagePresenter(
             PageIntent.ConfirmExternal -> confirmExternal()
             PageIntent.DismissExternal -> edit { it.copy(pendingExternal = null) }
             PageIntent.Close -> close()
-            // The console (P13.12) and the viewport (P13.15) are filled in by their own tasks.
-            is PageIntent.Report, is PageIntent.FilterConsole, PageIntent.ClearConsole, is PageIntent.SetViewport -> Unit
+            is PageIntent.SetViewport -> setViewport(intent.mode)
+            // The console (P13.12) is filled in by its own task.
+            is PageIntent.Report, is PageIntent.FilterConsole, PageIntent.ClearConsole -> Unit
         }
     }
 
@@ -324,6 +327,24 @@ class DefaultPagePresenter(
     private fun loadFailed(error: LoadError) = liveEdit {
         val mapped = if (error == LoadError.HttpStatus(BAD_GATEWAY) && nothingListens) LoadError.NothingListens else error
         it.copy(status = PageStatus.LoadFailed(mapped))
+    }
+
+    /**
+     * Keeps [mode] (P13.15); on an open bridge the page then loads again, so that the screen sets
+     * the new user agent and viewport before the load. Without a bridge nothing opens by itself.
+     */
+    private fun setViewport(mode: ViewportMode) {
+        synchronized(lock) {
+            if (closed) return
+            when (val change = ViewportSwitch.switch(mutableState.value, mode)) {
+                ViewportChange.None -> Unit
+                is ViewportChange.Apply -> {
+                    mutableState.value = change.state
+                    // The lock is re-entrant; [reload] finds the new mode in the state.
+                    if (change.reload) reload()
+                }
+            }
+        }
     }
 
     private fun requestExternal(url: String) {

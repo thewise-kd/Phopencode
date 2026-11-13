@@ -50,7 +50,7 @@ import kotlinx.coroutines.test.runTest
 private const val PORT = 5173
 
 /** Assembled at runtime, so that no literal looks like a real secret. */
-private val SECRET = "s3cr3t-" + "value"
+private val SECRET = listOf("s3cr3t", "value").joinToString("-")
 
 private class FakeTunnel(override val port: Int) : PreviewTunnel {
     var closes = 0
@@ -696,6 +696,106 @@ class DefaultPagePresenterTest {
             presenter.onIntent(PageIntent.RequestExternal(it))
             assertNull(presenter.state.value.pendingExternal, it)
         }
+    }
+
+    // Viewport (P13.15)
+
+    @Test
+    fun `switching the viewport keeps the mode and reloads the page on the open bridge`() = runTest {
+        val presenter = loaded("/app")
+        val bridge = bridges.opened.single()
+        val before = presenter.state.value.load!!.id
+
+        presenter.onIntent(PageIntent.SetViewport(ViewportMode.Desktop))
+
+        val state = presenter.state.value
+        assertEquals(ViewportMode.Desktop, state.viewport)
+        assertEquals(PageStatus.Opening, state.status)
+        assertTrue(state.load!!.id > before)
+        assertEquals(bridge.origin.url + "/app", state.load!!.url)
+        assertEquals(1, tunnels.ports.size)
+
+        presenter.onIntent(PageIntent.LoadFinished(bridge.origin.url + "/app"))
+        val desktopLoad = presenter.state.value.load!!.id
+        presenter.onIntent(PageIntent.SetViewport(ViewportMode.Mobile))
+        assertEquals(ViewportMode.Mobile, presenter.state.value.viewport)
+        assertTrue(presenter.state.value.load!!.id > desktopLoad)
+    }
+
+    @Test
+    fun `the mode the page has already changes nothing`() = runTest {
+        val presenter = loaded()
+        val before = presenter.state.value
+
+        presenter.onIntent(PageIntent.SetViewport(ViewportMode.Mobile))
+
+        assertEquals(before, presenter.state.value)
+    }
+
+    @Test
+    fun `the viewport holds while the preview is open, across reloads, navigation and a reconnect`() = runTest {
+        val presenter = loaded()
+        presenter.onIntent(PageIntent.SetViewport(ViewportMode.Desktop))
+
+        presenter.onIntent(PageIntent.Reload)
+        presenter.onIntent(PageIntent.EditAddress("/other"))
+        presenter.onIntent(PageIntent.LoadFinished(bridges.opened.single().origin.url + "/"))
+        presenter.onIntent(PageIntent.GoToAddress)
+        assertEquals(ViewportMode.Desktop, presenter.state.value.viewport)
+
+        tunnels.opened.single().lose()
+        runCurrent()
+        assertEquals(PageStatus.ConnectionLost, presenter.status)
+        assertEquals(ViewportMode.Desktop, presenter.state.value.viewport)
+
+        tunnels.opens()
+        presenter.onIntent(PageIntent.Reload)
+        runCurrent()
+        assertEquals(2, bridges.opened.size)
+        assertEquals(ViewportMode.Desktop, presenter.state.value.viewport)
+    }
+
+    @Test
+    fun `without a bridge the mode is kept for the next load and nothing reconnects by itself`() = runTest {
+        val presenter = loaded()
+        tunnels.opened.single().lose()
+        runCurrent()
+
+        presenter.onIntent(PageIntent.SetViewport(ViewportMode.Desktop))
+        runCurrent()
+
+        assertEquals(PageStatus.ConnectionLost, presenter.status)
+        assertEquals(ViewportMode.Desktop, presenter.state.value.viewport)
+        assertNull(presenter.state.value.load)
+        assertEquals(1, tunnels.ports.size)
+    }
+
+    @Test
+    fun `closing resets the viewport, and a closed page takes no other mode`() = runTest {
+        val presenter = loaded()
+        presenter.onIntent(PageIntent.SetViewport(ViewportMode.Desktop))
+
+        presenter.onIntent(PageIntent.Close)
+        assertEquals(ViewportMode.Mobile, presenter.state.value.viewport)
+
+        presenter.onIntent(PageIntent.SetViewport(ViewportMode.Desktop))
+        runCurrent()
+        assertEquals(ViewportMode.Mobile, presenter.state.value.viewport)
+        assertEquals(PageStatus.Closed, presenter.status)
+        assertNull(presenter.state.value.load)
+    }
+
+    @Test
+    fun `a new preview starts in mobile`() = runTest {
+        val first = loaded()
+        first.onIntent(PageIntent.SetViewport(ViewportMode.Desktop))
+        first.onIntent(PageIntent.Close)
+
+        tunnels.opens()
+        val second = presenter()
+        runCurrent()
+
+        assertEquals(ViewportMode.Mobile, second.state.value.viewport)
     }
 
     // Closing

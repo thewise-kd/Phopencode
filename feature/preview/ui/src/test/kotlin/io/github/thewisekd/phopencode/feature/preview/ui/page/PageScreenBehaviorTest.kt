@@ -7,6 +7,8 @@ import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -18,7 +20,10 @@ import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PageIntent
+import io.github.thewisekd.phopencode.feature.preview.logic.contract.PageStatus
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewFailure
+import io.github.thewisekd.phopencode.feature.preview.logic.contract.ViewportMode
+import io.github.thewisekd.phopencode.feature.preview.ui.page.viewport.ViewportTags
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -88,6 +93,33 @@ class PageScreenBehaviorTest {
         compose.setPageScreen(closed) { sent += it }
 
         compose.onNodeWithTag(PageTags.RELOAD).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `the top bar's viewport toggle shows the page's mode and asks for the other one`() {
+        val states = PageStates(compose) { sent += it }
+        states.show(opening.copy(status = PageStatus.Loaded))
+
+        compose.onNodeWithTag(ViewportTags.TOGGLE)
+            .assertIsDisplayed()
+            .assertIsEnabled()
+            .assertIsOff()
+            .assertWidthIsAtLeast(48.dp)
+            .assertHeightIsAtLeast(48.dp)
+            .performClick()
+        assertEquals(listOf<PageIntent>(PageIntent.SetViewport(ViewportMode.Desktop)), sent)
+
+        sent.clear()
+        states.show(opening.copy(status = PageStatus.Loaded, viewport = ViewportMode.Desktop))
+        compose.onNodeWithTag(ViewportTags.TOGGLE).assertIsOn().performClick()
+        assertEquals(listOf<PageIntent>(PageIntent.SetViewport(ViewportMode.Mobile)), sent)
+    }
+
+    @Test
+    fun `a closed preview offers no viewport switch`() {
+        compose.setPageScreen(closed) { sent += it }
+
+        compose.onNodeWithTag(ViewportTags.TOGGLE).assertIsNotEnabled().assertIsOff()
     }
 
     @Test

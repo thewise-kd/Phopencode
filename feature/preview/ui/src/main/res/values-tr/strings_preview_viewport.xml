@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_viewport_toggle">Masaüstü görünümü</string>
+    <string name="preview_viewport_state_desktop">Masaüstü: geniş sayfa, yakınlaştırma açık</string>
+    <string name="preview_viewport_state_mobile">Mobil: telefon düzeni</string>
+</resources>

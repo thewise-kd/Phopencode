@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_viewport_toggle">Desktop view</string>
+    <string name="preview_viewport_state_desktop">Desktop: wide page, zoom on</string>
+    <string name="preview_viewport_state_mobile">Mobile: phone layout</string>
+</resources>
