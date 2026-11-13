@@ -3,8 +3,9 @@
 <p><a href="INSTALL.md">English</a> | <strong>Türkçe</strong></p>
 
 Bu kılavuz seni boş bir telefondan çalışan bir bağlantıya götürür: telefonun ve sunucunun neye
-ihtiyacı olduğu, uygulamanın nasıl kurulup doğrulanacağı, ilk bağlantının nasıl işlediği ve ntfy
-ile anlık bildirimlerin nasıl ayarlanacağı. Uygulamanın verilerini nasıl koruduğu
+ihtiyacı olduğu, uygulamanın nasıl kurulup doğrulanacağı, ilk bağlantının nasıl işlediği, ntfy
+ile anlık bildirimlerin nasıl ayarlanacağı ve sunucunda çalışan bir web uygulamasının nasıl
+önizleneceği. Uygulamanın verilerini nasıl koruduğu
 [SECURITY-MODEL.tr.md](SECURITY-MODEL.tr.md) dosyasında, projenin genel tanıtımı
 [README](../README.tr.md) dosyasında anlatılır.
 
@@ -40,6 +41,15 @@ adresini, anahtarlarını, parolalarını ya da ntfy konunu asla bir issue'da pa
   yöneticisi (`loginctl enable-linger`; bunu sen çalıştırırsın, uygulama hiçbir zaman açmaz) ya da
   `crontab`.
 - Sunucu ntfy sunucusuna HTTPS ile ulaşabilmelidir; varsayılan sunucu `ntfy.sh`'tır.
+
+### Canlı önizleme için (isteğe bağlı)
+
+- Sunucuda kendin başlatabildiğin, `127.0.0.1`'i dinleyen bir web uygulaması ya da geliştirme
+  sunucusu.
+- Dinleyen portları listelemek için `ss` ya da okunabilir bir `/proc/net/tcp`. İkisi de yoksa
+  portu yine elle girebilirsin.
+- Başka bir şey gerekmez: önizleme, opencode ile aynı SSH bağlantısını ve aynı türden bir SSH
+  tünelini kullanır.
 
 root yetkisi, `sudo` ya da SSH dışında açık bir port gerekmez.
 
@@ -255,6 +265,112 @@ satırını ekler ve servisi hemen başlatır. Lingering'i hiçbir zaman açmaz,
 hiçbir süreci durdurmaz, yeniden başlatmaz ya da ona sinyal göndermez: servis zaten çalışıyorsa
 reddeder; yeniden kurulum da önce eskisini kaldırır.
 
+## 5. Canlı önizleme (isteğe bağlı)
+
+Canlı önizleme, sunucunda çalışan bir web uygulamasını, örneğin opencode'un üzerinde çalıştığı
+ön yüzün geliştirme sunucusunu, uygulamanın bir ekranında gösterir. Trafik aynı SSH bağlantısından
+geçer; sunucunun ağına yeni hiçbir şey açılmaz. Bu özellik v0.1.0'da yoktur;
+[CHANGELOG.md](../CHANGELOG.md) dosyasında *Unreleased* başlığı altında listelenir ve sonraki
+sürümle gelir.
+
+### Geliştirme sunucusunu kendin başlat
+
+Uygulama geliştirme sunucunu başlatmaz. Onu sunucuda bir terminalden kendin başlat ya da
+sohbette opencode'dan başlatmasını iste. Yalnızca sunucunun kendisinden erişilebilsin diye
+`127.0.0.1`'e bağla, örneğin:
+
+```sh
+# sunucuda, projende
+npm run dev -- --host 127.0.0.1 --port 5173   # Vite
+python3 -m http.server --bind 127.0.0.1 8080  # statik dosyalardan oluşan bir klasör
+```
+
+Uygulama, sunucunun loopback adresindeki porta SSH üzerinden ulaşır. Tüm adresleri (`0.0.0.0`
+ya da `::`) dinleyen bir sunucu da çalışır, ama o zaman ağına da açıktır; yalnızca başka bir
+adresi, örneğin sunucunun yerel ağ adresini dinleyen bir sunucu önizlenemez.
+
+### Önizlemeyi aç
+
+Bağlıyken **Canlı önizleme**'yi iki yerden açabilirsin:
+
+- bir sohbette, **Oturum işlemleri** menüsünden;
+- oturum listesinde, üst çubuğun menüsünden.
+
+Uygulama bağlı değilken ikisi de devre dışıdır.
+
+### Bir port seç
+
+İlk ekran, sunucuda dinleyen ve loopback adresinden erişilebilen TCP portlarını küçükten büyüğe
+listeler. Açmak için birine dokun. opencode sunucusunun kendi portu da listededir, ama soluk
+gösterilir: önizlenemez. Bir geliştirme sunucusu başlattıktan sonra üst çubuktaki yenile düğmesine
+dokun.
+
+opencode dışında dinleyen yoksa ekran bunu söyler ve geliştirme sunucunu başlatmanı ya da
+opencode'dan başlatmasını isteyip listeyi yenilemeni önerir. Sunucu portlarını listelemenin bir
+yolunu sunmuyorsa ekran bunu da söyler.
+
+**Port girin** altında 1 ile 65535 arası bir portu elle yazıp **Aç**'a dokunabilirsin. Bu, liste
+boşken ya da okunamadığında işe yarar. opencode portu burada da reddedilir.
+
+### Yeniden yükle
+
+Sayfa yüklenirken bir ilerleme çizgisi görünür. Sayfayı yeniden yüklemek için üst çubuktaki
+yeniden yükle düğmesine dokun ya da sayfayı en üstünden aşağı çek. Çoğu geliştirme sunucusu
+(Vite, webpack ve benzerleri) bir dosya değişince sayfayı anında yenileme (hot reload) ile kendisi
+de günceller.
+
+SSH bağlantısı koparsa önizleme **Bağlantı koptu** gösterir ve kendi kendine yeniden denemez.
+Uygulama yeniden bağlandıktan sonra **Yeniden yükle**'ye dokun.
+
+### Konsol
+
+Üst çubuktaki konsol düğmesi, sayfanın kaydettiği hata sayısını gösterir; ona dokununca sayfanın
+alt kısmının üzerinde konsol paneli açılır. Panelde şunlar listelenir:
+
+- sayfanın kendi konsol iletileri (`console.log`, `console.error` ve diğerleri), kaynakları ve
+  satırlarıyla;
+- yüklenemeyen sayfalar ve kaynaklar ile HTTP hataları;
+- sayfanın kökeni dışına çıktığı için önizlemenin reddettiği istekler.
+
+Düzeye göre süzebilir ve listeyi temizleyebilirsin. Metin seçilip kopyalanabilir. Konsol en
+yeni 500 kaydı tutar, her birini 4 KiB'ta keser, kayıtları yalnızca bellekte saklar, hiçbir yere
+göndermez ve önizleme kapanınca siler.
+
+### Mobil ve masaüstü görünümü
+
+Üst çubuktaki **Masaüstü görünümü** düğmesi şunlar arasında geçiş yapar:
+
+- **Mobil:** WebView'in kendi kullanıcı aracısı ve telefon düzeni; sayfa onu bir telefon olarak
+  görür;
+- **Masaüstü:** `Mobile` ve `Android` içermeyen bir kullanıcı aracısı, ekrana sığacak şekilde
+  uzaklaştırılmış geniş bir sayfa ve iki parmakla yakınlaştırma.
+
+Geçiş sayfayı yeniden yükler. Seçim önizleme açık kaldıkça, telefonu döndürdüğünde de korunur;
+önizlemeyi kapatınca mobile döner.
+
+### Nasıl çalışır, sınırları neler
+
+- **Telefonda geçici bir köprü.** Önizleme ekranı açıkken uygulama, telefonun kendi
+  `127.0.0.1` adresinde, rastgele bir portta küçük bir köprü çalıştırır ve önizleme sayfayı oradan
+  yükler; köprü her isteği SSH tünelinden seçtiğin porta iletir. Köprüye gelen her bağlantı, o
+  önizleme için üretilmiş rastgele bir gizli değeri taşımalıdır; taşımayan bağlantıya köprü 403
+  ile yanıt verir ve hiçbir şeyi iletmez. Ekrandan çıkınca köprü kapanır; bir sonraki önizleme
+  yeni bir port ve yeni bir gizli değer alır. Uygulamanın telefonda yerel port açtığı tek yer
+  burasıdır; ayrıntılar güvenlik modelinin
+  [Canlı önizleme](SECURITY-MODEL.tr.md#canlı-önizleme) bölümündedir.
+- **Anında yenileme ve gövdeli istekler çalışır.** Sayfanın kendi kökenindeki WebSocket
+  bağlantıları iletilir; bu yüzden anında yenileme çalışır. Gövde gönderen formlar ve `fetch`
+  çağrıları (POST, PUT ve diğerleri) da çalışır.
+- **Sayfa kendi kökeni dışından hiçbir şey yükleyemez.** Bir CDN'den ya da başka bir adresten
+  gelen yazı tipleri, betikler, stiller ve resimler reddedilir; reddedilen her istek konsolda
+  görünür. Önizleme sırasında bu dosyaları geliştirme sunucusunun kendisinden sun.
+- **Dış bağlantılar önce sorar.** Sayfa başka bir `http` ya da `https` adresi açmak istediğinde
+  uygulama adresin tamamını gösterir ve onu uygulama dışında, örneğin tarayıcında açıp
+  açmayacağını sorar. Diğer türden bağlantılar reddedilir.
+- **Önizleme iz bırakmaz.** Sayfa dosyalara, kameraya, mikrofona ya da konuma erişemez ve dosya
+  indiremez. Çerezleri, depolaması, önbelleği ve geçmişi önizlemeyi kapattığında silinir; yani
+  bir oturum açma ya da `localStorage`'daki bir değer kapatmadan sonra kalmaz.
+
 ## Uygulamanın sunucunda yaptıkları
 
 Her şey SSH kullanıcın olarak çalışır. Uygulama:
@@ -270,7 +386,11 @@ Her şey SSH kullanıcın olarak çalışır. Uygulama:
   parola yok) ve o sunucunun logu bulunur;
 - açtığın klasörlerde SFTP ile dosya okur ve yazar; o ekranları kullandığında orada `git`, `rg`
   ya da `grep` çalıştırır;
-- bildirim servisini yalnızca ilgili düğmelere dokunduğunda kurar ve kaldırır.
+- bildirim servisini yalnızca ilgili düğmelere dokunduğunda kurar ve kaldırır;
+- canlı önizleme için dinleyen TCP portlarını salt okuyarak `ss -ltnH` ile listeler, `ss` yoksa
+  `/proc/net/tcp` ve `/proc/net/tcp6` dosyalarını okur ve seçtiğin loopback portuna bir SSH
+  tüneli açar. Önizleme için hiçbir süreci başlatmaz, durdurmaz ya da öldürmez: geliştirme
+  sunucunu başlatmak ve durdurmak sana kalmıştır.
 
 Hiçbir zaman `sudo` kullanmaz; sunucuyu yeniden başlatmaz, kapatmaz ya da sıfırlamaz; zaten
 çalışan bir `opencode serve` sürecini durdurmaz, öldürmez ya da yerine başkasını koymaz.
@@ -291,6 +411,16 @@ onayını ister.
 - **Sunucu anahtarı değişti:** bkz. [Sunucu anahtarını onayla](#sunucu-anahtarını-onayla).
 - **Servis kurulu ama bildirim gelmiyor:** ntfy uygulamasındaki aboneliği denetle, bir deneme
   gönder ve kurulumdan sonra `opencode serve` yeniden başladıysa servisi yeniden kur.
+- **Önizlemede "… numaralı portu dinleyen yok":** geliştirme sunucusu o portta çalışmıyor ya da
+  yalnızca başka bir adresi dinliyor. Onu sunucuda `127.0.0.1` üzerinde o portla başlat ya da
+  opencode'dan başlatmasını iste, çalışmaya devam ettiğinden emin ol, sonra **Yeniden yükle**'ye
+  dokun.
+- **Port listesinde "Geliştirme sunucusu bulunamadı":** çözüm aynı: geliştirme sunucusunu
+  `127.0.0.1` üzerinde başlat, sonra listeyi yenile.
+- **"Portlar listelenemiyor":** sunucuda ne `ss` ne de okunabilir bir `/proc/net/tcp` var.
+  Geliştirme sunucunun portunu **Port girin** altına yaz.
+- **Önizlemede bir yazı tipi, betik ya da stil eksik:** başka bir adresten, örneğin bir CDN'den
+  geliyor ve reddedildi; konsol bunu gösterir. Dosyayı geliştirme sunucusundan sun.
 
 ## Her şeyi kaldırma
 

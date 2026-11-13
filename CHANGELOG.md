@@ -7,6 +7,36 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 version the app reports (its `versionName`) and the date of the release; the version links to
 its release page, where the signed APK and its SHA-256 hash are published.
 
+## [Unreleased]
+
+### Added
+
+#### Live preview
+
+- See a web app that runs on your server, for example a dev server you started with
+  `npm run dev`, live in the app, through the same SSH connection. Nothing new is exposed on the
+  server's network.
+- Open it from the chat's session action menu or the session list's top bar menu, while connected.
+- A port list with the server's listening TCP ports that can be reached on its loopback, read
+  with `ss -ltnH` or, without `ss`, from `/proc/net/tcp` and `/proc/net/tcp6`. The opencode
+  server's own port is shown but cannot be opened. A port can also be typed by hand.
+- Reload from the top bar or by pulling the page down; hot reload of dev servers such as Vite and
+  webpack works, and so do forms and requests with a body.
+- A console panel with the page's console messages, load errors, HTTP errors and refused
+  requests, a level filter and an error count on its button. It is kept in memory only and is
+  cleared when the preview closes.
+- A mobile and desktop viewport toggle; desktop sends a desktop user agent, lays the page out
+  wide and allows zoom.
+- The page runs in an isolated WebView: no file access, no camera, microphone or location, no
+  downloads, and its cookies, storage, cache and history are deleted when the preview closes. It
+  can load nothing off its own origin, and another address opens outside the app only after you
+  confirm it.
+- While the preview screen is open, a temporary bridge listens on the phone's `127.0.0.1`, on a
+  random port, and refuses every connection that does not present a random per-session secret.
+  This is the one exception to "the phone opens no local port".
+- The app never starts, stops or kills a process for the preview: you, or opencode, start the dev
+  server.
+
 ## [0.1.0] - 2026-11-11
 
 The first public release: work with opencode running on your own server from an Android phone
@@ -123,4 +153,5 @@ The first public release: work with opencode running on your own server from an 
 - After `opencode serve` restarts on the server, the notification service has to be reinstalled
   from the app.
 
+[Unreleased]: https://github.com/thewise-kd/Phopencode/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/thewise-kd/Phopencode/releases/tag/v0.1.0

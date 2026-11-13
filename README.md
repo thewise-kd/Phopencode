@@ -47,7 +47,7 @@ opening any port of your server to the internet.
 ## Documentation
 
 - [Installation and setup](docs/INSTALL.md): what the phone and the server need, installing and
-  checking the APK, the first connection, and notifications with ntfy.
+  checking the APK, the first connection, notifications with ntfy, and the live preview.
 - [Security model](docs/SECURITY-MODEL.md): what is stored where, what goes over the network,
   host key trust, and what an attacker could do.
 - [Security policy](SECURITY.md): how to report a vulnerability.
@@ -110,6 +110,19 @@ In this release ([CHANGELOG.md](CHANGELOG.md) lists every change):
 - A pending items screen that lists every question and permission request waiting in any
   session; tapping a notification opens it.
 
+**Live preview** (in the next release; listed under *Unreleased* in [CHANGELOG.md](CHANGELOG.md))
+
+- See a web app that runs on your server, such as a dev server you or opencode started on
+  `127.0.0.1`, live on the phone through the SSH connection. Open it from the chat's session
+  action menu or the session list's top bar menu.
+- Pick a port from the server's listening ports, or type one; the opencode port is shown but
+  cannot be opened.
+- Reload or pull to refresh, hot reload, a console panel with the page's messages and errors, and
+  a mobile/desktop viewport toggle.
+- The page runs in an isolated WebView that loads nothing off its own origin, asks before opening
+  external links and forgets its data when the preview closes. The app never starts or stops the
+  dev server.
+
 **General**
 
 - Turkish and English interface following the system language or chosen in the settings; light,
@@ -145,6 +158,10 @@ managing MCP servers or provider credentials
   commands over SSH, with every argument shell-quoted.
 - Notifications, when you install them, come from a service on the server that watches opencode
   and posts fixed text to ntfy over HTTPS; the ntfy app on the phone shows them.
+- The live preview (next release) lists the server's listening ports read-only and reaches the
+  port you pick through a tunnel pinned to that port on the server's loopback. While its screen
+  is open, a temporary bridge on the phone's `127.0.0.1`, guarded by a per-session secret, feeds
+  the page to an isolated WebView: the one exception to "no local port on the phone".
 
 ### Server requirements
 
@@ -206,15 +223,17 @@ in thin Android modules.
 | `core/api-http` | opencode HTTP client and event stream (OkHttp) |
 | `core/session` | Event reducer and resync after a reconnect |
 | `core/ssh` | SSH, remote commands, SFTP, tunnel, shell quoting (sshj) |
-| `core/remote` | Server discovery and startup, connection manager |
+| `core/remote` | Server discovery and startup, connection manager, listening ports for the preview |
 | `core/files`, `core/git` | File service; git commands and parsers |
 | `core/storage-api`, `core/storage` | Storage interfaces; encrypted storage (Keystore, Tink, DataStore) |
 | `core/navigation`, `core/ui`, `core/markdown`, `core/codeview` | Routes, theme and shared components, Markdown, code viewer |
 | `feature/<name>/logic`, `feature/<name>/ui` | Each feature's state and presenters (JVM) and its Compose screens (Android) |
+| `feature/preview` | Live preview: port picker, the loopback bridge and console logic (JVM); the isolated WebView screen (Android) |
 | `helper/` | The notification service (Python) and its install and uninstall scripts |
 | `build-logic/` | Gradle convention plugins |
 
-Features: `connect`, `sessions`, `chat`, `files`, `git`, `catalog`, `notify` and `settings`.
+Features: `connect`, `sessions`, `chat`, `files`, `git`, `catalog`, `notify`, `settings` and
+`preview`.
 
 ## Security
 
@@ -224,7 +243,9 @@ Features: `connect`, `sessions`, `chat`, `files`, `git`, `catalog`, `notify` and
   key in the Android Keystore; profiles hold no passwords. App data is excluded from cloud backup
   and device transfer.
 - **Nothing is exposed.** opencode listens on `127.0.0.1` only and is reached through the SSH
-  tunnel; the phone opens no local port.
+  tunnel; the phone opens no local port. The one exception is the live preview (next release):
+  while its screen is open, a bridge listens on the phone's `127.0.0.1` and refuses every
+  connection without that preview's random secret.
 - **The app does not take over your server.** It never uses `sudo`, never stops, kills or
   replaces an `opencode serve` that is already running, and starts one only when none runs. The
   only processes it stops are its own: a command you cancel, or a server it just launched that

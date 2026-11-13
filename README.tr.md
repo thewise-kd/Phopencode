@@ -47,7 +47,7 @@ sağlar; bunun için sunucunun hiçbir portunu internete açman gerekmez.
 ## Belgeler
 
 - [Kurulum ve ayarlar](docs/INSTALL.tr.md): telefonun ve sunucunun neye ihtiyacı olduğu, APK'yı
-  kurma ve doğrulama, ilk bağlantı ve ntfy ile bildirimler.
+  kurma ve doğrulama, ilk bağlantı, ntfy ile bildirimler ve canlı önizleme.
 - [Güvenlik modeli](docs/SECURITY-MODEL.tr.md): neyin nerede saklandığı, ağ üzerinden neyin
   gittiği, sunucu anahtarına güven ve bir saldırganın neler yapabileceği.
 - [Güvenlik politikası](SECURITY.md): bir güvenlik açığının nasıl bildirileceği.
@@ -115,6 +115,20 @@ Bu sürümde olanlar (tüm değişiklikler [CHANGELOG.md](CHANGELOG.md) dosyası
 - Herhangi bir oturumda yanıt bekleyen tüm soruları ve izin isteklerini listeleyen bekleyenler
   ekranı; bir bildirime dokunmak bu ekranı açar.
 
+**Canlı önizleme** (sonraki sürümde; [CHANGELOG.md](CHANGELOG.md) dosyasında *Unreleased*
+altında)
+
+- Sunucunda çalışan bir web uygulamasını, örneğin senin ya da opencode'un `127.0.0.1` üzerinde
+  başlattığı bir geliştirme sunucusunu, SSH bağlantısı üzerinden telefonda canlı görme. Sohbetin
+  oturum işlemleri menüsünden ya da oturum listesinin üst çubuğundaki menüden açılır.
+- Sunucuda dinleyen portlardan birini seçme ya da portu elle yazma; opencode portu listede
+  görünür ama açılamaz.
+- Yeniden yükleme ya da aşağı çekip yenileme, anında yenileme (hot reload), sayfanın iletilerini
+  ve hatalarını gösteren bir konsol paneli ve mobil/masaüstü görünüm düğmesi.
+- Sayfa, kendi kökeni dışından hiçbir şey yüklemeyen, dış bağlantıları açmadan önce soran ve
+  önizleme kapanınca verisini silen yalıtılmış bir WebView'de çalışır. Uygulama geliştirme
+  sunucusunu hiçbir zaman başlatmaz ya da durdurmaz.
+
 **Genel**
 
 - Sistem dilini izleyen ya da ayarlardan seçilen Türkçe ve İngilizce arayüz; açık, koyu ya da
@@ -150,6 +164,11 @@ sunucularını ya da sağlayıcı kimlik bilgilerini yönetme
   sıradan komutlar olarak çalışır; her argüman kabuk için tırnaklanır.
 - Bildirimleri kurarsan, onları sunucuda opencode'u izleyen bir servis gönderir; servis sabit
   metni HTTPS üzerinden ntfy'a iletir, telefondaki ntfy uygulaması da gösterir.
+- Canlı önizleme (sonraki sürüm), sunucuda dinleyen portları salt okuyarak listeler ve seçtiğin
+  porta, sunucunun loopback adresinde yalnızca o porta sabitlenmiş bir tünelle ulaşır.
+  Ekranı açıkken telefonun `127.0.0.1` adresinde, oturuma özel bir gizli değerle korunan geçici
+  bir köprü sayfayı yalıtılmış bir WebView'e aktarır: "telefonda yerel port yok" kuralının tek
+  istisnası budur.
 
 ### Sunucu gereksinimleri
 
@@ -212,15 +231,17 @@ modüllerindedir.
 | `core/api-http` | opencode HTTP istemcisi ve olay akışı (OkHttp) |
 | `core/session` | Olay birleştirici ve yeniden bağlanınca eşitleme |
 | `core/ssh` | SSH, uzak komutlar, SFTP, tünel, kabuk tırnaklama (sshj) |
-| `core/remote` | Sunucu bulma ve başlatma, bağlantı yöneticisi |
+| `core/remote` | Sunucu bulma ve başlatma, bağlantı yöneticisi, önizleme için dinleyen portlar |
 | `core/files`, `core/git` | Dosya servisi; git komutları ve ayrıştırıcıları |
 | `core/storage-api`, `core/storage` | Depolama arayüzleri; şifreli depolama (Keystore, Tink, DataStore) |
 | `core/navigation`, `core/ui`, `core/markdown`, `core/codeview` | Rotalar, tema ve ortak bileşenler, Markdown, kod görüntüleyici |
 | `feature/<ad>/logic`, `feature/<ad>/ui` | Her özelliğin durumu ve sunucuları (JVM) ile Compose ekranları (Android) |
+| `feature/preview` | Canlı önizleme: port seçici, loopback köprüsü ve konsol mantığı (JVM); yalıtılmış WebView ekranı (Android) |
 | `helper/` | Bildirim servisi (Python) ile kurma ve kaldırma betikleri |
 | `build-logic/` | Gradle convention eklentileri |
 
-Özellikler: `connect`, `sessions`, `chat`, `files`, `git`, `catalog`, `notify` ve `settings`.
+Özellikler: `connect`, `sessions`, `chat`, `files`, `git`, `catalog`, `notify`, `settings` ve
+`preview`.
 
 ## Güvenlik
 
@@ -230,7 +251,9 @@ modüllerindedir.
   anahtarla Tink kullanılarak saklanır; profillerde parola tutulmaz. Uygulama verisi bulut
   yedeğine ve cihaz aktarımına dahil edilmez.
 - **Hiçbir şey dışarı açılmaz.** opencode yalnızca `127.0.0.1`'i dinler ve SSH tüneliyle erişilir;
-  telefon yerel port açmaz.
+  telefon yerel port açmaz. Tek istisna canlı önizlemedir (sonraki sürüm): ekranı açıkken
+  telefonun `127.0.0.1` adresinde bir köprü dinler ve o önizlemenin rastgele gizli değerini
+  taşımayan her bağlantıyı reddeder.
 - **Uygulama sunucunu ele geçirmez.** Hiçbir zaman `sudo` kullanmaz; zaten çalışan bir
   `opencode serve` sürecini asla durdurmaz, öldürmez ya da yerine başkasını koymaz ve yalnızca
   hiçbiri çalışmıyorsa yenisini başlatır. Durdurduğu tek süreçler kendi süreçleridir: iptal ettiğin
