@@ -1,7 +1,11 @@
 package io.github.thewisekd.phopencode.feature.preview.logic.page
 
 import io.github.thewisekd.phopencode.core.navigation.PreviewRoute
+import io.github.thewisekd.phopencode.feature.preview.logic.console.cleared
+import io.github.thewisekd.phopencode.feature.preview.logic.console.filteredBy
+import io.github.thewisekd.phopencode.feature.preview.logic.console.recorded
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.BridgeProblem
+import io.github.thewisekd.phopencode.feature.preview.logic.contract.ConsoleEntry
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.ConsoleState
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.LoadError
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.LoadRequest
@@ -15,6 +19,7 @@ import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewBrid
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewBridgeFactory
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewException
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewFailure
+import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewOrigin
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewTunnel
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewTunnelSource
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.ViewportMode
@@ -54,6 +59,12 @@ import kotlinx.coroutines.yield
  *   port nobody listens on ([BridgeProblem.NothingListens]) and answers it with 502; while the main
  *   frame loads, that problem, or a 502 after it, is [LoadError.NothingListens]. A problem at any
  *   other time (a sub-resource of a page shown) is ignored and does not reach the next main frame.
+ * - The console (P13.14) records what the screen reports ([PageIntent.Report]) only while a bridge
+ *   is open, so a late report from a closed bridge is dropped, and so is one whose source is an
+ *   earlier bridge's origin once a new bridge is open. A report without such a source (a refused
+ *   request, a script without an address) cannot be told apart and is kept. Each entry is cut to
+ *   the console's limits and loses the bridge's secret. Its filter and clearing work until the page
+ *   closes.
  * - Once closed ([PageIntent.Close]) the bridge and the tunnel are released, the console is dropped,
  *   the viewport reset and the status is [PageStatus.Closed], which tells the screen to clear the
  *   WebView's data; nothing opens again and every later intent is ignored.
@@ -135,8 +146,9 @@ class DefaultPagePresenter(
             PageIntent.DismissExternal -> edit { it.copy(pendingExternal = null) }
             PageIntent.Close -> close()
             is PageIntent.SetViewport -> setViewport(intent.mode)
-            // The console (P13.12) is filled in by its own task.
-            is PageIntent.Report, is PageIntent.FilterConsole, PageIntent.ClearConsole -> Unit
+            is PageIntent.Report -> report(intent.entry)
+            is PageIntent.FilterConsole -> edit { it.copy(console = it.console.filteredBy(intent.level)) }
+            PageIntent.ClearConsole -> edit { it.copy(console = it.console.cleared()) }
         }
     }
 
@@ -322,6 +334,21 @@ class DefaultPagePresenter(
         } else {
             state.copy(addressText = path)
         }
+    }
+
+    /** Records [entry] on the open bridge, unless its source names an earlier bridge's origin. */
+    private fun report(entry: ConsoleEntry) = liveEdit { state ->
+        if (fromOtherBridge(entry, live!!.origin)) state else state.copy(console = state.console.recorded(entry))
+    }
+
+    /**
+     * Whether [entry]'s source is an `http` address on [PreviewOrigin.HOST] off [origin]: an earlier
+     * bridge's, as every bridge has a port of its own. The page cannot load anything else there
+     * (off-origin requests are refused and reported without a source), so nothing current is lost.
+     */
+    private fun fromOtherBridge(entry: ConsoleEntry, origin: PreviewOrigin): Boolean {
+        val uri = entry.source?.let(NavigationPolicy::parseHttp) ?: return false
+        return uri.host == PreviewOrigin.HOST && !NavigationPolicy.isOn(origin, uri)
     }
 
     private fun loadFailed(error: LoadError) = liveEdit {

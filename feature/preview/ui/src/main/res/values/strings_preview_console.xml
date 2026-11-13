@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_console_title">Console</string>
+    <string name="preview_console_show">Show console</string>
+    <string name="preview_console_hide">Hide console</string>
+    <plurals name="preview_console_errors">
+        <item quantity="one">%1$d error</item>
+        <item quantity="other">%1$d errors</item>
+    </plurals>
+    <string name="preview_console_button_errors">%1$s, %2$s</string>
+    <string name="preview_console_clear">Clear</string>
+    <string name="preview_console_filter_all">All</string>
+    <string name="preview_console_level_debug">Debug</string>
+    <string name="preview_console_level_log">Log</string>
+    <string name="preview_console_level_info">Info</string>
+    <string name="preview_console_level_warning">Warning</string>
+    <string name="preview_console_level_error">Error</string>
+    <string name="preview_console_source_line">%1$s, line %2$d</string>
+    <string name="preview_console_line">Line %1$d</string>
+    <string name="preview_console_entry">%1$s: %2$s</string>
+    <string name="preview_console_entry_at">%1$s: %2$s. %3$s</string>
+    <string name="preview_console_empty">No messages yet.</string>
+    <string name="preview_console_empty_filtered">No messages at this level.</string>
+</resources>

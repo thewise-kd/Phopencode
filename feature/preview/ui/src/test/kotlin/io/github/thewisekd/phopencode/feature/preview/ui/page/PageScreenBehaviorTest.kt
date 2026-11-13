@@ -3,6 +3,7 @@ package io.github.thewisekd.phopencode.feature.preview.ui.page
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
@@ -19,10 +20,15 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
+import io.github.thewisekd.phopencode.feature.preview.logic.contract.ConsoleEntry
+import io.github.thewisekd.phopencode.feature.preview.logic.contract.ConsoleKind
+import io.github.thewisekd.phopencode.feature.preview.logic.contract.ConsoleLevel
+import io.github.thewisekd.phopencode.feature.preview.logic.contract.ConsoleState
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PageIntent
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PageStatus
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewFailure
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.ViewportMode
+import io.github.thewisekd.phopencode.feature.preview.ui.page.console.ConsoleTags
 import io.github.thewisekd.phopencode.feature.preview.ui.page.viewport.ViewportTags
 import org.junit.Rule
 import org.junit.Test
@@ -37,6 +43,14 @@ import kotlin.test.assertTrue
 
 /** core/ui's top bar back button, in English. */
 private const val BACK = "Go back"
+
+/** A console with two errors among other entries. */
+private val consoleWithErrors = ConsoleState(
+    entries = List(12) { index ->
+        val level = if (index % 6 == 5) ConsoleLevel.Error else ConsoleLevel.Log
+        ConsoleEntry(ConsoleKind.Console, level, "message $index", source = null, line = null)
+    },
+)
 
 /**
  * What the preview page sends and which controls it offers; the texts are in English and checked in
@@ -120,6 +134,45 @@ class PageScreenBehaviorTest {
         compose.setPageScreen(closed) { sent += it }
 
         compose.onNodeWithTag(ViewportTags.TOGGLE).assertIsNotEnabled().assertIsOff()
+    }
+
+    @Test
+    fun `the top bar's console button shows the error count and opens the console over the page`() {
+        val withErrors = opening.copy(status = PageStatus.Loaded, console = consoleWithErrors)
+        compose.setPageScreen(withErrors) { sent += it }
+        compose.onNodeWithTag(ConsoleTags.PANEL).assertDoesNotExist()
+
+        compose.onNodeWithTag(ConsoleTags.BUTTON)
+            .assertIsDisplayed()
+            .assertContentDescriptionEquals("Show console, 2 errors")
+            .assertWidthIsAtLeast(48.dp)
+            .assertHeightIsAtLeast(48.dp)
+            .performClick()
+
+        compose.onNodeWithTag(ConsoleTags.PANEL).assertIsDisplayed()
+        val content = compose.onNodeWithTag(PageTags.CONTENT).fetchSemanticsNode().boundsInRoot
+        val panel = compose.onNodeWithTag(ConsoleTags.PANEL).fetchSemanticsNode().boundsInRoot
+        assertEquals(content.bottom, panel.bottom, 0.5f)
+        assertTrue(panel.top > content.top, "the panel lies over the bottom of the page only")
+
+        compose.onNodeWithTag(ConsoleTags.CLEAR).performClick()
+        assertEquals(listOf<PageIntent>(PageIntent.ClearConsole), sent)
+
+        compose.onNodeWithTag(ConsoleTags.BUTTON).assertContentDescriptionEquals("Hide console, 2 errors").performClick()
+        compose.onNodeWithTag(ConsoleTags.PANEL).assertDoesNotExist()
+    }
+
+    @Test
+    fun `pulling the console's list down does not reload the page`() {
+        // Short enough to fit, so the whole pull is left over for whatever lies under the list.
+        val short = ConsoleState(entries = consoleWithErrors.entries.take(2))
+        compose.setPageScreen(connectionLost.copy(console = short)) { sent += it }
+        compose.onNodeWithTag(ConsoleTags.BUTTON).performClick()
+
+        compose.onNodeWithTag(ConsoleTags.LIST).performTouchInput { swipeDown() }
+        compose.waitForIdle()
+
+        assertEquals(emptyList(), sent)
     }
 
     @Test
