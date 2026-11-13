@@ -12,8 +12,28 @@ internal class HeadRewriter(bridgePort: Int, private val devPort: Int, private v
     private val devAuthority = "localhost:$devPort"
     private val devOrigin = "http://$devAuthority"
 
-    /** Keeps the page's `fetch`, `XMLHttpRequest`, `EventSource` and WebSockets on the preview origin. */
-    val policy = "connect-src $previewOrigin ws://${PreviewOrigin.HOST}:$bridgePort"
+    /**
+     * Keeps everything the page loads on the preview origin. The WebView does not ask
+     * `shouldInterceptRequest` again when an allowed sub-resource is redirected, so this policy is
+     * what refuses a redirect off the origin. Browsers enforce it beside the page's own policy.
+     *
+     * - `default-src`: the origin, `data:` and `blob:`; every fetch directive not named here (images,
+     *   fonts, media, frames, workers, objects, manifests) falls back to it.
+     * - `script-src`: as `default-src`, plus `'unsafe-inline'` and `'unsafe-eval'`, which Vite and
+     *   webpack dev servers rely on.
+     * - `style-src`: as `default-src`, plus `'unsafe-inline'` for injected styles.
+     * - `connect-src`: the origin over http and ws, so `fetch`, `XMLHttpRequest`, `EventSource` and
+     *   the hot-reload WebSocket stay on it.
+     * - `form-action`: the origin only; a form post is a navigation that no fetch directive covers.
+     */
+    val policy = run {
+        val ws = "ws://${PreviewOrigin.HOST}:$bridgePort"
+        "default-src $previewOrigin data: blob:; " +
+            "script-src $previewOrigin 'unsafe-inline' 'unsafe-eval' data: blob:; " +
+            "style-src $previewOrigin 'unsafe-inline' data: blob:; " +
+            "connect-src $previewOrigin $ws; " +
+            "form-action $previewOrigin"
+    }
 
     /**
      * The request head for the dev server: `Host` names `localhost:<devPort>`, `Origin` and `Referer`

@@ -3,14 +3,16 @@ package io.github.thewisekd.phopencode.feature.preview.logic.transport
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewBridge
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewOrigin
 import java.io.IOException
-import java.net.ConnectException
 import java.net.Inet4Address
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
+import java.net.ServerSocket
 import java.net.Socket
+import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.util.Base64
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.concurrent.thread
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -280,17 +282,33 @@ class BridgeAccessTest {
         assertEquals(1, seen.size)
     }
 
+    /**
+     * What the bridge guarantees after close, checked on its own sockets rather than by connecting
+     * to the freed port, which another process may already have taken: the server socket is closed
+     * and accepts nothing, the accept thread has ended, and nothing reached the tunnel.
+     */
     @Test
     fun `a connection after close is refused`() {
-        val bridge = open()
+        var server: ServerSocket? = null
+        val threads = CopyOnWriteArrayList<Thread>()
+        val bridge = LoopbackBridgeFactory(
+            limits = BridgeLimits(),
+            listen = { ServerSocket(0, 16, LOOPBACK).also { server = it } },
+            startThread = { name, body -> thread(isDaemon = true, name = name, block = body).also { threads += it } },
+        ).open(tunnel).also { bridges += it }
+        val listening = server!!
         val cookie = cookieOf(bridge)
-        val port = bridge.origin.bridgePort
+        assertEquals(listening.localPort, bridge.origin.bridgePort)
+        val accept = threads.single()
+        assertTrue(accept.isAlive, "The bridge was not accepting before close")
+
         bridge.close()
         bridge.close()
 
-        assertFailsWith<ConnectException> {
-            Socket().use { it.connect(InetSocketAddress(LOOPBACK, port), 1_000) }
-        }
+        assertTrue(listening.isClosed, "The server socket is still open")
+        assertFailsWith<SocketException> { listening.accept() }
+        accept.join(5_000)
+        assertFalse(accept.isAlive, "The bridge still accepts connections")
         assertTrue(cookie.isNotEmpty())
         assertNothingReachedTheTunnel()
     }
