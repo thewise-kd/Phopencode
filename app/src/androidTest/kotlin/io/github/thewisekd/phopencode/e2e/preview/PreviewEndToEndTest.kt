@@ -160,6 +160,62 @@ class PreviewEndToEndTest {
         assertFalse(preview.exists(hasTestTag(PreviewTags.PAGE_WEB_VIEW)))
     }
 
+    /**
+     * P13.22: WebRTC is gone from the page and from a frame of its origin before their first
+     * scripts, and the page cannot bring it back.
+     */
+    @Test
+    fun webRtcIsGoneFromThePageAndItsOriginFrameAndCannotBeRestored() = runBlocking<Unit> {
+        openFixture()
+
+        // The top frame, from the page's first script on.
+        assertEquals("undefined", preview.evaluate("window.rtcAtStart"))
+        assertEquals("undefined", preview.evaluate("typeof RTCPeerConnection"))
+        assertEquals("", preview.evaluate("$WEB_RTC_LEFT_IN(window)"))
+
+        // A frame loaded from the preview origin.
+        PreviewDriver.waitFor("the origin frame to finish loading") {
+            preview.evaluate("$ORIGIN_FRAME.document.readyState") == "complete"
+        }
+        assertEquals("undefined", preview.evaluate("$ORIGIN_FRAME.rtcAtStart"))
+        assertEquals("undefined", preview.evaluate("typeof $ORIGIN_FRAME.RTCPeerConnection"))
+        assertEquals("", preview.evaluate("$WEB_RTC_LEFT_IN($ORIGIN_FRAME)"))
+
+        // Neither assigning nor deleting brings the constructor back.
+        assertEquals(
+            "undefined",
+            preview.evaluate("(function () { try { window.RTCPeerConnection = 1; } catch (e) {} return typeof RTCPeerConnection; })()"),
+        )
+        assertEquals(
+            "undefined",
+            preview.evaluate("(function () { try { delete window.RTCPeerConnection; } catch (e) {} return typeof RTCPeerConnection; })()"),
+        )
+        assertEquals("undefined", preview.evaluate("typeof window.RTCPeerConnection"))
+    }
+
+    /**
+     * P13.22: an about:blank frame the page makes by script, read at once through `contentWindow`, as
+     * a page would to get a fresh `RTCPeerConnection`, has no WebRTC either.
+     */
+    @Test
+    fun webRtcIsGoneFromAnAboutBlankFrameMadeByScript() = runBlocking<Unit> {
+        openFixture()
+
+        assertEquals(
+            "undefined|",
+            preview.evaluate(
+                """
+                (function () {
+                  var frame = document.createElement('iframe');
+                  document.body.appendChild(frame);
+                  var win = frame.contentWindow;
+                  return typeof win.RTCPeerConnection + '|' + $WEB_RTC_LEFT_IN(win);
+                })()
+                """.trimIndent(),
+            ),
+        )
+    }
+
     /** Connects, opens the port picker from the session list's menu and the fixture from the list. */
     private suspend fun openFixture() {
         app.connect()
@@ -170,6 +226,23 @@ class PreviewEndToEndTest {
 
     private companion object {
         const val READ_KEY = "localStorage.getItem('phopencode-fixture')"
+
+        /** The fixture's frame on the preview origin, `frame.html`. */
+        const val ORIGIN_FRAME = "document.getElementById('origin-frame').contentWindow"
+
+        /**
+         * A function expression: the WebRTC globals the window it is given still has, comma-joined.
+         * The names repeat feature/preview/ui/…/page/WebRtcBlock.kt's `GLOBALS`, which is internal.
+         */
+        val WEB_RTC_LEFT_IN = """
+            (function (win) {
+              return ["RTCPeerConnection", "webkitRTCPeerConnection", "mozRTCPeerConnection", "RTCIceTransport",
+                "RTCIceGatherer", "RTCDataChannel", "RTCSessionDescription", "RTCIceCandidate", "RTCRtpSender",
+                "RTCRtpReceiver", "RTCRtpTransceiver", "RTCCertificate"]
+                .filter(function (name) { return typeof win[name] !== 'undefined'; })
+                .join(',');
+            })
+        """.trimIndent()
     }
 
     private fun inConsole(text: String) =

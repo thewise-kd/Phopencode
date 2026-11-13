@@ -1,0 +1,15 @@
+<!doctype html>
+<!--
+  P13.22: a frame on the preview's origin, which index.html embeds. Its first script records what it
+  saw of WebRTC; PreviewEndToEndTest reads it through the parent's iframe.contentWindow.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>phopencode preview fixture frame</title>
+  <script>window.rtcAtStart = typeof RTCPeerConnection;</script>
+</head>
+<body>
+  <p>A frame of the preview fixture.</p>
+</body>
+</html>

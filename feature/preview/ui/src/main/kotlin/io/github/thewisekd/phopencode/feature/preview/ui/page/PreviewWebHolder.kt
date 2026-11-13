@@ -28,6 +28,8 @@ private const val LOADED = 100
  * rotation keeps the page, its history and its storage, and nothing longer.
  *
  * - The WebView is made on the first [PageState.load] and loads each new [io.github.thewisekd.phopencode.feature.preview.logic.contract.LoadRequest.id] once.
+ * - A system WebView that cannot block WebRTC ([WebViewTooOld]) gets no WebView and loads nothing;
+ *   [webViewTooOld] tells the screen.
  * - [PageStatus.Closed], or the destination leaving the back stack ([onCleared]), clears the
  *   WebView's data and destroys it ([release]). Leaving also tells the page logic to close, which
  *   closes the bridge and the tunnel; that is a no-op if it closed already.
@@ -61,6 +63,13 @@ internal class PreviewWebHolder(
     var webView: PreviewWebView? by mutableStateOf(null)
         private set
 
+    /**
+     * The system WebView cannot block WebRTC ahead of the page ([WebViewTooOld]), so no WebView was
+     * made and nothing was loaded; the screen says so in the WebView's place.
+     */
+    var webViewTooOld: Boolean by mutableStateOf(false)
+        private set
+
     /** The main frame's load progress, 0..100. */
     var progress: Int by mutableIntStateOf(LOADED)
         private set
@@ -85,11 +94,25 @@ internal class PreviewWebHolder(
         val load = state.load ?: return
         if (load.id == loadedId) return
         loadedId = load.id
-        val view = webView ?: create(MutableContextWrapper(context), this).also { webView = it }
+        val view = webView ?: newWebView(context) ?: return
         progress = 0
         // A user agent takes effect on the next load only, so the mode is set before each one.
         ViewportSettings.apply(view.settings, state.viewport, context)
         view.loadUrl(load.url)
+    }
+
+    /**
+     * A new WebView, kept as [webView]; null, with [webViewTooOld] set, when the system WebView
+     * cannot block WebRTC: the page is then never loaded.
+     */
+    private fun newWebView(context: Context): PreviewWebView? = try {
+        create(MutableContextWrapper(context), this).also {
+            webView = it
+            webViewTooOld = false
+        }
+    } catch (tooOld: WebViewTooOld) {
+        webViewTooOld = true
+        null
     }
 
     /** [view], ready to go on screen in [context]: off any old parent, on [context]. */
@@ -108,6 +131,7 @@ internal class PreviewWebHolder(
     /** Clears the WebView's data and destroys it, and forgets the last load. Idempotent. */
     fun release() {
         loadedId = null
+        webViewTooOld = false
         destroyWebView()
     }
 

@@ -127,6 +127,7 @@ Foundation at https://www.eclipse.org. The full license text is
 | `androidx.vectordrawable:vectordrawable-animated` | 1.1.0 | Apache-2.0 |
 | `androidx.versionedparcelable:versionedparcelable` | 1.1.1 | Apache-2.0 |
 | `androidx.viewpager:viewpager` | 1.0.0 | Apache-2.0 |
+| `androidx.webkit:webkit` | 1.18.0 | Apache-2.0 |
 | `androidx.window:window` | 1.5.0 | Apache-2.0 |
 | `androidx.window:window-core-android` | 1.5.0 | Apache-2.0 |
 | `co.touchlab:stately-concurrency-jvm` | 2.1.0 | Apache-2.0 |

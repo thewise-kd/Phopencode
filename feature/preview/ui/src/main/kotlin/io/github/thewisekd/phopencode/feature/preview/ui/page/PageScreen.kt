@@ -81,11 +81,12 @@ private const val WEB_HOLDER_KEY = "preview_page_web"
  *   take the WebView's place, with a reload action.
  * - **External address:** another `http(s)` address opens in another app only after a dialog shows
  *   it in full and the user confirms.
+ * - **Old system WebView:** one that cannot take WebRTC out of the page before its scripts run
+ *   ([WebRtcBlock]) gets no WebView; the screen says the system WebView is too old instead.
  *
  * Nothing on it runs an endless animation: Robolectric's `idle()` in the app's tests would never
  * return. The root keeps the `placeholder:<route>` tag the app's navigation test looks for.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PageScreen(
     route: PreviewRoute.Page,
@@ -94,8 +95,22 @@ fun PageScreen(
     decide: (String) -> NavigationDecision,
     modifier: Modifier = Modifier,
 ) {
+    PageScreenContent(route, state, onIntent, decide, modifier, newHolder = { PreviewWebHolder() })
+}
+
+/** [PageScreen], with the WebView's holder made by [newHolder]: the Robolectric tests' seam. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun PageScreenContent(
+    route: PreviewRoute.Page,
+    state: PageState,
+    onIntent: (PageIntent) -> Unit,
+    decide: (String) -> NavigationDecision,
+    modifier: Modifier,
+    newHolder: () -> PreviewWebHolder,
+) {
     val context = LocalContext.current
-    val holder = viewModel(key = WEB_HOLDER_KEY) { PreviewWebHolder() }
+    val holder = viewModel(key = WEB_HOLDER_KEY) { newHolder() }
     SideEffect {
         holder.bind(state.origin, onIntent, decide)
         holder.sync(context, state)
@@ -140,7 +155,12 @@ fun PageScreen(
                     )
                 }
             }
-            PageOverlay(state, hasWebView = holder.webView != null, onReload = reload)
+            PageOverlay(
+                state,
+                hasWebView = holder.webView != null,
+                webViewTooOld = holder.webViewTooOld,
+                onReload = reload,
+            )
             if (holder.webView != null && holder.progress < 100 && state.status.showsPage) {
                 LoadProgress(holder.progress, Modifier.align(Alignment.TopCenter))
             }
@@ -183,11 +203,12 @@ private val PageStatus.showsPage: Boolean
     get() = this == PageStatus.Opening || this == PageStatus.Loaded
 
 /**
- * What takes the WebView's place: the opening line while there is no page yet, or a problem with a
- * reload action. A problem panel scrolls, so that pulling it down reloads too.
+ * What takes the WebView's place: the opening line while there is no page yet, a problem with a
+ * reload action, or, with [webViewTooOld], why the page cannot be shown at all. A problem panel
+ * scrolls, so that pulling it down reloads too.
  */
 @Composable
-private fun PageOverlay(state: PageState, hasWebView: Boolean, onReload: () -> Unit) {
+private fun PageOverlay(state: PageState, hasWebView: Boolean, webViewTooOld: Boolean, onReload: () -> Unit) {
     val problem = state.status.problem(state.port)
     when {
         problem != null -> Surface(modifier = Modifier.fillMaxSize()) {
@@ -197,6 +218,15 @@ private fun PageOverlay(state: PageState, hasWebView: Boolean, onReload: () -> U
                 message = problem.message,
                 icon = if (problem.tag == PageTags.LOAD_ERROR) PhopencodeIcons.Warning else PhopencodeIcons.Server,
                 action = EmptyStateAction(stringResource(R.string.preview_page_reload), onReload),
+            )
+        }
+        // No reload: another try asks the same system WebView.
+        webViewTooOld && !hasWebView && state.status.showsPage -> Surface(modifier = Modifier.fillMaxSize()) {
+            EmptyState(
+                modifier = Modifier.fillMaxSize().testTag(PageTags.WEB_VIEW_TOO_OLD),
+                title = stringResource(R.string.preview_page_start_failed_title),
+                message = stringResource(R.string.preview_page_webview_too_old),
+                icon = PhopencodeIcons.Warning,
             )
         }
         state.status == PageStatus.Opening && !hasWebView -> Opening()

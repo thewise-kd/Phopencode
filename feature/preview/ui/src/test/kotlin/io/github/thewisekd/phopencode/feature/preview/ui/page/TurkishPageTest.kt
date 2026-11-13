@@ -48,6 +48,11 @@ internal val TURKISH_PAGE_STRINGS = ExpectedPageStrings(
         "Önizleme açılamadı",
         "Önizleme açılırken bir sorun oluştu. Tekrar denemek için yeniden yükleyin.",
     ),
+    webViewTooOld = ExpectedProblem(
+        "Önizleme açılamadı",
+        "Bu telefondaki sistem WebView'ı canlı önizleme için çok eski. Android System WebView'ı güncelleyin, " +
+            "sonra önizlemeyi yeniden açın.",
+    ),
     externalTitle = "Uygulama dışında açılsın mı?",
     externalMessage = { url ->
         "Sayfa, önizlemenin dışındaki bir adresi açmak istiyor. Adres, tarayıcınız gibi başka bir uygulamada açılır:\n\n$url"

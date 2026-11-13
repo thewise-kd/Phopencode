@@ -20,6 +20,7 @@
     <string name="preview_page_start_failed_title">Önizleme açılamadı</string>
     <string name="preview_page_bridge_failed_message">Önizleme bu telefonda başlatılamadı. Tekrar denemek için yeniden yükleyin.</string>
     <string name="preview_page_start_failed_message">Önizleme açılırken bir sorun oluştu. Tekrar denemek için yeniden yükleyin.</string>
+    <string name="preview_page_webview_too_old">Bu telefondaki sistem WebView\'ı canlı önizleme için çok eski. Android System WebView\'ı güncelleyin, sonra önizlemeyi yeniden açın.</string>
     <string name="preview_page_external_title">Uygulama dışında açılsın mı?</string>
     <string name="preview_page_external_message">Sayfa, önizlemenin dışındaki bir adresi açmak istiyor. Adres, tarayıcınız gibi başka bir uygulamada açılır:\n\n%1$s</string>
     <string name="preview_page_external_open">Aç</string>

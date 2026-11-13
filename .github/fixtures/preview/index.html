@@ -3,16 +3,20 @@
   P13.20: the page the live preview's end-to-end tests open. .github/workflows/emulator.yml serves
   this folder with Python's http.server on the runner's loopback. 203.0.113.10 is in a documentation
   range (RFC 5737): no real host answers, and the preview must never fetch it anyway.
+  P13.22: the first script records what the page saw of WebRTC before any other script ran, and
+  frame.html is a frame on the preview's origin.
 -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <script>window.rtcAtStart = typeof RTCPeerConnection;</script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>phopencode preview fixture</title>
 </head>
 <body>
   <h1>phopencode preview fixture</h1>
   <p><a id="external" href="http://203.0.113.10/fixture-link">An address off the preview</a></p>
+  <iframe id="origin-frame" src="frame.html" title="A frame on the preview's origin"></iframe>
   <script>
     console.log("phopencode-fixture: loaded");
     window.offOriginFetch = "pending";

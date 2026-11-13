@@ -29,6 +29,8 @@ internal data class ExpectedPageStrings(
     /** Every failure to open that the screen words on its own; the rest read [startFailed]. */
     val openFailures: Map<PreviewFailure, ExpectedProblem>,
     val startFailed: ExpectedProblem,
+    /** The system WebView cannot block WebRTC ahead of the page, so the preview does not load. */
+    val webViewTooOld: ExpectedProblem,
     val externalTitle: String,
     /** The confirmation's text around the address, which it shows in full. */
     val externalMessage: (String) -> String,
@@ -110,6 +112,17 @@ abstract class PageLanguageContract {
                 states.show(failedToOpen(failure))
                 assertProblem(strings.startFailed)
             }
+    }
+
+    @Test
+    fun `a system WebView too old for the preview says so, and no page loads`() {
+        compose.setPageScreenOnOldWebView(loading)
+
+        compose.onNodeWithTag(PageTags.WEB_VIEW_TOO_OLD).assertIsDisplayed()
+        compose.onNodeWithText(strings.webViewTooOld.title).assertIsDisplayed()
+        compose.onNodeWithText(strings.webViewTooOld.message).assertIsDisplayed()
+        compose.onNodeWithTag(PageTags.WEB_VIEW).assertDoesNotExist()
+        compose.onNodeWithTag(PageTags.OPENING).assertDoesNotExist()
     }
 
     @Test

@@ -106,6 +106,7 @@ internal val LIBRARIES: List<Library> = listOf(
     Library("androidx.vectordrawable", "vectordrawable-animated", "1.1.0", LicenseText.APACHE_2_0),
     Library("androidx.versionedparcelable", "versionedparcelable", "1.1.1", LicenseText.APACHE_2_0),
     Library("androidx.viewpager", "viewpager", "1.0.0", LicenseText.APACHE_2_0),
+    Library("androidx.webkit", "webkit", "1.18.0", LicenseText.APACHE_2_0),
     Library("androidx.window", "window", "1.5.0", LicenseText.APACHE_2_0),
     Library("androidx.window", "window-core-android", "1.5.0", LicenseText.APACHE_2_0),
     Library("co.touchlab", "stately-concurrency-jvm", "2.1.0", LicenseText.APACHE_2_0),

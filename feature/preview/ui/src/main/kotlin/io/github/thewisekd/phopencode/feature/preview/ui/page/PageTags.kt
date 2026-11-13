@@ -11,6 +11,7 @@ internal object PageTags {
     const val LOAD_ERROR = "preview_page_load_error"
     const val NOTHING_LISTENS = "preview_page_nothing_listens"
     const val CONNECTION_LOST = "preview_page_connection_lost"
+    const val WEB_VIEW_TOO_OLD = "preview_page_web_view_too_old"
     const val EXTERNAL_DIALOG = "preview_page_external_dialog"
     const val EXTERNAL_FAILED = "preview_page_external_failed"
 }

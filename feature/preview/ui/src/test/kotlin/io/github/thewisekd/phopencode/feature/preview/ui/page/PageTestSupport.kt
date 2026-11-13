@@ -1,12 +1,15 @@
 package io.github.thewisekd.phopencode.feature.preview.ui.page
 
+import android.webkit.WebView
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import io.github.thewisekd.phopencode.core.navigation.PreviewRoute
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.ExternalLink
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.LoadError
+import io.github.thewisekd.phopencode.feature.preview.logic.contract.LoadRequest
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.NavigationDecision
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PageIntent
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PageState
@@ -72,5 +75,54 @@ internal class PageStates(
             }
         }
         compose.waitForIdle()
+    }
+}
+
+/**
+ * Stands in for the system WebView's document start scripts: [supported] says whether it has them,
+ * [add] records each registration, as `script:<view>` in [events] too, or throws [failure].
+ */
+internal class FakeDocumentStartScripts(
+    private val events: MutableList<String> = mutableListOf(),
+    override val supported: Boolean = true,
+    private val failure: RuntimeException? = null,
+) : DocumentStartScripts {
+    /** One registration: the WebView, the script and its origin rules. */
+    data class Added(val view: WebView, val script: String, val originRules: Set<String>)
+
+    val added = mutableListOf<Added>()
+
+    override fun add(view: WebView, script: String, originRules: Set<String>) {
+        failure?.let { throw it }
+        added += Added(view, script, originRules)
+        events += "script:$view"
+    }
+}
+
+/** A page that asks for its first load: without a WebView that can block WebRTC, nothing loads. */
+internal val loading = PageState(
+    port = PAGE_PORT,
+    status = PageStatus.Opening,
+    load = LoadRequest(1, "http://127.0.0.1:41234/"),
+)
+
+/** Draws the page with [state] on a system WebView that has no document start scripts. */
+internal fun ComposeContentTestRule.setPageScreenOnOldWebView(state: PageState) {
+    val scripts = FakeDocumentStartScripts(supported = false)
+    setContent {
+        PhopencodeTheme(darkTheme = false) {
+            Surface {
+                PageScreenContent(
+                    route = pageRoute,
+                    state = state,
+                    onIntent = {},
+                    decide = { NavigationDecision.Refuse },
+                    modifier = Modifier,
+                    newHolder = {
+                        PreviewWebHolder { context, host -> PreviewWebViews.create(context, host, scripts = scripts) }
+                    },
+                )
+            }
+        }
     }
 }

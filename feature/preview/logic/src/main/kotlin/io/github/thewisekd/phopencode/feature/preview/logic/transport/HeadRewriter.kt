@@ -58,20 +58,23 @@ internal class HeadRewriter(bridgePort: Int, private val devPort: Int, private v
     /**
      * The response head for the WebView: loopback `Location`s on the dev port point back to the
      * preview origin, a `Set-Cookie` of the bridge's own cookie is dropped, the policy is added to
-     * every final response, and [close] ends the connection after it.
+     * every final response, [DNS_PREFETCH_OFF] replaces the page's own prefetch control on every
+     * response, and [close] ends the connection after it.
      */
     fun response(head: ResponseHead, close: Boolean): ByteArray {
-        val headers = ArrayList<Header>(head.headers.size + 2)
+        val headers = ArrayList<Header>(head.headers.size + 3)
         val final = head.status !in INFORMATIONAL
         head.headers.forEach { header ->
             when (header.name.lowercase()) {
                 "location" -> headers += Header(header.name, location(header.value))
                 "set-cookie" -> if (!secret.setsBridgeCookie(header.value)) headers += Header(header.name, hostOnly(header.value))
                 "connection", "keep-alive" -> if (!close) headers += header
+                DNS_PREFETCH_CONTROL -> Unit
                 else -> headers += header
             }
         }
         if (final && head.status != SWITCHING_PROTOCOLS) headers += Header("Content-Security-Policy", policy)
+        headers += DNS_PREFETCH_OFF
         if (close) headers += Header("Connection", "close")
         val reason = if (head.reason.isEmpty()) "" else " ${head.reason}"
         return headBytes("${head.version} ${head.status}$reason", headers)
@@ -80,6 +83,7 @@ internal class HeadRewriter(bridgePort: Int, private val devPort: Int, private v
     /**
      * An answer of the bridge itself, with a short plain-text body naming [reason]. For a
      * [headRequest] the head is the same, `Content-Length` included, and the body is left out.
+     * Every one, `100 Continue` included, carries [DNS_PREFETCH_OFF] in place of any in [extra].
      */
     fun own(
         status: Int,
@@ -90,7 +94,8 @@ internal class HeadRewriter(bridgePort: Int, private val devPort: Int, private v
     ): ByteArray {
         val body = if (status == FOUND || status == CONTINUE) "" else reason
         val headers = ArrayList<Header>()
-        headers += extra
+        extra.filterTo(headers) { !it.name.equals(DNS_PREFETCH_CONTROL, ignoreCase = true) }
+        headers += DNS_PREFETCH_OFF
         if (status != CONTINUE) {
             headers += Header("Content-Type", "text/plain; charset=utf-8")
             headers += Header("Content-Length", body.toByteArray().size.toString())
@@ -160,6 +165,17 @@ internal class HeadRewriter(bridgePort: Int, private val devPort: Int, private v
     override fun toString(): String = "HeadRewriter"
 
     private companion object {
+        /** The header's name in lower case, as [response] compares names. */
+        const val DNS_PREFETCH_CONTROL = "x-dns-prefetch-control"
+
+        /**
+         * Asks the WebView not to resolve, ahead of a click, the host names of the page's links:
+         * those lookups would go to the phone's resolver, which neither the request gate nor the
+         * policy sees. It does not cover every network hint a page can give; see "Known limits" in
+         * docs/SECURITY-MODEL.md.
+         */
+        val DNS_PREFETCH_OFF = Header("X-DNS-Prefetch-Control", "off")
+
         val LOOPBACK_HOSTS = setOf("localhost", "127.0.0.1", "[::1]")
         val COOKIE_LOOPBACK_DOMAINS = setOf("localhost", "127.0.0.1", "[::1]", "::1")
         val INFORMATIONAL = 100..199
