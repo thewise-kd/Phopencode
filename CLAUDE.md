@@ -40,3 +40,4 @@ The task list is in `docs/PHASES.md`; IDs have the form `P<phase>.<number>` (e.g
 
 - Language: everything in the repository is in English: code, commit messages, agent, skill and hook instructions, and documents. The app's user-facing strings ship in Turkish and English, because `docs/PHASES.md` requires TR/EN string parity.
 - Secrets: the repository is public. Never commit server addresses, keys, passwords or the ntfy topic.
+- Commit trailers: never add a `Claude-Session:` trailer (a claude.ai session link) to commit messages or pull request descriptions. `Co-Authored-By` stays allowed.
