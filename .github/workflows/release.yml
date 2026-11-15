@@ -1,18 +1,24 @@
 name: Release
 
-# P12.5: a pushed v* tag builds the release APK, signs it with the key from the repository's
+# P12.5: run on a v* tag, it builds the release APK, signs it with the key from the repository's
 # secrets, and attaches the APK and its SHA-256 to the GitHub Release of that tag. The user creates
-# the tag (docs/dev-setup/release.md); this workflow never creates or moves tags.
+# and pushes the tag (docs/dev-setup/release.md); this workflow never creates or moves tags.
 #
-# Only a tag push starts it, never a pull request, so a fork's code never runs with the secrets.
+# Only a manual start runs it, never a pull request: only someone with write access to this
+# repository can start it, on a ref of this repository, so a fork's code never runs with the
+# secrets. Every job runs only when the chosen ref is a v* tag; started on a branch, nothing is
+# built, signed or published.
+#
+# P12.11: automatic triggers are turned off for now because GitHub Actions costs money. This
+# workflow runs only when started by hand: the Actions page (Run workflow, choose the v* tag), or
+# `gh workflow run release.yml --ref v<version>`. To turn the automatic runs back on, restore
+# `push:` with `tags: ["v*"]` under `on:` (the job guards stay true on a pushed tag).
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
 
 permissions: {}
 
-# Two pushes of the same tag must not race each other to the same release.
+# Two runs for the same tag must not race each other to the same release.
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -25,6 +31,8 @@ jobs:
   # Builds and signs with a read-only token. The signing secrets reach only the steps that need
   # them, never Gradle, and the job cannot write to the repository.
   build:
+    # Started by hand on a branch, the job is skipped: only a v* tag ref is ever signed.
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -174,6 +182,8 @@ jobs:
   # The only job that can write, and it sees no signing secret: it publishes what build made.
   publish:
     needs: build
+    # Checked again here, so publishing never depends on the build job's guard alone.
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -186,7 +196,7 @@ jobs:
           name: release-apk
           path: release-out
 
-      # Creates the release of the pushed tag, or adds to it when it already exists. A tag with
+      # Creates the release of the tag, or adds to it when it already exists. A tag with
       # a suffix (v1.2.3-rc.1) becomes a pre-release.
       - name: Publish the GitHub Release
         env:

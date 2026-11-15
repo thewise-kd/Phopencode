@@ -21,8 +21,8 @@ Tasks are listed by `P<phase>.<number>` ID. API details: `docs/opencode-api-note
 |---|---|---|---|
 | `PI` | Pi | `./gradlew :<module>:test` | JDK (P0.2) |
 | `PY` | Pi | `python3 -m unittest` | No setup |
-| `CI` | GitHub Actions | `testDebugUnitTest`, `assembleDebug`, `lint` | Push (user) |
-| `EMU` | GitHub Actions emulator | `connectedDebugAndroidTest` | Push (user) |
+| `CI` | GitHub Actions | `testDebugUnitTest`, `assembleDebug`, `lint` | Push, then a manual start (user, P12.11) |
+| `EMU` | GitHub Actions emulator | `connectedDebugAndroidTest` | Push, then a manual start (user, P12.11) |
 | `PHONE` | Real phone | By hand | User |
 | `LOCAL` | Pi | The command or file check in the acceptance test | No setup |
 
@@ -43,12 +43,14 @@ Tasks are listed by `P<phase>.<number>` ID. API details: `docs/opencode-api-note
 
 ## Checkpoints
 
-CI runs only when the user pushes. Sequence:
+CI runs only after the user pushes and starts it by hand (see the note below). Sequence:
 
 1. `/phase <n>` finishes, the commits are local.
-2. The user pushes.
+2. The user pushes, then starts `ci.yml` and `emulator.yml` by hand.
 3. The CI result is read with `gh run list` / `gh run view --log-failed` (D3).
 4. If red, a fix task is added and pushed again.
+
+Since P12.11, CI runs no longer start on push, because GitHub Actions costs money; every workflow has only `workflow_dispatch`. For now, after pushing, the user starts `ci.yml` and `emulator.yml` by hand from the Actions page (Run workflow, choose the pushed branch) or with `gh workflow run <file> --ref <branch>`, and only then reads the result with `gh run list`. A release is started the same way on its `v*` tag (`docs/dev-setup/release.md`).
 
 `CP<n>` lines say at the end of which phase a push is needed. P2 and P3 are mostly verified on the Pi; they can be merged without CI.
 
@@ -709,6 +711,12 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 |---|---|---|---|---|---|
 | P12.10 | Docs for the public release | P12.9 | README.md, README.tr.md, docs/INSTALL*.md, docs/SECURITY-MODEL*.md, scripts/tests/test_user_docs.py | No "no release yet" wording; Releases and CHANGELOG linked; TR+EN | `PY` |
 
+**G7 (make Actions manual-only)**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P12.11 | Make Actions manual-only `[U]` (approved: Actions costs money) | P12.10 | `.github/workflows/ci.yml`, `.github/workflows/emulator.yml`, `.github/workflows/release.yml`, `scripts/tests/test_release_workflow.py`, `scripts/tests/test_workflow_triggers.py`, `docs/dev-setup/release.md`, `docs/PHASES.md` (this row, the summary table, the Tags table and the Checkpoints note) | The three workflow files stay and have only `workflow_dispatch`; a comment beside `on:` says why, how to start the run by hand and which triggers to restore; every release job runs only on a `refs/tags/v` ref, so a branch run never signs or publishes; minimal permissions and secret handling unchanged; the release guide says to push the tag and then start the workflow on it | `PY` |
+
 `CP12`: the user pushes the `v0.1.0` tag.
 
 ## Parallelism summary
@@ -727,8 +735,8 @@ All tested on the Pi. Endpoints: `docs/opencode-api-notes.md`.
 | P9 | 15 | 3, 6, 6 | 6 | 9 | 6 |
 | P10 | 11 | 1, 6, 2, 2 | 6 | 5 | 6 |
 | P11 | 12 | 4, 3, 5 | 5 | 10 | 2 |
-| P12 | 10 | 1, 3, 3, 1, 1, 1 | 3 | 5 | 5 |
-| Total | 152 | 47 groups | 6 | 96 | 56 |
+| P12 | 11 | 1, 3, 3, 1, 1, 1, 1 | 3 | 6 | 5 |
+| Total | 153 | 48 groups | 6 | 97 | 56 |
 
 `logic` and `ui` tasks run at the same time after the contract. The group limit is for the Pi; on a stronger machine, consecutive groups of the same phase can be merged, since the dependency column is sufficient.
 

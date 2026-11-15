@@ -1,5 +1,7 @@
 """P12.5: the release workflow signs the APK without leaking the key and publishes it on a v* tag.
 
+P12.11: it runs only when started by hand, and only on a v* tag ref does any job run.
+
 The workflow is read with PyYAML when it is installed (GitHub's Ubuntu runners ship it). Without
 it the tests that need the parsed workflow skip with the reason; the plain-text checks still run.
 """
@@ -122,14 +124,32 @@ class Trigger(unittest.TestCase):
     def setUp(self):
         self.workflow = load_workflow()
 
-    def test_only_a_push_of_a_v_tag_starts_it(self):
-        self.assertEqual(self.workflow["on"], {"push": {"tags": ["v*"]}})
+    def test_only_a_manual_start_runs_it(self):
+        # P12.11: Actions costs money, so a pushed tag no longer starts the release by itself.
+        self.assertEqual(self.workflow["on"], {"workflow_dispatch": None})
 
     def test_no_pull_request_trigger_can_hand_secrets_to_a_fork(self):
         triggers = self.workflow["on"]
-        for event in ("pull_request", "pull_request_target", "workflow_run", "workflow_dispatch"):
+        for event in ("pull_request", "pull_request_target", "workflow_run", "push"):
             with self.subTest(event=event):
                 self.assertNotIn(event, triggers)
+
+    def test_every_job_runs_only_on_a_v_tag_ref(self):
+        # Started by hand from a branch, nothing is built, signed or published.
+        guard = re.compile(r"startsWith\(\s*github\.ref\s*,\s*'refs/tags/v'\s*\)")
+        for job_id, job in self.workflow["jobs"].items():
+            condition = str(job.get("if", ""))
+            with self.subTest(job=job_id):
+                self.assertRegex(condition, guard)
+                # The guard must decide alone: no `||` around it and no always() to bypass it.
+                self.assertNotIn("||", condition)
+                self.assertNotRegex(condition, r"always\(\)|cancelled\(\)|failure\(\)")
+
+    def test_publishing_waits_for_the_build(self):
+        publishers = {job_id for job_id, _, step in all_steps(self.workflow) if is_release_step(step)}
+        for job_id in publishers:
+            with self.subTest(job=job_id):
+                self.assertIn("build", self.workflow["jobs"][job_id].get("needs", []))
 
 
 @unittest.skipIf(yaml is None, NEEDS_YAML)
@@ -336,6 +356,11 @@ class Guide(unittest.TestCase):
         ):
             with self.subTest(needle=needle):
                 self.assertIn(needle, self.text)
+
+    def test_it_says_the_release_is_started_by_hand_on_the_tag(self):
+        self.assertRegex(self.text, r"gh workflow run release\.yml --ref v\S+")
+        self.assertIn("Actions page", self.text)
+        self.assertNotRegex(self.text, r"turns a pushed `v\*` tag|runs only on a tag push")
 
     def test_the_key_files_always_have_their_full_path_outside_the_checkout(self):
         names = re.findall(r"(\S*)phopencode-release\.jks(?:\.b64)?", self.text)

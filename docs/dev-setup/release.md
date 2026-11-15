@@ -1,14 +1,23 @@
 # Release signing and publishing
 
-`.github/workflows/release.yml` turns a pushed `v*` tag into a GitHub Release that carries the
-signed APK and its SHA-256. It builds `:app:assembleRelease` (R8, no signing config in Gradle),
-aligns the APK with `zipalign`, signs it with `apksigner` using the key from the repository's
-secrets, verifies it, and attaches `Phopencode-v<version>.apk` and
+`.github/workflows/release.yml`, started by hand on a `v*` tag, turns that tag into a GitHub
+Release that carries the signed APK and its SHA-256. It builds `:app:assembleRelease` (R8, no
+signing config in Gradle), aligns the APK with `zipalign`, signs it with `apksigner` using the key
+from the repository's secrets, verifies it, and attaches `Phopencode-v<version>.apk` and
 `Phopencode-v<version>.apk.sha256` to the release of that tag.
 
-The workflow runs only on a tag push, never on a pull request, so code from a fork never runs
-with the secrets. Its default token permission is none; the build job reads, and only the
-publishing job, which sees no signing secret, may write the release.
+GitHub Actions costs money, so for now no workflow starts on its own: pushing a `v*` tag no
+longer starts the release. The workflow has only the `workflow_dispatch` trigger. You start it
+from the repository's Actions page (Release, Run workflow, choose the tag) or with
+`gh workflow run release.yml --ref v<version>`. Every job runs only when the chosen ref is a `v*`
+tag; started on a branch, the run builds, signs and publishes nothing. To turn the automatic
+release back on, restore the `push:` trigger with `tags: ["v*"]` (the comment beside `on:` in the
+workflow says the same).
+
+The workflow never runs on a pull request: only someone with write access to this repository can
+start it, on a ref of this repository, so code from a fork never runs with the secrets. Its
+default token permission is none; the build job reads, and only the publishing job, which sees no
+signing secret, may write the release.
 
 ## 1. Create the signing key (once)
 
@@ -108,11 +117,20 @@ When a secret is missing, the workflow fails with the name of that secret and pr
    git push origin v0.1.0
    ```
 
-3. The Release workflow runs on the tag. It stops when the tag does not match the `versionName`
-   of the built APK, so a mistyped tag publishes nothing. A tag with a suffix, such as
-   `v0.2.0-rc.1`, is published as a pre-release.
-4. When it finishes, the release page of the tag lists `Phopencode-v0.1.0.apk` and
-   `Phopencode-v0.1.0.apk.sha256`. Running the workflow again for the same tag replaces the
+3. Pushing the tag starts nothing. Start the Release workflow by hand on that tag:
+
+   ```sh
+   gh workflow run release.yml --ref v0.1.0 --repo <owner>/<repo>
+   gh run list --workflow release.yml --repo <owner>/<repo>   # follow the run
+   ```
+
+   Or on the Actions page: choose Release, then Run workflow, and pick the tag `v0.1.0` (not a
+   branch) under "Use workflow from". Started on a branch, the jobs are skipped.
+4. The workflow stops when the tag does not match the `versionName` of the built APK, so a
+   mistyped tag publishes nothing. A tag with a suffix, such as `v0.2.0-rc.1`, is published as a
+   pre-release.
+5. When it finishes, the release page of the tag lists `Phopencode-v0.1.0.apk` and
+   `Phopencode-v0.1.0.apk.sha256`. Starting the workflow again on the same tag replaces the
    files.
 
 The workflow never creates or moves tags. To redo a release after fixing the code, delete the

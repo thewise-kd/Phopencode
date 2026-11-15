@@ -1,8 +1,11 @@
 name: CI
 
+# P12.11: automatic triggers are turned off for now because GitHub Actions costs money. This
+# workflow runs only when started by hand: the Actions page (Run workflow, choose the branch), or
+# `gh workflow run ci.yml --ref <ref>`. To turn the automatic runs back on, restore
+# `push:` and `pull_request:` under `on:`.
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
