@@ -36,6 +36,19 @@ its release page, where the signed APK and its SHA-256 hash are published.
   This is the one exception to "the phone opens no local port".
 - The app never starts, stops or kills a process for the preview: you, or opencode, start the dev
   server.
+- A short notice before the first preview, shown once before the port list: start the dev server
+  on `127.0.0.1` or `localhost`, not `0.0.0.0`; open only projects you trust; do not use real
+  accounts, passwords, tokens or personal data in the preview page; check the address of a link
+  that leaves the preview; the app never starts or stops the dev server and clears the preview's
+  data when you leave it. "I have read and understood" hides it for good; "Not now" leaves the
+  preview, and the notice appears again on the next visit.
+
+#### First-run usage guide
+
+- A short usage guide opens on the first launch: what the app does, what the server needs, adding
+  a server, sessions and chat, files and Git, notifications and the live preview. Skip or Start
+  ends it for good; Settings, then "Usage guide", opens it again at any time.
+- "Delete all data" in Settings shows the usage guide and the live preview notice again.
 
 ## [0.1.0] - 2026-11-11
 
