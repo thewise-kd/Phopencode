@@ -504,6 +504,59 @@ fun settingsRepositoryContract(newHarness: suspend () -> SettingsHarness): List<
         settings.setFileSizeLimit(-1)
         expectEqual(-1L, settings.observe().first().fileSizeLimitBytes, "limit")
     }
+    case("the first-run flags start false") {
+        val current = newHarness().settings.observe().first()
+        expectEqual(false, current.guideSeen, "guideSeen")
+        expectEqual(false, current.previewNoticeAccepted, "previewNoticeAccepted")
+    }
+    case("markGuideSeen sets guideSeen only, and observers see it") {
+        val settings = newHarness().settings
+        settings.setTheme(ThemePreference.DARK)
+        val seen = collect(settings.observe())
+        seen.next("current")
+        settings.markGuideSeen()
+        expectEqual(
+            AppSettings(theme = ThemePreference.DARK, guideSeen = true),
+            seen.next("after markGuideSeen"),
+            "settings",
+        )
+    }
+    case("acceptPreviewNotice sets previewNoticeAccepted only, and observers see it") {
+        val settings = newHarness().settings
+        settings.setLanguage(AppLanguage.TURKISH)
+        val seen = collect(settings.observe())
+        seen.next("current")
+        settings.acceptPreviewNotice()
+        expectEqual(
+            AppSettings(language = AppLanguage.TURKISH, previewNoticeAccepted = true),
+            seen.next("after acceptPreviewNotice"),
+            "settings",
+        )
+    }
+    case("the first-run flags stay set when called again and when other settings change") {
+        val settings = newHarness().settings
+        settings.markGuideSeen()
+        settings.acceptPreviewNotice()
+        settings.markGuideSeen()
+        settings.acceptPreviewNotice()
+        settings.setLanguage(AppLanguage.ENGLISH)
+        settings.setTheme(ThemePreference.LIGHT)
+        settings.setFileSizeLimit(9)
+        expectEqual(
+            AppSettings(AppLanguage.ENGLISH, ThemePreference.LIGHT, 9, guideSeen = true, previewNoticeAccepted = true),
+            settings.observe().first(),
+            "settings",
+        )
+    }
+    case("deleteAllData resets the first-run flags to false") {
+        val settings = newHarness().settings
+        settings.markGuideSeen()
+        settings.acceptPreviewNotice()
+        settings.deleteAllData()
+        val current = settings.observe().first()
+        expectEqual(false, current.guideSeen, "guideSeen")
+        expectEqual(false, current.previewNoticeAccepted, "previewNoticeAccepted")
+    }
     case("deleting a profile leaves the secrets it refers to") {
         val harness = newHarness()
         SecretValue.ofText("value").use { harness.secrets.put(SECRET, it) }

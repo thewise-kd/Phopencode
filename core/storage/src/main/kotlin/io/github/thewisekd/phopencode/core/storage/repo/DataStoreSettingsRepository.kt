@@ -3,6 +3,7 @@ package io.github.thewisekd.phopencode.core.storage.repo
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
@@ -27,6 +28,8 @@ import kotlinx.coroutines.flow.retryWhen
 private val LANGUAGE = stringPreferencesKey("language")
 private val THEME = stringPreferencesKey("theme")
 private val FILE_SIZE_LIMIT = longPreferencesKey("file_size_limit_bytes")
+private val GUIDE_SEEN = booleanPreferencesKey("guide_seen")
+private val PREVIEW_NOTICE_ACCEPTED = booleanPreferencesKey("preview_notice_accepted")
 
 /** How long an observer waits before reading a settings file again that failed to read. */
 private val READ_RETRY_DELAY = 1.seconds
@@ -42,6 +45,8 @@ private fun Preferences.toSettings(): AppSettings {
         language = enumOrNull<AppLanguage>(values[LANGUAGE]) ?: AppLanguage.SYSTEM,
         theme = enumOrNull<ThemePreference>(values[THEME]) ?: ThemePreference.SYSTEM,
         fileSizeLimitBytes = values[FILE_SIZE_LIMIT] as? Long ?: AppSettings.DEFAULT_FILE_SIZE_LIMIT_BYTES,
+        guideSeen = values[GUIDE_SEEN] as? Boolean ?: false,
+        previewNoticeAccepted = values[PREVIEW_NOTICE_ACCEPTED] as? Boolean ?: false,
     )
 }
 
@@ -84,6 +89,14 @@ internal class DataStoreSettingsRepository(
 
     override suspend fun setFileSizeLimit(bytes: Long) {
         store.edit { it[FILE_SIZE_LIMIT] = bytes }
+    }
+
+    override suspend fun markGuideSeen() {
+        store.edit { it[GUIDE_SEEN] = true }
+    }
+
+    override suspend fun acceptPreviewNotice() {
+        store.edit { it[PREVIEW_NOTICE_ACCEPTED] = true }
     }
 
     /**

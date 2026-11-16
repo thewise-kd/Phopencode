@@ -79,6 +79,11 @@ class DefaultPreferencesPresenterTest {
         override suspend fun setFileSizeLimit(bytes: Long) =
             save("setFileSizeLimit($bytes)") { it.copy(fileSizeLimitBytes = bytes) }
 
+        override suspend fun markGuideSeen() = save("markGuideSeen()") { it.copy(guideSeen = true) }
+
+        override suspend fun acceptPreviewNotice() =
+            save("acceptPreviewNotice()") { it.copy(previewNoticeAccepted = true) }
+
         override suspend fun deleteAllData() {
             calls += "deleteAllData"
             deleteGate?.await()
@@ -668,6 +673,10 @@ class DefaultPreferencesPresenterTest {
                 stored.value = stored.value.copy(fileSizeLimitBytes = bytes)
             }
 
+            override suspend fun markGuideSeen() = error("Not called")
+
+            override suspend fun acceptPreviewNotice() = error("Not called")
+
             override suspend fun deleteAllData() {
                 stored.value = AppSettings()
             }
@@ -707,6 +716,10 @@ class DefaultPreferencesPresenterTest {
             override suspend fun setFileSizeLimit(bytes: Long) {
                 stored = stored.copy(fileSizeLimitBytes = bytes)
             }
+
+            override suspend fun markGuideSeen() = error("Not called")
+
+            override suspend fun acceptPreviewNotice() = error("Not called")
 
             override suspend fun deleteAllData() {
                 stored = AppSettings()
@@ -750,6 +763,10 @@ class DefaultPreferencesPresenterTest {
 
             override suspend fun setFileSizeLimit(bytes: Long) = error("Not called")
 
+            override suspend fun markGuideSeen() = error("Not called")
+
+            override suspend fun acceptPreviewNotice() = error("Not called")
+
             override suspend fun deleteAllData() = error("Not called")
         }
         val presenter = DefaultPreferencesPresenter(settings, locales, disconnector, backgroundScope)
@@ -785,6 +802,10 @@ class DefaultPreferencesPresenterTest {
 
             override suspend fun setFileSizeLimit(bytes: Long) = error("Not called")
 
+            override suspend fun markGuideSeen() = error("Not called")
+
+            override suspend fun acceptPreviewNotice() = error("Not called")
+
             override suspend fun deleteAllData() {
                 stored = AppSettings()
             }
@@ -816,6 +837,10 @@ class DefaultPreferencesPresenterTest {
 
             override suspend fun setFileSizeLimit(bytes: Long) = error("Not called")
 
+            override suspend fun markGuideSeen() = error("Not called")
+
+            override suspend fun acceptPreviewNotice() = error("Not called")
+
             override suspend fun deleteAllData() = error("Not called")
         }
         val presenter = DefaultPreferencesPresenter(broken, locales, disconnector, backgroundScope)
@@ -845,6 +870,10 @@ class DefaultPreferencesPresenterTest {
             override suspend fun setFileSizeLimit(bytes: Long) {
                 stored.value = stored.value.copy(fileSizeLimitBytes = bytes)
             }
+
+            override suspend fun markGuideSeen() = error("Not called")
+
+            override suspend fun acceptPreviewNotice() = error("Not called")
 
             override suspend fun deleteAllData() {
                 stored.value = AppSettings()
