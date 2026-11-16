@@ -23,6 +23,7 @@ import io.github.thewisekd.phopencode.core.storage_api.SettingsRepository
 import io.github.thewisekd.phopencode.core.storage_api.ThemePreference
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.navigation.AppNavHost
+import io.github.thewisekd.phopencode.navigation.OpenGuideOnFirstLaunch
 import io.github.thewisekd.phopencode.navigation.openDeepLink
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -37,6 +38,9 @@ import org.koin.android.ext.android.inject
  * The theme follows the stored [ThemePreference] (see [rememberDarkTheme]); a change recomposes
  * the content in place, without recreating the activity. The system bar icons follow the same
  * theme, so a forced dark theme on a light phone does not get dark icons on a dark bar.
+ *
+ * On a launch while the usage guide was never finished or skipped, [OpenGuideOnFirstLaunch] opens
+ * it above the server list, once.
  *
  * Deep links, such as a notification's `phopencode://pending`: the NavHost opens the one that
  * starts the activity; one that reaches the running activity opens in [onNewIntent], above the
@@ -68,6 +72,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
                     navController = navController,
                 )
+                OpenGuideOnFirstLaunch(navController, settings)
             }
         }
     }

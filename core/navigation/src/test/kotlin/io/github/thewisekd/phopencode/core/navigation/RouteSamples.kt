@@ -45,6 +45,7 @@ internal fun routesWith(text: String): List<Route> = listOf(
     PreviewRoute.Page(port = 8080),
     SettingsRoute.Preferences,
     SettingsRoute.Licenses,
+    SettingsRoute.Guide,
 )
 
 /** The routes with optional arguments, with those arguments left out. */

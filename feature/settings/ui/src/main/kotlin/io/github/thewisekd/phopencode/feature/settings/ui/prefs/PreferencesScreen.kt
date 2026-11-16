@@ -67,7 +67,7 @@ private val ICON_SIZE = 22.dp
  * Sections, each a rounded card under a heading, in the style of the other lists:
  * - Language and Theme: radio groups; a tap sends the choice right away.
  * - File size limit: whole mebibytes; the contract's [FileSizeProblem] shows under the field.
- * - About: opens the licenses.
+ * - About: opens the usage guide (P14.1), at any time, and the licenses.
  * - Data: deleting everything only asks first ([PreferencesIntent.RequestDelete]); only the
  *   confirmation's own button sends [PreferencesIntent.ConfirmDelete]. While deleting, a still
  *   progress message replaces the button and nothing can be changed.
@@ -151,7 +151,22 @@ private fun PreferencesList(state: PreferencesState, onIntent: (PreferencesInten
         Card { FileSizeField(state, enabled, onIntent) }
 
         SectionHeading(stringResource(R.string.settings_prefs_about_heading))
-        LicensesEntry(enabled = enabled, onClick = { onIntent(PreferencesIntent.OpenLicenses) })
+        LinkEntry(
+            icon = PhopencodeIcons.Sparkle,
+            title = stringResource(R.string.settings_prefs_guide),
+            description = stringResource(R.string.settings_prefs_guide_description),
+            tag = GUIDE_TAG,
+            enabled = enabled,
+            onClick = { onIntent(PreferencesIntent.OpenGuide) },
+        )
+        LinkEntry(
+            icon = PhopencodeIcons.Info,
+            title = stringResource(R.string.settings_prefs_licenses),
+            description = stringResource(R.string.settings_prefs_licenses_description),
+            tag = LICENSES_TAG,
+            enabled = enabled,
+            onClick = { onIntent(PreferencesIntent.OpenLicenses) },
+        )
 
         SectionHeading(stringResource(R.string.settings_prefs_data_heading))
         DeleteDataCard(state, onIntent)
@@ -306,14 +321,21 @@ private fun FileSizeProblem.message(): String = when (this) {
     )
 }
 
-/** Opens the licenses: a whole-card button, its title and description read as one. */
+/** Opens another screen: a whole-card button, its title and description read as one. */
 @Composable
-private fun LicensesEntry(enabled: Boolean, onClick: () -> Unit) {
+private fun LinkEntry(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    tag: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
     val spacing = PhopencodeTheme.spacing
     val colors = MaterialTheme.colorScheme
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().testTag(LICENSES_TAG),
+        modifier = Modifier.fillMaxWidth().testTag(tag),
         enabled = enabled,
         shape = MaterialTheme.shapes.medium,
         color = colors.surfaceContainer,
@@ -325,15 +347,15 @@ private fun LicensesEntry(enabled: Boolean, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(spacing.md),
         ) {
-            IconCircle(PhopencodeIcons.Info)
+            IconCircle(icon)
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xxs)) {
                 Text(
-                    text = stringResource(R.string.settings_prefs_licenses),
+                    text = title,
                     color = colors.onSurface,
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = stringResource(R.string.settings_prefs_licenses_description),
+                    text = description,
                     color = colors.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium,
                 )

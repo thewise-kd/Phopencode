@@ -18,6 +18,10 @@ import io.github.thewisekd.phopencode.core.navigation.ConnectRoute
 import io.github.thewisekd.phopencode.core.navigation.Route
 import io.github.thewisekd.phopencode.core.navigation.SettingsRoute
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
+import io.github.thewisekd.phopencode.feature.settings.logic.contract.GuideEvent
+import io.github.thewisekd.phopencode.feature.settings.logic.contract.GuideIntent
+import io.github.thewisekd.phopencode.feature.settings.logic.contract.GuidePresenter
+import io.github.thewisekd.phopencode.feature.settings.logic.contract.GuideState
 import io.github.thewisekd.phopencode.feature.settings.logic.contract.PreferencesEvent
 import io.github.thewisekd.phopencode.feature.settings.logic.contract.PreferencesIntent
 import io.github.thewisekd.phopencode.feature.settings.logic.contract.PreferencesPresenter
@@ -56,8 +60,8 @@ private class Recording<S, I, E>(initial: S) : Presenter<S, I, E> {
 }
 
 /**
- * The graph opens both settings routes, turns the preferences' events into navigation, and after
- * all data is deleted leaves only the server list. The presenter is a fake.
+ * The graph opens every settings route, turns the preferences' and the guide's events into
+ * navigation, and after all data is deleted leaves only the server list. The presenters are fakes.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [26, 36], qualifiers = "en")
@@ -66,6 +70,8 @@ class SettingsGraphTest {
     val compose = createComposeRule()
 
     private val preferences = Recording<PreferencesState, PreferencesIntent, PreferencesEvent>(PreferencesState())
+
+    private val guide = Recording<GuideState, GuideIntent, GuideEvent>(GuideState())
 
     private lateinit var navController: NavHostController
 
@@ -76,6 +82,9 @@ class SettingsGraphTest {
                 module {
                     factory<PreferencesPresenter> {
                         object : PreferencesPresenter, Presenter<PreferencesState, PreferencesIntent, PreferencesEvent> by preferences {}
+                    }
+                    factory<GuidePresenter> {
+                        object : GuidePresenter, Presenter<GuideState, GuideIntent, GuideEvent> by guide {}
                     }
                 },
             )
@@ -122,6 +131,7 @@ class SettingsGraphTest {
             destination.hasRoute<ConnectRoute.Keys>() -> ConnectRoute.Keys
             destination.hasRoute<SettingsRoute.Preferences>() -> SettingsRoute.Preferences
             destination.hasRoute<SettingsRoute.Licenses>() -> SettingsRoute.Licenses
+            destination.hasRoute<SettingsRoute.Guide>() -> SettingsRoute.Guide
             else -> null // The graph itself.
         }
     }
@@ -134,7 +144,7 @@ class SettingsGraphTest {
     fun `every route shows its screen with its tag`() {
         setNavHost()
 
-        listOf(SettingsRoute.Preferences, SettingsRoute.Licenses).forEach { route ->
+        listOf(SettingsRoute.Preferences, SettingsRoute.Licenses, SettingsRoute.Guide).forEach { route ->
             open(route)
             compose.onNodeWithTag("placeholder:$route").assertIsDisplayed()
         }
@@ -149,6 +159,69 @@ class SettingsGraphTest {
 
         assertEquals(listOf(ConnectRoute.ServerList, SettingsRoute.Preferences, SettingsRoute.Licenses), backStack())
         assertTrue(compose.runOnIdle { preferences.intents.isEmpty() }, "the preferences follow the store, they need no refresh")
+    }
+
+    @Test
+    fun `the preferences open the guide`() {
+        setNavHost()
+        open(SettingsRoute.Preferences)
+
+        send(PreferencesEvent.OpenGuide)
+
+        assertEquals(listOf(ConnectRoute.ServerList, SettingsRoute.Preferences, SettingsRoute.Guide), backStack())
+    }
+
+    @Test
+    fun `finishing the guide opened from the preferences returns to them`() {
+        setNavHost()
+        open(SettingsRoute.Preferences)
+        send(PreferencesEvent.OpenGuide)
+
+        finishGuide()
+
+        assertEquals(listOf(ConnectRoute.ServerList, SettingsRoute.Preferences), backStack())
+    }
+
+    @Test
+    fun `finishing the guide opened on the first launch lands on the server list`() {
+        setNavHost()
+        open(SettingsRoute.Guide)
+
+        finishGuide()
+
+        assertEquals(listOf(ConnectRoute.ServerList), backStack())
+        compose.onNodeWithTag("start").assertIsDisplayed()
+    }
+
+    @Test
+    fun `finishing a guide alone on the back stack opens the server list`() {
+        setNavHost(start = SettingsRoute.Guide)
+
+        finishGuide()
+
+        assertEquals(listOf(ConnectRoute.ServerList), backStack())
+    }
+
+    @Test
+    fun `a screen a deep link put above a saving guide stays, and the guide leaves when shown again`() {
+        setNavHost()
+        open(SettingsRoute.Guide, ConnectRoute.Keys)
+
+        finishGuide()
+
+        assertEquals(listOf(ConnectRoute.ServerList, SettingsRoute.Guide, ConnectRoute.Keys), backStack())
+        compose.onNodeWithTag("keys").assertIsDisplayed()
+
+        compose.runOnIdle { navController.popBackStack() }
+        compose.waitForIdle()
+
+        assertEquals(listOf(ConnectRoute.ServerList), backStack())
+        compose.onNodeWithTag("start").assertIsDisplayed()
+    }
+
+    private fun finishGuide() {
+        guide.sent.trySend(GuideEvent.Finished)
+        compose.waitForIdle()
     }
 
     @Test

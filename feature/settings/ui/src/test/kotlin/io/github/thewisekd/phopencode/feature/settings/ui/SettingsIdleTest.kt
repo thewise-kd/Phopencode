@@ -8,7 +8,10 @@ import androidx.compose.runtime.Composable
 import io.github.thewisekd.phopencode.core.navigation.SettingsRoute
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.feature.settings.logic.contract.DataDeletion
+import io.github.thewisekd.phopencode.feature.settings.logic.contract.GuidePage
+import io.github.thewisekd.phopencode.feature.settings.logic.contract.GuideState
 import io.github.thewisekd.phopencode.feature.settings.logic.contract.PreferencesState
+import io.github.thewisekd.phopencode.feature.settings.ui.guide.GuideScreen
 import io.github.thewisekd.phopencode.feature.settings.ui.licenses.LicensesScreen
 import io.github.thewisekd.phopencode.feature.settings.ui.prefs.PreferencesScreen
 import org.junit.Test
@@ -67,6 +70,14 @@ class SettingsIdleTest {
         assertComesToRest { PreferencesScreen(SettingsRoute.Preferences, PreferencesState(), onIntent = {}) }
         val deleting = PreferencesState(loading = false, deletion = DataDeletion.Deleting)
         assertComesToRest { PreferencesScreen(SettingsRoute.Preferences, deleting, onIntent = {}) }
+    }
+
+    @Test
+    fun `the guide comes to rest, on its first and its last page and while finishing`() {
+        assertComesToRest { GuideScreen(SettingsRoute.Guide, GuideState(), onIntent = {}) }
+        assertComesToRest { GuideScreen(SettingsRoute.Guide, GuideState(page = GuidePage.Done), onIntent = {}) }
+        val finishing = GuideState(page = GuidePage.Done, finishing = true)
+        assertComesToRest { GuideScreen(SettingsRoute.Guide, finishing, onIntent = {}) }
     }
 
     @Test

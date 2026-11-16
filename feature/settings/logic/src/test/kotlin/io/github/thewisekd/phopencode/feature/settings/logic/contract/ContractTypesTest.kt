@@ -48,4 +48,42 @@ class ContractTypesTest {
         )
         assertEquals(listOf(PreferencesError.SaveFailed, PreferencesError.DeleteFailed), PreferencesError.entries)
     }
+
+    @Test
+    fun `the guide has its eight pages in order`() {
+        assertEquals(
+            listOf(
+                GuidePage.Welcome,
+                GuidePage.OnYourServer,
+                GuidePage.AddServer,
+                GuidePage.SessionsAndChat,
+                GuidePage.FilesAndGit,
+                GuidePage.Notifications,
+                GuidePage.LivePreview,
+                GuidePage.Done,
+            ),
+            GuidePage.entries,
+        )
+    }
+
+    @Test
+    fun `the guide starts on its first page, with a one-based position`() {
+        val state = GuideState()
+
+        assertEquals(GuidePage.Welcome, state.page)
+        assertEquals(1, state.position)
+        assertEquals(8, state.pageCount)
+        assertTrue(state.isFirst)
+        assertFalse(state.isLast)
+        assertFalse(state.finishing)
+    }
+
+    @Test
+    fun `the last page is the last`() {
+        val state = GuideState(page = GuidePage.Done)
+
+        assertEquals(8, state.position)
+        assertFalse(state.isFirst)
+        assertTrue(state.isLast)
+    }
 }

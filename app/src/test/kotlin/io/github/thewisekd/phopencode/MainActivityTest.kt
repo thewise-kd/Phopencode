@@ -16,6 +16,8 @@ import androidx.test.core.app.ApplicationProvider
 import io.github.thewisekd.phopencode.core.navigation.ConnectRoute
 import io.github.thewisekd.phopencode.core.navigation.DeepLinks
 import io.github.thewisekd.phopencode.core.navigation.NotifyRoute
+import io.github.thewisekd.phopencode.core.navigation.SettingsRoute
+import io.github.thewisekd.phopencode.core.storage_api.AppSettings
 import io.github.thewisekd.phopencode.core.storage_api.SettingsRepository
 import io.github.thewisekd.phopencode.core.storage_api.ThemePreference
 import io.github.thewisekd.phopencode.navigation.placeholderTag
@@ -52,8 +54,16 @@ class MainActivityTest {
 
     private val context: Context = ApplicationProvider.getApplicationContext()
 
+    /** Settings in memory, with the usage guide [seen] or not, in place of the app's store. */
+    private fun storeGuide(seen: Boolean): ThemeSettingsFake {
+        val settings = ThemeSettingsFake(AppSettings(guideSeen = seen))
+        loadKoinModules(module { single<SettingsRepository> { settings } })
+        return settings
+    }
+
     @Test
     fun `the launcher opens the server list`() {
+        storeGuide(seen = true)
         val launcher = assertNotNull(context.packageManager.getLaunchIntentForPackage(context.packageName))
         ActivityScenario.launch<MainActivity>(launcher).use { scenario ->
             scenario.onActivity { assertIs<MainActivity>(it) }
@@ -139,6 +149,66 @@ class MainActivityTest {
         }
     }
 
+    @Test
+    fun `the first launch opens the usage guide above the server list`() {
+        storeGuide(seen = false)
+
+        launch { scenario ->
+            compose.onNodeWithTag(placeholderTag(SettingsRoute.Guide)).assertIsDisplayed()
+            scenario.onActivity {
+                val navController = assertNotNull(it.navController)
+                assertEquals(2, navController.stack().size, "back stack: ${navController.stack()}")
+                assertTrue(assertNotNull(navController.currentDestination).hasRoute(SettingsRoute.Guide::class))
+                val previous = assertNotNull(navController.previousBackStackEntry)
+                assertTrue(previous.destination.hasRoute(ConnectRoute.ServerList::class))
+            }
+        }
+    }
+
+    @Test
+    fun `a seen guide does not open`() {
+        storeGuide(seen = true)
+
+        launch { scenario ->
+            compose.onNodeWithTag(placeholderTag(ConnectRoute.ServerList)).assertIsDisplayed()
+            compose.onNodeWithTag(placeholderTag(SettingsRoute.Guide)).assertDoesNotExist()
+            scenario.onActivity { assertEquals(1, assertNotNull(it.navController).stack().size) }
+        }
+    }
+
+    @Test
+    fun `a rotation does not open the guide again`() {
+        storeGuide(seen = false)
+
+        launch { scenario ->
+            // Left without being recorded as seen, as when storing failed.
+            scenario.onActivity { assertNotNull(it.navController).popBackStack() }
+            compose.waitForIdle()
+
+            scenario.recreate()
+            compose.waitForIdle()
+
+            compose.onNodeWithTag(placeholderTag(ConnectRoute.ServerList)).assertIsDisplayed()
+            scenario.onActivity { assertEquals(1, assertNotNull(it.navController).stack().size) }
+        }
+    }
+
+    @Test
+    fun `a rotation keeps one guide open`() {
+        storeGuide(seen = false)
+
+        launch { scenario ->
+            scenario.recreate()
+            compose.waitForIdle()
+
+            scenario.onActivity {
+                val navController = assertNotNull(it.navController)
+                assertEquals(2, navController.stack().size, "back stack: ${navController.stack()}")
+                assertTrue(assertNotNull(navController.currentDestination).hasRoute(SettingsRoute.Guide::class))
+            }
+        }
+    }
+
     /** The routes on the back stack, bottom first; the NavHost's own graph entry is left out. */
     private fun NavHostController.stack(): List<String?> =
         currentBackStack.value.map { it.destination }.filter { it.parent != null }.map { it.route }
@@ -156,6 +226,7 @@ class MainActivityTest {
         intent: Intent,
         check: (before: List<String?>, after: List<String?>, navController: NavHostController) -> Unit,
     ) {
+        storeGuide(seen = true)
         launch { scenario ->
             lateinit var activity: MainActivity
             scenario.onActivity { activity = it }
@@ -210,6 +281,8 @@ class MainActivityTest {
 
     @Test
     fun `a cold start from the pending link opens the pending list above the server list`() {
+        // Not covered by the guide, even on a first launch: the guide waits for a plain launch.
+        storeGuide(seen = false)
         ActivityScenario.launch<MainActivity>(view(DeepLinks.PENDING)).use { scenario ->
             compose.waitForIdle()
             scenario.onActivity {

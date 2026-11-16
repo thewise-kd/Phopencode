@@ -148,6 +148,7 @@ class DefaultPreferencesPresenter(
             }
             PreferencesIntent.DismissError -> synchronized(lock) { mutableState.update { it.copy(error = null) } }
             PreferencesIntent.OpenLicenses -> eventChannel.trySend(PreferencesEvent.OpenLicenses)
+            PreferencesIntent.OpenGuide -> eventChannel.trySend(PreferencesEvent.OpenGuide)
             PreferencesIntent.Close -> eventChannel.trySend(PreferencesEvent.Close)
         }
     }

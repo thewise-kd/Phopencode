@@ -5,7 +5,9 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import io.github.thewisekd.phopencode.core.navigation.SettingsRoute
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
+import io.github.thewisekd.phopencode.feature.settings.logic.contract.GuideState
 import io.github.thewisekd.phopencode.feature.settings.logic.contract.PreferencesState
+import io.github.thewisekd.phopencode.feature.settings.ui.guide.GuideScreen
 import io.github.thewisekd.phopencode.feature.settings.ui.licenses.LicensesScreen
 import io.github.thewisekd.phopencode.feature.settings.ui.prefs.PreferencesScreen
 import org.junit.Rule
@@ -28,6 +30,14 @@ class ScreenStubsTest {
     fun `the preferences keep their route's tag`() {
         val route = SettingsRoute.Preferences
         compose.setContent { PhopencodeTheme { PreferencesScreen(route, PreferencesState(), onIntent = {}) } }
+
+        compose.onNodeWithTag("placeholder:$route").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the guide keeps its route's tag`() {
+        val route = SettingsRoute.Guide
+        compose.setContent { PhopencodeTheme { GuideScreen(route, GuideState(), onIntent = {}) } }
 
         compose.onNodeWithTag("placeholder:$route").assertIsDisplayed()
     }

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_guide_title">Kullanım kılavuzu</string>
+    <string name="settings_guide_position">Sayfa %1$d, toplam %2$d</string>
+    <string name="settings_guide_back">Geri</string>
+    <string name="settings_guide_next">İleri</string>
+    <string name="settings_guide_skip">Atla</string>
+    <string name="settings_guide_start">Başla</string>
+
+    <string name="settings_guide_welcome_title">Phopencode\'a hoş geldiniz</string>
+    <string name="settings_guide_welcome_body">Phopencode, kendi sunucunuzdaki opencode ile bu telefondan çalışmanızı sağlar: ajanınızla sohbet edin, sorularını yanıtlayın, dosyalara ve Git\'e bakın.\n\nBu kısa kılavuz neyi kuracağınızı ve neyi nerede bulacağınızı gösterir.</string>
+
+    <string name="settings_guide_server_title">Sunucunuzda</string>
+    <string name="settings_guide_server_body">Giriş yaptığınız kullanıcı için opencode 2.2 veya daha yenisini kurun ve terminalde olduğu gibi bir model sağlayıcısı ayarlayın.\n\nUygulama, 127.0.0.1 üzerinde çalışan ve parolayla korunan bir opencode serve kullanır: çalışan yoksa rastgele bir parolayla kendisi başlatır ve parolayı bu telefonda saklar. opencode serve\'ü kendiniz başlatırsanız 127.0.0.1\'e bağlayın ve bir parola verin.\n\nUygulama ona SSH üzerinden ulaşır; sunucuda SSH dışında hiçbir bağlantı noktası açılmaz.</string>
+
+    <string name="settings_guide_add_server_title">Sunucu ekleyin</string>
+    <string name="settings_guide_add_server_body">Sunucu listesinde Sunucu ekle\'ye dokunun. Sunucu adresini, SSH bağlantı noktasını ve kullanıcı adınızı girin, sonra parolayla ya da SSH anahtarıyla giriş yapın. Anahtarları yönet, bu telefonda yeni bir anahtar oluşturur ya da var olan bir anahtarı içe aktarır.\n\nİlk bağlantıda uygulama, sunucu anahtarının parmak izini gösterir. Sunucudakiyle karşılaştırın ve yalnızca eşleşiyorsa onaylayın.</string>
+
+    <string name="settings_guide_sessions_title">Oturumlar ve sohbet</string>
+    <string name="settings_guide_sessions_body">Bağlanmak için bir sunucuya dokunun, sonra bir proje klasörü seçin. Oturum listesi açılır: yeni bir oturum başlatmak için Yeni sohbet\'e dokunun ya da önceki bir oturumu açın.\n\nAjan bir soru sorduğunda ya da izin istediğinde bu, sohbette görünür. Oradan yanıtlayın, ajan devam eder.</string>
+
+    <string name="settings_guide_files_git_title">Dosyalar ve Git</string>
+    <string name="settings_guide_files_git_body">Dosyaları aç ve Git\'i aç, oturum listesinde ve sohbetin Oturum işlemleri menüsünde bulunur. Projenin dosyalarına göz atın, onları okuyun ve düzenleyin; nelerin değiştiğini görün, commit edin, dallar ve uzak depoyla çalışın.\n\nGit dikkatli davranır: zorla push yapılmaz, değişiklikler atılmadan önce sorulur.</string>
+
+    <string name="settings_guide_notifications_title">Bildirimler (isteğe bağlı)</string>
+    <string name="settings_guide_notifications_body">Uygulama kapalıyken ajanınızdan haber almak için oturum listesinin menüsünden Bildirimler\'i açın. Ücretsiz ntfy uygulamasını kurun, tek dokunuşla abone olun, sonra küçük bildirim servisini sunucunuza kurun.\n\nBildirimler kodunuzu ya da ajanın yanıtlarını asla göstermez ve konunuz gizli kalır.</string>
+
+    <string name="settings_guide_preview_title">Canlı önizleme</string>
+    <string name="settings_guide_preview_body">Geliştirdiğiniz bir web uygulamasını görmek için geliştirme sunucusunu sunucuda kendiniz, 127.0.0.1 üzerinde başlatın ya da bunu opencode\'dan isteyin. Uygulama onu asla başlatmaz ya da durdurmaz.\n\nSonra sohbetin Oturum işlemleri menüsünden ya da oturum listesinin menüsünden Canlı önizleme\'yi açın ve bağlantı noktasını seçin.</string>
+
+    <string name="settings_guide_done_title">Hazırsınız</string>
+    <string name="settings_guide_done_body">Başlamak için ilk sunucunuzu ekleyin.\n\nBu kılavuzu istediğiniz zaman yeniden açabilirsiniz: sunucu listesinden Ayarlar\'a gidin, sonra Kullanım kılavuzu\'na dokunun.</string>
+</resources>

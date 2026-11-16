@@ -24,6 +24,8 @@
     <string name="settings_prefs_file_size_too_large">The limit is at most %1$d MiB.</string>
 
     <string name="settings_prefs_about_heading">About</string>
+    <string name="settings_prefs_guide">Usage guide</string>
+    <string name="settings_prefs_guide_description">How to set up your server and use the app</string>
     <string name="settings_prefs_licenses">Open source licenses</string>
     <string name="settings_prefs_licenses_description">The libraries this app uses and their licenses</string>
 

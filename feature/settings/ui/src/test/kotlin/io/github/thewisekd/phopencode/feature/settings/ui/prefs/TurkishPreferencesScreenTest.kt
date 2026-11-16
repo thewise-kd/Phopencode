@@ -43,6 +43,8 @@ class TurkishPreferencesScreenTest {
         shown("Açık")
         shown("Koyu")
         shown("Dosya boyutu sınırı")
+        shown("Kullanım kılavuzu")
+        shown("Sunucunun kurulumu ve uygulamanın kullanımı")
         shown("Açık kaynak lisansları")
         shown("Tüm verileri sil")
     }

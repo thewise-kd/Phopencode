@@ -566,6 +566,18 @@ class DefaultPreferencesPresenterTest {
     }
 
     @Test
+    fun `the usage guide is an event, open at any time`() = runTest {
+        val settings = FakeSettings(AppSettings(guideSeen = true))
+        val (presenter, events) = loaded(settings)
+
+        presenter.onIntent(PreferencesIntent.OpenGuide)
+        runCurrent()
+
+        assertEquals(listOf<PreferencesEvent>(PreferencesEvent.OpenGuide), events)
+        assertEquals(emptyList(), calls, "opening the guide stores nothing")
+    }
+
+    @Test
     fun `an event sent while nobody collects waits for the next collector`() = runTest {
         val settings = FakeSettings()
         val presenter = presenter(settings)

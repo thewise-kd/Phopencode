@@ -14,6 +14,8 @@ import io.github.thewisekd.phopencode.core.storage_api.SecretStore
 import io.github.thewisekd.phopencode.core.storage_api.SettingsRepository
 import io.github.thewisekd.phopencode.core.storage_api.ThemePreference
 import io.github.thewisekd.phopencode.feature.settings.logic.contract.Disconnector
+import io.github.thewisekd.phopencode.feature.settings.logic.contract.GuidePresenter
+import io.github.thewisekd.phopencode.feature.settings.logic.contract.GuideState
 import io.github.thewisekd.phopencode.feature.settings.logic.contract.LocaleApplier
 import io.github.thewisekd.phopencode.feature.settings.logic.contract.PreferencesPresenter
 import io.github.thewisekd.phopencode.feature.settings.logic.contract.PreferencesState
@@ -123,6 +125,15 @@ class SettingsModuleTest {
 
         assertEquals(PreferencesState(), first.state.value)
         assertNotSame(first, koin.get<PreferencesPresenter> { parametersOf(SettingsRoute.Preferences, screenScope) })
+    }
+
+    @Test
+    fun `the guide starts on its first page, one presenter per destination`() {
+        val koin = koin()
+        val first = koin.get<GuidePresenter> { parametersOf(SettingsRoute.Guide, screenScope) }
+
+        assertEquals(GuideState(), first.state.value)
+        assertNotSame(first, koin.get<GuidePresenter> { parametersOf(SettingsRoute.Guide, screenScope) })
     }
 
     @Test

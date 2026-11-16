@@ -48,6 +48,8 @@ class EnglishPreferencesScreenTest {
         shown("Dark")
         shown("File size limit")
         shown("Larger files ask before they open. 1 to 100 MiB.")
+        shown("Usage guide")
+        shown("How to set up your server and use the app")
         shown("Open source licenses")
         shown("Erase every server, key, password and setting on this phone.")
         shown("Delete all data")

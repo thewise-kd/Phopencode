@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The usage guide. Its text follows docs/INSTALL.md and names the real screens' labels; keep them in step. -->
+    <string name="settings_guide_title">Usage guide</string>
+    <!-- The page indicator, read by a screen reader: the page's place and the number of pages. -->
+    <string name="settings_guide_position">Page %1$d of %2$d</string>
+    <string name="settings_guide_back">Back</string>
+    <string name="settings_guide_next">Next</string>
+    <string name="settings_guide_skip">Skip</string>
+    <string name="settings_guide_start">Start</string>
+
+    <string name="settings_guide_welcome_title">Welcome to Phopencode</string>
+    <string name="settings_guide_welcome_body">Phopencode lets you work with opencode on your own server from this phone: chat with your agent, answer its questions, and look at files and Git.\n\nThis short guide shows what to set up and where to find things.</string>
+
+    <string name="settings_guide_server_title">On your server</string>
+    <string name="settings_guide_server_body">Install opencode 2.2 or newer for the user you log in as, and set up a model provider for it, as for the terminal.\n\nThe app uses an opencode serve on 127.0.0.1, protected with a password: when none runs, it starts one with a random password that it keeps on this phone. If you start opencode serve yourself, bind it to 127.0.0.1 and give it a password.\n\nThe app reaches it through SSH, so no port is opened on the server besides SSH.</string>
+
+    <string name="settings_guide_add_server_title">Add a server</string>
+    <string name="settings_guide_add_server_body">On the server list, tap Add server. Enter the server\'s address, the SSH port and your user name, then log in with a password or an SSH key. Manage keys makes a new key on this phone or imports one.\n\nOn the first connection the app shows the server\'s host key fingerprint. Compare it with the one on the server, and approve it only if they match.</string>
+
+    <string name="settings_guide_sessions_title">Sessions and chat</string>
+    <string name="settings_guide_sessions_body">Tap a server to connect, then choose a project folder. Its session list opens: tap New chat to start a session, or open an earlier one.\n\nWhen the agent asks a question or asks for permission, the chat shows it. Answer there, and the agent carries on.</string>
+
+    <string name="settings_guide_files_git_title">Files and Git</string>
+    <string name="settings_guide_files_git_body">Open files and Open git are in the session list and in the chat\'s Session actions menu. Browse, read and edit the project\'s files; see what changed, commit, and work with branches and the remote.\n\nGit stays careful: no force push, and discarding changes asks first.</string>
+
+    <string name="settings_guide_notifications_title">Notifications (optional)</string>
+    <string name="settings_guide_notifications_body">To hear about your agent while the app is closed, open Notifications from the session list\'s menu. Install the free ntfy app, subscribe with one tap, then install the small notification service on your server.\n\nThe notifications never show your code or the agent\'s answers, and your topic stays private.</string>
+
+    <string name="settings_guide_preview_title">Live preview</string>
+    <string name="settings_guide_preview_body">To see a web app you are building, start its dev server yourself on the server, on 127.0.0.1, or ask opencode to. The app never starts or stops it.\n\nThen open Live preview from the chat\'s Session actions menu or the session list\'s menu, and pick its port.</string>
+
+    <string name="settings_guide_done_title">You are ready</string>
+    <string name="settings_guide_done_body">Add your first server to begin.\n\nYou can open this guide again at any time: on the server list, open Settings, then Usage guide.</string>
+</resources>

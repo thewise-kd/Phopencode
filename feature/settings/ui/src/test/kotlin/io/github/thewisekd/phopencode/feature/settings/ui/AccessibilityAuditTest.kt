@@ -5,8 +5,11 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import io.github.thewisekd.phopencode.core.navigation.SettingsRoute
 import io.github.thewisekd.phopencode.feature.settings.logic.contract.DataDeletion
 import io.github.thewisekd.phopencode.feature.settings.logic.contract.FileSizeProblem
+import io.github.thewisekd.phopencode.feature.settings.logic.contract.GuidePage
+import io.github.thewisekd.phopencode.feature.settings.logic.contract.GuideState
 import io.github.thewisekd.phopencode.feature.settings.logic.contract.PreferencesError
 import io.github.thewisekd.phopencode.feature.settings.logic.contract.PreferencesState
+import io.github.thewisekd.phopencode.feature.settings.ui.guide.GuideScreen
 import io.github.thewisekd.phopencode.feature.settings.ui.prefs.PreferencesScreen
 import io.github.thewisekd.phopencode.feature.settings.ui.prefs.loadedState
 import org.junit.Rule
@@ -47,4 +50,21 @@ class AccessibilityAuditTest {
     @Test
     fun `the preferences asking before deleting the data`() =
         preferences(loadedState.copy(deletion = DataDeletion.Confirming))
+
+    private fun guide(state: GuideState) {
+        compose.setThemedAt { Surface { GuideScreen(SettingsRoute.Guide, state, {}) } }
+        compose.assertAccessible()
+    }
+
+    @Test
+    fun `the guide's first page`() = guide(GuideState(page = GuidePage.Welcome))
+
+    @Test
+    fun `the guide's longest page`() = guide(GuideState(page = GuidePage.OnYourServer))
+
+    @Test
+    fun `the guide's middle page`() = guide(GuideState(page = GuidePage.LivePreview))
+
+    @Test
+    fun `the guide's last page`() = guide(GuideState(page = GuidePage.Done))
 }

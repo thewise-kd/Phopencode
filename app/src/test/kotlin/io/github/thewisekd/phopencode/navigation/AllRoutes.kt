@@ -65,4 +65,5 @@ val allRoutes: List<Route> = listOf(
     PreviewRoute.Page(port = 5173),
     SettingsRoute.Preferences,
     SettingsRoute.Licenses,
+    SettingsRoute.Guide,
 )
