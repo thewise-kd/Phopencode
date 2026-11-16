@@ -41,7 +41,7 @@ internal val unsupported = PortsState(loading = false, unsupported = true)
 internal fun ComposeContentTestRule.setPortsScreen(state: PortsState, onIntent: (PortsIntent) -> Unit = {}) {
     setContent {
         PhopencodeTheme(darkTheme = false) {
-            Surface { PortsScreen(route = route, state = state, onIntent = onIntent) }
+            Surface { PortsScreen(route = route, state = state, onIntent = onIntent, notice = null) }
         }
     }
 }
@@ -52,7 +52,7 @@ internal fun ComposeContentTestRule.setPortsScreenInView(state: PortsState, onIn
     setContent {
         view = LocalView.current
         PhopencodeTheme(darkTheme = false) {
-            Surface { PortsScreen(route = route, state = state, onIntent = onIntent) }
+            Surface { PortsScreen(route = route, state = state, onIntent = onIntent, notice = null) }
         }
     }
     return { checkNotNull(view) }
@@ -80,7 +80,9 @@ internal class PortsStates(
         if (!started) {
             started = true
             compose.setThemedAt(fontScale) {
-                Surface { shown.value?.let { PortsScreen(route = route, state = it, onIntent = onIntent) } }
+                Surface {
+                    shown.value?.let { PortsScreen(route = route, state = it, onIntent = onIntent, notice = null) }
+                }
             }
         }
         compose.waitForIdle()

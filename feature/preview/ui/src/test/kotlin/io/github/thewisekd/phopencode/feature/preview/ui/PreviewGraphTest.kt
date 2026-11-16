@@ -21,6 +21,11 @@ import io.github.thewisekd.phopencode.core.navigation.Route
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.ExternalLink
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.NavigationDecision
+import io.github.thewisekd.phopencode.feature.preview.logic.contract.NoticeEvent
+import io.github.thewisekd.phopencode.feature.preview.logic.contract.NoticeIntent
+import io.github.thewisekd.phopencode.feature.preview.logic.contract.NoticePhase
+import io.github.thewisekd.phopencode.feature.preview.logic.contract.NoticePresenter
+import io.github.thewisekd.phopencode.feature.preview.logic.contract.NoticeState
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PageEvent
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PageIntent
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PagePresenter
@@ -35,6 +40,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import org.junit.After
 import org.junit.Before
@@ -62,6 +68,14 @@ private class Recording<S, I, E>(initial: S) : Presenter<S, I, E> {
     }
 }
 
+/** The first-visit notice as it is once accepted: hidden, and it never sends anything. */
+private fun acceptedNotice(): NoticePresenter = object : NoticePresenter {
+    override val state: StateFlow<NoticeState> = MutableStateFlow(NoticeState(phase = NoticePhase.Hidden))
+    override val events: Flow<NoticeEvent> = emptyFlow()
+
+    override fun onIntent(intent: NoticeIntent) = Unit
+}
+
 /**
  * The graph opens both preview routes and turns the presenters' events into navigation: from the
  * port picker to a page above it, and back. The page's route reaches its presenter. The presenters
@@ -85,6 +99,8 @@ class PreviewGraphTest {
             modules(
                 module {
                     factory<PortsPresenter> { object : PortsPresenter, Presenter<PortsState, PortsIntent, PortsEvent> by ports {} }
+                    // The notice was accepted before, so it covers nothing here (P13.24).
+                    factory<NoticePresenter> { acceptedNotice() }
                     factory<PagePresenter> { (route: PreviewRoute.Page, _: Any) ->
                         pageRoutes += route
                         object : PagePresenter, Presenter<PageState, PageIntent, PageEvent> by page {
