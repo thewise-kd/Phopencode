@@ -1,11 +1,13 @@
 package io.github.thewisekd.phopencode.feature.preview.ui
 
 import io.github.thewisekd.phopencode.core.navigation.PreviewRoute
+import io.github.thewisekd.phopencode.feature.preview.logic.contract.NoticePresenter
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PagePresenter
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PortsPresenter
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewBridgeFactory
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewPortsSource
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewTunnelSource
+import io.github.thewisekd.phopencode.feature.preview.logic.notice.DefaultNoticePresenter
 import io.github.thewisekd.phopencode.feature.preview.logic.page.DefaultPagePresenter
 import io.github.thewisekd.phopencode.feature.preview.logic.ports.DefaultPortsPresenter
 import io.github.thewisekd.phopencode.feature.preview.logic.service.ConnectionPreviewPorts
@@ -28,6 +30,9 @@ import org.koin.dsl.module
  * - Each presenter is a factory under its contract interface, built per destination with two
  *   parameters: the destination's route and its coroutine scope (see `rememberPresenter` in
  *   PreviewGraph). The scope is a parameter, never `get()`: the app binds no bare scope.
+ * - The first-visit notice's presenter (P13.24) is a factory too, built with one parameter, the
+ *   scope of the destination it covers (see `rememberPreviewNotice`), on the app's
+ *   [io.github.thewisekd.phopencode.core.storage_api.SettingsRepository].
  */
 val previewModule: Module = module {
     single<PreviewPortsSource> { ConnectionPreviewPorts(connection = get()) }
@@ -39,5 +44,8 @@ val previewModule: Module = module {
     }
     factory<PagePresenter> { (route: PreviewRoute.Page, scope: CoroutineScope) ->
         DefaultPagePresenter(route = route, tunnels = get(), bridges = get(), scope = scope)
+    }
+    factory<NoticePresenter> { (scope: CoroutineScope) ->
+        DefaultNoticePresenter(settings = get(), scope = scope)
     }
 }

@@ -51,6 +51,9 @@ import io.github.thewisekd.phopencode.feature.preview.logic.contract.PortsState
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewFailure
 import io.github.thewisekd.phopencode.feature.preview.logic.contract.PreviewPort
 import io.github.thewisekd.phopencode.feature.preview.ui.R
+import io.github.thewisekd.phopencode.feature.preview.ui.notice.PreviewNoticeHost
+import io.github.thewisekd.phopencode.feature.preview.ui.notice.PreviewNoticeUi
+import io.github.thewisekd.phopencode.feature.preview.ui.notice.rememberPreviewNotice
 
 /** How much a disabled row's text fades, as Material fades disabled content. */
 private const val DISABLED_ALPHA = 0.38f
@@ -71,6 +74,10 @@ private const val DISABLED_ALPHA = 0.38f
  * - **Manual entry:** pinned below the scrolling part, above the keyboard, so it is always in reach:
  *   a field with a numeric keyboard whose Go key opens the port, an Open button, and in place of its
  *   hint why the entry cannot be opened.
+ * - **First visit:** until the user confirms the live preview notice once (P13.24), [notice] covers
+ *   the screen and its list cannot be used; "Not now" closes the screen ([PortsIntent.Close]). By
+ *   default the notice comes from its presenter in `previewModule` (see [rememberPreviewNotice]),
+ *   which fails loudly when that wiring is missing; only a caller passing null draws no notice.
  *
  * Nothing on it runs an endless animation: Robolectric's `idle()` in the app's tests would never
  * return. The root keeps the `placeholder:<route>` tag the app's navigation test looks for.
@@ -81,10 +88,18 @@ fun PortsScreen(
     state: PortsState,
     onIntent: (PortsIntent) -> Unit,
     modifier: Modifier = Modifier,
+    notice: PreviewNoticeUi? = rememberPreviewNotice(onLeave = { onIntent(PortsIntent.Close) }),
 ) {
+    PreviewNoticeHost(notice, modifier = modifier.fillMaxSize().testTag("placeholder:$route")) {
+        PortsScaffold(state, onIntent)
+    }
+}
+
+@Composable
+private fun PortsScaffold(state: PortsState, onIntent: (PortsIntent) -> Unit) {
     PhopencodeScaffold(
         title = stringResource(R.string.preview_ports_title),
-        modifier = modifier.fillMaxSize().testTag("placeholder:$route"),
+        modifier = Modifier.fillMaxSize(),
         onBack = { onIntent(PortsIntent.Close) },
         actions = {
             IconButton(

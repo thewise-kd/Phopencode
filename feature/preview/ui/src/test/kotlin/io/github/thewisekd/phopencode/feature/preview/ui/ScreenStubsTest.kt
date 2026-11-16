@@ -29,7 +29,7 @@ class ScreenStubsTest {
     @Test
     fun `the port picker keeps its route's tag`() {
         val route = PreviewRoute.Ports
-        compose.setContent { PhopencodeTheme { PortsScreen(route, PortsState(), onIntent = {}) } }
+        compose.setContent { PhopencodeTheme { PortsScreen(route, PortsState(), onIntent = {}, notice = null) } }
 
         compose.onNodeWithTag("placeholder:$route").assertIsDisplayed()
     }

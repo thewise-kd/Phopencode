@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_notice_title">Before you preview</string>
+    <string name="preview_notice_point_loopback">Start your dev server yourself on 127.0.0.1 or localhost, not 0.0.0.0, so it is not exposed on the server\'s network.</string>
+    <string name="preview_notice_point_trust">Open only projects you trust. The page\'s JavaScript runs on your phone, kept apart from the app\'s keys and passwords.</string>
+    <string name="preview_notice_point_accounts">Do not sign in to real accounts or type real passwords, tokens or personal data into the preview page.</string>
+    <string name="preview_notice_point_links">Check the full address before you confirm a link that leaves the preview.</string>
+    <string name="preview_notice_point_server">The app never starts or stops your dev server, and the preview\'s data is cleared when you leave it.</string>
+    <string name="preview_notice_accept">I have read and understood</string>
+    <string name="preview_notice_not_now">Not now</string>
+    <string name="preview_notice_save_failed">Your answer could not be saved. Please try again.</string>
+</resources>

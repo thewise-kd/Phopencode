@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview_notice_title">Önizlemeden önce</string>
+    <string name="preview_notice_point_loopback">Geliştirme sunucunuzu kendiniz başlatın; sunucunun ağına açılmaması için 0.0.0.0 yerine 127.0.0.1 ya da localhost üzerinde çalıştırın.</string>
+    <string name="preview_notice_point_trust">Yalnızca güvendiğiniz projeleri açın. Sayfanın JavaScript kodu telefonunuzda çalışır ama uygulamanın anahtarlarından ve parolalarından ayrı tutulur.</string>
+    <string name="preview_notice_point_accounts">Önizleme sayfasında gerçek hesaplarınıza giriş yapmayın; gerçek parola, token ya da kişisel bilgi yazmayın.</string>
+    <string name="preview_notice_point_links">Önizlemenin dışına çıkan bir bağlantıyı onaylamadan önce adresin tamamına göz atın.</string>
+    <string name="preview_notice_point_server">Uygulama geliştirme sunucunuzu asla başlatmaz ya da durdurmaz; önizlemeden çıktığınızda önizlemenin verileri silinir.</string>
+    <string name="preview_notice_accept">Okudum, anladım</string>
+    <string name="preview_notice_not_now">Şimdi değil</string>
+    <string name="preview_notice_save_failed">Yanıtınız kaydedilemedi. Lütfen yeniden deneyin.</string>
+</resources>
