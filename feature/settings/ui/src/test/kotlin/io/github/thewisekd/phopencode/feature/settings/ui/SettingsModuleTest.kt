@@ -74,6 +74,14 @@ private class MemorySettings : SettingsRepository {
         settings.value = settings.value.copy(fileSizeLimitBytes = bytes)
     }
 
+    override suspend fun markGuideSeen() {
+        settings.value = settings.value.copy(guideSeen = true)
+    }
+
+    override suspend fun acceptPreviewNotice() {
+        settings.value = settings.value.copy(previewNoticeAccepted = true)
+    }
+
     override suspend fun deleteAllData() {
         settings.value = AppSettings()
     }

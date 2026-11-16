@@ -26,6 +26,10 @@ class PresenterStubsTest {
 
         override suspend fun setFileSizeLimit(bytes: Long) = error("Not called")
 
+        override suspend fun markGuideSeen() = error("Not called")
+
+        override suspend fun acceptPreviewNotice() = error("Not called")
+
         override suspend fun deleteAllData() = error("Not called")
     }
 

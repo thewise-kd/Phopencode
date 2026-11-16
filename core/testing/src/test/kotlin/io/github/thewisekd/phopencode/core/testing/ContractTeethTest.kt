@@ -32,6 +32,7 @@ import io.github.thewisekd.phopencode.core.storage_api.SecretStore
 import io.github.thewisekd.phopencode.core.storage_api.SettingsRepository
 import io.github.thewisekd.phopencode.core.storage_api.SshKeyEntry
 import io.github.thewisekd.phopencode.core.storage_api.SshKeyIndex
+import io.github.thewisekd.phopencode.core.storage_api.ThemePreference
 import io.github.thewisekd.phopencode.core.testing.api.FakeOpencodeClient
 import io.github.thewisekd.phopencode.core.testing.contract.ApiHarness
 import io.github.thewisekd.phopencode.core.testing.contract.ContractCase
@@ -66,6 +67,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.transform
 
 /**
@@ -168,6 +170,51 @@ class ContractTeethTest {
         }
         assertCaught(DELETE_ALL_DATA, settingsRepositoryContract { Keeps(keepKeys = true) })
         assertCaught(DELETE_ALL_DATA, settingsRepositoryContract { Keeps(keepKeys = false) })
+    }
+
+    @Test
+    fun `first-run flags that are not stored are caught`() {
+        class Forgets(val fake: FakeSettingsHarness = FakeSettingsHarness()) : SettingsHarness by fake {
+            override val settings: SettingsRepository = object : SettingsRepository by fake.settings {
+                override suspend fun markGuideSeen() = Unit
+
+                override suspend fun acceptPreviewNotice() = Unit
+            }
+        }
+        val cases = settingsRepositoryContract { Forgets() }
+        assertCaught("markGuideSeen sets guideSeen only, and observers see it", cases)
+        assertCaught("acceptPreviewNotice sets previewNoticeAccepted only, and observers see it", cases)
+    }
+
+    @Test
+    fun `a setter that clears the first-run flags is caught`() {
+        class Clears(val fake: FakeSettingsHarness = FakeSettingsHarness()) : SettingsHarness by fake {
+            override val settings: SettingsRepository = object : SettingsRepository by fake.settings {
+                override suspend fun setTheme(theme: ThemePreference) {
+                    fake.settings.deleteAllData()
+                    fake.settings.setTheme(theme)
+                }
+            }
+        }
+        assertCaught(
+            "the first-run flags stay set when called again and when other settings change",
+            settingsRepositoryContract { Clears() },
+        )
+    }
+
+    @Test
+    fun `deleteAllData that keeps the first-run flags is caught`() {
+        class KeepsFlags(val fake: FakeSettingsHarness = FakeSettingsHarness()) : SettingsHarness by fake {
+            override val settings: SettingsRepository = object : SettingsRepository by fake.settings {
+                override suspend fun deleteAllData() {
+                    val before = fake.settings.observe().first()
+                    fake.settings.deleteAllData()
+                    if (before.guideSeen) fake.settings.markGuideSeen()
+                    if (before.previewNoticeAccepted) fake.settings.acceptPreviewNotice()
+                }
+            }
+        }
+        assertCaught("deleteAllData resets the first-run flags to false", settingsRepositoryContract { KeepsFlags() })
     }
 
     @Test

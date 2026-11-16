@@ -40,6 +40,10 @@ class ThemeSettingsFake(initial: AppSettings? = AppSettings()) : SettingsReposit
 
     override suspend fun setFileSizeLimit(bytes: Long) = change { it.copy(fileSizeLimitBytes = bytes) }
 
+    override suspend fun markGuideSeen() = change { it.copy(guideSeen = true) }
+
+    override suspend fun acceptPreviewNotice() = change { it.copy(previewNoticeAccepted = true) }
+
     override suspend fun deleteAllData() {
         state.value = AppSettings()
     }

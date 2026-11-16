@@ -3,6 +3,7 @@ package io.github.thewisekd.phopencode.core.storage.repo
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import app.cash.turbine.test
 import io.github.thewisekd.phopencode.core.storage_api.AppLanguage
@@ -67,6 +68,80 @@ class SettingsFileTest {
         val reopened = repository(stores.reopen(first) { stores.settings(it) })
 
         assertEquals(AppSettings(AppLanguage.TURKISH, ThemePreference.DARK, 42), reopened.observe().first())
+    }
+
+    @Test
+    fun `the first-run flags survive reopening the file`() = runTest {
+        val first = stores.settings()
+        repository(first).apply {
+            setTheme(ThemePreference.DARK)
+            markGuideSeen()
+            acceptPreviewNotice()
+        }
+
+        val reopened = repository(stores.reopen(first) { stores.settings(it) })
+
+        assertEquals(
+            AppSettings(theme = ThemePreference.DARK, guideSeen = true, previewNoticeAccepted = true),
+            reopened.observe().first(),
+        )
+    }
+
+    @Test
+    fun `each first-run flag survives reopening the file on its own`() = runTest {
+        val first = stores.settings()
+        repository(first).markGuideSeen()
+        val second = stores.reopen(first) { stores.settings(it) }
+        assertEquals(AppSettings(guideSeen = true), repository(second).observe().first())
+
+        repository(second).apply {
+            deleteAllData()
+            acceptPreviewNotice()
+        }
+        val third = stores.reopen(second) { stores.settings(it) }
+        assertEquals(AppSettings(previewNoticeAccepted = true), repository(third).observe().first())
+    }
+
+    @Test
+    fun `a settings file written before the first-run flags reads them as false`() = runTest {
+        val opened = stores.settings()
+        opened.store.edit {
+            it[stringPreferencesKey("language")] = AppLanguage.TURKISH.name
+            it[stringPreferencesKey("theme")] = ThemePreference.DARK.name
+            it[longPreferencesKey("file_size_limit_bytes")] = 42
+        }
+
+        val reopened = repository(stores.reopen(opened) { stores.settings(it) })
+
+        assertEquals(
+            AppSettings(AppLanguage.TURKISH, ThemePreference.DARK, 42, guideSeen = false, previewNoticeAccepted = false),
+            reopened.observe().first(),
+        )
+    }
+
+    @Test
+    fun `first-run flags of the wrong type read as false`() = runTest {
+        val opened = stores.settings()
+        opened.store.edit {
+            it[stringPreferencesKey("guide_seen")] = "true"
+            it[longPreferencesKey("preview_notice_accepted")] = 1
+        }
+
+        assertEquals(AppSettings(), repository(opened).observe().first())
+    }
+
+    @Test
+    fun `deleteAllData resets the stored first-run flags, also after reopening`() = runTest {
+        val first = stores.settings()
+        repository(first).apply {
+            markGuideSeen()
+            acceptPreviewNotice()
+            deleteAllData()
+        }
+
+        val reopened = repository(stores.reopen(first) { stores.settings(it) })
+
+        assertEquals(AppSettings(), reopened.observe().first())
     }
 
     @Test

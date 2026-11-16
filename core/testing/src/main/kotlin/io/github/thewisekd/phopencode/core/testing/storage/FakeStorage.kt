@@ -296,6 +296,16 @@ class FakeSettingsRepository(
         settings.update { it.copy(fileSizeLimitBytes = bytes) }
     }
 
+    override suspend fun markGuideSeen() {
+        failIf(unavailable)
+        settings.update { it.copy(guideSeen = true) }
+    }
+
+    override suspend fun acceptPreviewNotice() {
+        failIf(unavailable)
+        settings.update { it.copy(previewNoticeAccepted = true) }
+    }
+
     override suspend fun deleteAllData() {
         val parts: List<suspend () -> Unit> = listOf(
             { secrets.deleteAll() },
