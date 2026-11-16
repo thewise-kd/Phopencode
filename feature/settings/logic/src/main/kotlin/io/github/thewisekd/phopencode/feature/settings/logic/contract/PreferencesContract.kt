@@ -7,7 +7,8 @@ import io.github.thewisekd.phopencode.core.storage_api.ThemePreference
 
 /**
  * The preferences, `SettingsRoute.Preferences` (P10.8 logic, P10.9 screen): the language (system,
- * Turkish, English), the theme, the file size limit, deleting all data, and a link to the licenses.
+ * Turkish, English), the theme, the file size limit, deleting all data, and links to the usage guide
+ * (P14.1) and the licenses.
  *
  * Where it comes from: [SettingsRepository.observe]; every change is stored there, and the state
  * follows what was stored.
@@ -104,11 +105,16 @@ sealed interface PreferencesIntent {
     /** Sends [PreferencesEvent.OpenLicenses]. */
     data object OpenLicenses : PreferencesIntent
 
+    /** Sends [PreferencesEvent.OpenGuide]; the guide opens at any time, seen or not. */
+    data object OpenGuide : PreferencesIntent
+
     data object Close : PreferencesIntent
 }
 
 sealed interface PreferencesEvent {
     data object OpenLicenses : PreferencesEvent
+
+    data object OpenGuide : PreferencesEvent
 
     /** Everything is deleted: the graph goes back to the server list, which is empty now. */
     data object DataDeleted : PreferencesEvent

@@ -171,4 +171,12 @@ class RouteTest {
     fun `the app starts on a route that needs no arguments`() {
         assertEquals(0, serializerOf(ConnectRoute.ServerList.javaClass).descriptor.elementsCount)
     }
+
+    @Test
+    fun `the usage guide needs no arguments, so it opens from anywhere`() {
+        val route: SettingsRoute = SettingsRoute.Guide
+
+        assertEquals(0, serializerOf(route.javaClass).descriptor.elementsCount)
+        assertRoundTrip(route)
+    }
 }

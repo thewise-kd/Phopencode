@@ -71,6 +71,7 @@ class PreferencesBehaviorTest {
             compose.onNodeWithTag(themeOptionTag(theme)).performScrollTo()
                 .assert(radio).assertIsEnabled().assertTouchSizeIsAtLeast()
         }
+        compose.onNodeWithTag(GUIDE_TAG).performScrollTo().assertTouchSizeIsAtLeast()
         compose.onNodeWithTag(LICENSES_TAG).performScrollTo().assertTouchSizeIsAtLeast()
         compose.onNodeWithTag(DELETE_BUTTON_TAG).performScrollTo().assertTouchSizeIsAtLeast()
     }
@@ -132,6 +133,15 @@ class PreferencesBehaviorTest {
         compose.onNodeWithTag(LICENSES_TAG).performScrollTo().performClick()
 
         assertEquals(listOf<PreferencesIntent>(PreferencesIntent.OpenLicenses), sent)
+    }
+
+    @Test
+    fun `the usage guide entry opens the guide`() {
+        val sent = compose.showPreferences(loadedState)
+
+        compose.onNodeWithTag(GUIDE_TAG).performScrollTo().performClick()
+
+        assertEquals(listOf<PreferencesIntent>(PreferencesIntent.OpenGuide), sent)
     }
 
     @Test

@@ -4,6 +4,7 @@ import io.github.thewisekd.phopencode.core.storage_api.AppLanguage
 import io.github.thewisekd.phopencode.core.storage_api.AppSettings
 import io.github.thewisekd.phopencode.core.storage_api.SettingsRepository
 import io.github.thewisekd.phopencode.core.storage_api.ThemePreference
+import io.github.thewisekd.phopencode.feature.settings.logic.guide.DefaultGuidePresenter
 import io.github.thewisekd.phopencode.feature.settings.logic.prefs.DefaultPreferencesPresenter
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -43,5 +44,12 @@ class PresenterStubsTest {
         )
 
         assertEquals(PreferencesState(), presenter.state.value)
+    }
+
+    @Test
+    fun `the guide starts on its first page`() = runTest {
+        val presenter: GuidePresenter = DefaultGuidePresenter(settings = settings, scope = backgroundScope)
+
+        assertEquals(GuideState(), presenter.state.value)
     }
 }

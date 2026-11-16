@@ -21,6 +21,8 @@
     <string name="settings_prefs_file_size_too_large">Sınır en fazla %1$d MiB olabilir.</string>
 
     <string name="settings_prefs_about_heading">Hakkında</string>
+    <string name="settings_prefs_guide">Kullanım kılavuzu</string>
+    <string name="settings_prefs_guide_description">Sunucunun kurulumu ve uygulamanın kullanımı</string>
     <string name="settings_prefs_licenses">Açık kaynak lisansları</string>
     <string name="settings_prefs_licenses_description">Uygulamanın kullandığı kütüphaneler ve lisansları</string>
 
