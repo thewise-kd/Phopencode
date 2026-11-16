@@ -122,12 +122,16 @@ In this release ([CHANGELOG.md](CHANGELOG.md) lists every change):
 - The page runs in an isolated WebView that loads nothing off its own origin, asks before opening
   external links and forgets its data when the preview closes. The app never starts or stops the
   dev server.
+- A short notice, shown once before the first port list, with tips for a safe preview.
 
 **General**
 
 - Turkish and English interface following the system language or chosen in the settings; light,
   dark or system theme.
 - Settings for the file size limit and deleting all app data; open source license notices.
+- A first-run usage guide that shows how to set up the server and use the app; it can be opened
+  again from the settings (in the next release; listed under *Unreleased* in
+  [CHANGELOG.md](CHANGELOG.md)).
 
 ### Not included
 

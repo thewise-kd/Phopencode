@@ -93,6 +93,20 @@ the app you installed; it refuses an update signed with another key.
 To update, install the newer APK over the old one in the same way. Your servers, keys and
 settings are kept. Uninstalling the app deletes all of them.
 
+### First launch: the usage guide
+
+The first time you open the app, a short **Usage guide** opens above the server list. It is not
+part of v0.1.0; it is listed under *Unreleased* in [CHANGELOG.md](../CHANGELOG.md) and comes with
+the next release. Its pages tell you what the app does, what your server needs, how to add a
+server, and where to find sessions and chat, files and Git, notifications and the live preview.
+
+Move between the pages with **Back** and **Next**. **Skip**, on every page, and **Start**, on the
+last one, both end the guide for good: you land on the server list, and the guide never opens by
+itself again, also after a restart.
+
+To read it again at any time, open **Settings** from the server list and tap **Usage guide**.
+**Delete all data** in **Settings** shows it again, as on a fresh install.
+
 ## 2. Add a server
 
 1. Open Phopencode and tap the button to add a server.
@@ -293,6 +307,25 @@ While connected, open **Live preview** from either place:
 
 Both are disabled while the app is not connected.
 
+### The notice before the first preview
+
+The first time you open the live preview, a short notice, **Before you preview**, appears before
+the port list can be used. Its points:
+
+- Start your dev server yourself on `127.0.0.1` or `localhost`, not `0.0.0.0`, so it is not
+  exposed on the server's network.
+- Open only projects you trust. The page's JavaScript runs on your phone, kept apart from the
+  app's keys and passwords.
+- Do not sign in to real accounts or type real passwords, tokens or personal data into the
+  preview page.
+- Check the full address before you confirm a link that leaves the preview.
+- The app never starts or stops your dev server, and the preview's data is cleared when you
+  leave it.
+
+**I have read and understood** hides the notice for good, also after a restart. **Not now**, or
+the back button, leaves the preview without accepting, and the notice appears again on your next
+visit; tapping outside it does not close it. **Delete all data** in **Settings** shows it again.
+
 ### Pick a port
 
 The first screen lists the TCP ports that listen on the server and can be reached on its
@@ -421,7 +454,8 @@ fast-forward, and discarding changes needs your confirmation.
   `~/.local/state/phopencode/`, can then be deleted by hand. A running `opencode serve` is yours
   to stop.
 - On the phone: **Delete all data** in **Settings** (opened from the server list) erases every
-  server, key, password and setting; uninstalling the app does the same.
+  server, key, password and setting, and shows the usage guide and the live preview notice
+  again; uninstalling the app does the same.
 
 Security questions are answered in [SECURITY-MODEL.md](SECURITY-MODEL.md). To report a
 vulnerability, follow [SECURITY.md](../SECURITY.md).

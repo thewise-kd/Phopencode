@@ -128,12 +128,16 @@ altında)
 - Sayfa, kendi kökeni dışından hiçbir şey yüklemeyen, dış bağlantıları açmadan önce soran ve
   önizleme kapanınca verisini silen yalıtılmış bir WebView'de çalışır. Uygulama geliştirme
   sunucusunu hiçbir zaman başlatmaz ya da durdurmaz.
+- İlk port listesinden önce bir kez gösterilen, güvenli önizleme için ipuçları veren kısa bir not.
 
 **Genel**
 
 - Sistem dilini izleyen ya da ayarlardan seçilen Türkçe ve İngilizce arayüz; açık, koyu ya da
   sistem teması.
 - Dosya boyutu sınırı ve tüm uygulama verisini silme ayarları; açık kaynak lisans bildirimleri.
+- Sunucunun nasıl kurulacağını ve uygulamanın nasıl kullanılacağını gösteren, ilk açılışta
+  çıkan ve ayarlardan yeniden açılabilen bir kullanım kılavuzu (sonraki sürümde;
+  [CHANGELOG.md](CHANGELOG.md) dosyasında *Unreleased* altında).
 
 ### Dahil olmayanlar
 

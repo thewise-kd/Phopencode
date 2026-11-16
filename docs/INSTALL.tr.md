@@ -97,6 +97,22 @@ olur; başka bir anahtarla imzalanmış güncellemeyi reddeder.
 Güncellemek için yeni APK'yı aynı şekilde eskisinin üzerine kur. Sunucuların, anahtarların ve
 ayarların korunur. Uygulamayı kaldırmak hepsini siler.
 
+### İlk açılış: kullanım kılavuzu
+
+Uygulamayı ilk açtığında sunucu listesinin üstünde kısa bir **Kullanım kılavuzu** açılır. Bu
+özellik v0.1.0'da yoktur; [CHANGELOG.md](../CHANGELOG.md) dosyasında *Unreleased* başlığı altında
+listelenir ve sonraki sürümle gelir. Sayfaları uygulamanın ne yaptığını, sunucunun neye ihtiyacı
+olduğunu, nasıl sunucu ekleneceğini ve oturumlarla sohbetin, dosyalarla Git'in, bildirimlerin ve
+canlı önizlemenin nerede olduğunu anlatır.
+
+Sayfalar arasında **Geri** ve **İleri** ile gezin. Her sayfadaki **Atla** ve son sayfadaki
+**Başla**, kılavuzu kalıcı olarak kapatır: sunucu listesine gelirsin ve kılavuz, uygulama yeniden
+başlasa da bir daha kendiliğinden açılmaz.
+
+Yeniden okumak için istediğin zaman sunucu listesinden **Ayarlar**'ı aç ve **Kullanım
+kılavuzu**'na dokun. **Ayarlar**'daki **Tüm verileri sil**, kılavuzu yeni kurulumdaki gibi
+yeniden gösterir.
+
 ## 2. Sunucu ekle
 
 1. Phopencode'u aç ve sunucu ekleme düğmesine dokun.
@@ -298,6 +314,26 @@ Bağlıyken **Canlı önizleme**'yi iki yerden açabilirsin:
 
 Uygulama bağlı değilken ikisi de devre dışıdır.
 
+### İlk önizlemeden önceki not
+
+Canlı önizlemeyi ilk açtığında, port listesi kullanılmadan önce **Önizlemeden önce** başlıklı
+kısa bir not çıkar. Maddeleri:
+
+- Geliştirme sunucunu kendin başlat; sunucunun ağına açılmaması için `0.0.0.0` yerine
+  `127.0.0.1` ya da `localhost` üzerinde çalıştır.
+- Yalnızca güvendiğin projeleri aç. Sayfanın JavaScript kodu telefonunda çalışır ama
+  uygulamanın anahtarlarından ve parolalarından ayrı tutulur.
+- Önizleme sayfasında gerçek hesaplarına giriş yapma; gerçek parola, token ya da kişisel bilgi
+  yazma.
+- Önizlemenin dışına çıkan bir bağlantıyı onaylamadan önce adresin tamamına bak.
+- Uygulama geliştirme sunucunu asla başlatmaz ya da durdurmaz; önizlemeden çıktığında
+  önizlemenin verileri silinir.
+
+**Okudum, anladım** notu kalıcı olarak gizler; uygulama yeniden başlasa da bir daha çıkmaz.
+**Şimdi değil** ya da geri düğmesi, kabul etmeden önizlemeden çıkar ve not bir sonraki açılışta
+yeniden çıkar; notun dışına dokunmak onu kapatmaz. **Ayarlar**'daki **Tüm verileri sil** notu
+yeniden gösterir.
+
 ### Bir port seç
 
 İlk ekran, sunucuda dinleyen ve loopback adresinden erişilebilen TCP portlarını küçükten büyüğe
@@ -429,7 +465,8 @@ onayını ister.
   `~/.local/state/phopencode/` elle silinebilir. Çalışan bir `opencode serve` sürecini durdurmak
   sana kalmıştır.
 - Telefonda: **Ayarlar**'daki (sunucu listesinden açılır) **Tüm verileri sil**, her sunucuyu,
-  anahtarı, parolayı ve ayarı siler; uygulamayı kaldırmak da aynısını yapar.
+  anahtarı, parolayı ve ayarı siler, kullanım kılavuzunu ve canlı önizleme notunu yeniden
+  gösterir; uygulamayı kaldırmak da aynısını yapar.
 
 Güvenlikle ilgili sorular [SECURITY-MODEL.tr.md](SECURITY-MODEL.tr.md) dosyasında yanıtlanır. Bir
 güvenlik açığı bildirmek için [SECURITY.md](../SECURITY.md) dosyasındaki adımları izle.
