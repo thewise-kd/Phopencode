@@ -6,8 +6,10 @@ import io.github.thewisekd.phopencode.core.model.SecretRef
 import io.github.thewisekd.phopencode.core.model.ServerProfile
 import io.github.thewisekd.phopencode.core.model.ServerProfileId
 import io.github.thewisekd.phopencode.core.model.SshAuth
+import io.github.thewisekd.phopencode.core.remote.connection.ConnectionEndLog
 import io.github.thewisekd.phopencode.core.remote.connection.ConnectionManager
 import io.github.thewisekd.phopencode.core.remote.connection.ConnectionState
+import io.github.thewisekd.phopencode.core.remote.connection.Diagnostics
 import io.github.thewisekd.phopencode.core.remote.connection.OpencodeClientFactory
 import io.github.thewisekd.phopencode.core.remote.connection.ServerResolver
 import io.github.thewisekd.phopencode.core.remote.connection.ServerTools
@@ -149,8 +151,11 @@ internal class GatedProfiles(private val inner: ProfileRepository) : ProfileRepo
     }
 }
 
-/** A real [ConnectionManager] over fakes, and the stores the presenter uses. */
-internal class ProgressFixture(val test: TestScope) {
+/**
+ * A real [ConnectionManager] over fakes, and the stores the presenter uses. [diagnostics] are off
+ * unless a test turns them on, as in a release build; the end log is silent.
+ */
+internal class ProgressFixture(val test: TestScope, diagnostics: Diagnostics = Diagnostics.Off) {
     val secrets = FakeSecretStore()
     val profiles = FakeProfileRepository()
     val profileStore = SaveFailingProfiles(profiles)
@@ -168,6 +173,8 @@ internal class ProgressFixture(val test: TestScope) {
         servers = ServerResolver(secrets, tools),
         clients = clients,
         scope = test.backgroundScope,
+        diagnostics = diagnostics,
+        endLog = ConnectionEndLog { },
     )
 
     private var ids = 0

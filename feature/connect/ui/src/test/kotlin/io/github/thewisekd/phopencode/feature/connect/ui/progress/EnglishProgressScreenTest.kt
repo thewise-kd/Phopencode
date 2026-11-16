@@ -39,6 +39,10 @@ class EnglishProgressScreenTest : ProgressScreenLanguageContract() {
         passwordLabel = "Password",
         passwordSubmit = "Connect",
         noSecondServer = "will not start a second one or stop it",
+        details = "Details",
+        detailsExpanded = "Shown",
+        detailsCollapsed = "Hidden",
+        copy = "Copy",
         errors = mapOf(
             ProgressError.InvalidProfile to "This server's settings are incomplete. Edit the server, then try again.",
             ProgressError.SecretMissing to

@@ -1,9 +1,22 @@
 package io.github.thewisekd.phopencode.feature.connect.ui.progress
 
+import android.content.ClipData
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -144,6 +157,7 @@ fun ProgressScreen(
                     modifier = Modifier.testTag(PROGRESS_ERROR_TAG),
                     message = errorText(error, state.errorPort),
                 )
+                state.debugDetail?.let { DebugDetails(it) }
             }
         }
     }
@@ -154,6 +168,82 @@ fun ProgressScreen(
             onDismiss = { onIntent(ProgressIntent.DismissServerPassword) },
         )
     }
+}
+
+/**
+ * The technical detail of the failure, in a debuggable build only (P9.38): a toggle, closed at
+ * first and closed again for each new detail, that opens the text and a Copy button. The text is
+ * the presenter's, already redacted; it is shown and copied exactly as it comes, monospace in a box
+ * of bounded height that scrolls, with its first line, the root cause, in bold.
+ */
+@Composable
+private fun DebugDetails(detail: String) {
+    val spacing = PhopencodeTheme.spacing
+    var expanded by remember(detail) { mutableStateOf(false) }
+    val stateLabel = stringResource(
+        if (expanded) R.string.connect_progress_details_expanded else R.string.connect_progress_details_collapsed,
+    )
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = spacing.touchTarget)
+                .testTag(DETAILS_TOGGLE_TAG)
+                .clickable(role = Role.Button) { expanded = !expanded }
+                .semantics(mergeDescendants = true) { stateDescription = stateLabel },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            Text(
+                text = if (expanded) "▾" else "▸",
+                // The state description says it already.
+                modifier = Modifier.clearAndSetSemantics {},
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = stringResource(R.string.connect_progress_details),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+        if (expanded) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().heightIn(max = DETAILS_MAX_HEIGHT),
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.surfaceVariant,
+            ) {
+                SelectionContainer(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text(
+                        text = rootFirst(detail),
+                        modifier = Modifier.padding(spacing.sm).testTag(DETAILS_TEXT_TAG),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                }
+            }
+            OutlinedButton(
+                onClick = {
+                    scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(null, detail))) }
+                },
+                modifier = Modifier.heightIn(min = spacing.touchTarget).testTag(DETAILS_COPY_TAG),
+            ) {
+                Text(stringResource(R.string.connect_progress_details_copy))
+            }
+        }
+    }
+}
+
+/** The box of the debug detail grows to this, then scrolls. */
+private val DETAILS_MAX_HEIGHT = 320.dp
+
+/** [detail] with its first line, the root cause, in bold; the text itself is unchanged. */
+private fun rootFirst(detail: String): AnnotatedString = buildAnnotatedString {
+    append(detail)
+    val end = detail.indexOf('\n').let { if (it < 0) detail.length else it }
+    addStyle(SpanStyle(fontWeight = FontWeight.Bold), 0, end)
 }
 
 @StringRes

@@ -47,4 +47,9 @@
     <string name="connect_progress_error_server_lost">The opencode server stopped while connecting. Try again.</string>
     <string name="connect_progress_error_api_failed">The opencode server\'s API returned an error. Try again.</string>
     <string name="connect_progress_error_unexpected">Something unexpected went wrong. Try again.</string>
+
+    <string name="connect_progress_details">Details</string>
+    <string name="connect_progress_details_expanded">Shown</string>
+    <string name="connect_progress_details_collapsed">Hidden</string>
+    <string name="connect_progress_details_copy">Copy</string>
 </resources>

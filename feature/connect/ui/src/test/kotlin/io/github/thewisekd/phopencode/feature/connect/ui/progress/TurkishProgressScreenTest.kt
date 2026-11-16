@@ -39,6 +39,10 @@ class TurkishProgressScreenTest : ProgressScreenLanguageContract() {
         passwordLabel = "Parola",
         passwordSubmit = "Bağlan",
         noSecondServer = "ikinci bir sunucu başlatmaz ve onu durdurmaz",
+        details = "Ayrıntılar",
+        detailsExpanded = "Gösteriliyor",
+        detailsCollapsed = "Gizli",
+        copy = "Kopyala",
         errors = mapOf(
             ProgressError.InvalidProfile to "Bu sunucunun ayarları eksik. Sunucuyu düzenleyip tekrar deneyin.",
             ProgressError.SecretMissing to

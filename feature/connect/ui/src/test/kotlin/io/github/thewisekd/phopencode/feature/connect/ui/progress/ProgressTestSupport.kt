@@ -21,6 +21,14 @@ import io.github.thewisekd.phopencode.feature.connect.logic.contract.ProgressSte
 /** A made-up server name; no real server is named in the tests. */
 internal const val SERVER_NAME = "Test box"
 
+/** A redacted debug detail as the presenter makes one; it names no host, address or user. */
+internal const val DEBUG_DETAIL = "Root cause: java.net.ConnectException: Connection refused\n\n" +
+    "java.io.IOException: SSH connection failed\n    at test.Frames.frame0(Frames.kt:1)\n" +
+    "Caused by: java.net.ConnectException: Connection refused\n    at test.Frames.frame1(Frames.kt:2)"
+
+/** Another failure's detail, to replace [DEBUG_DETAIL]. */
+internal const val OTHER_DETAIL = "Root cause: java.net.SocketTimeoutException: Read timed out"
+
 internal val ROUTE = ConnectRoute.Progress("profile-1")
 
 /** The steps the indicator shows, in order. */

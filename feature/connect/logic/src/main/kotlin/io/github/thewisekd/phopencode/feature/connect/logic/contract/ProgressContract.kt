@@ -82,6 +82,10 @@ enum class ProgressAction {
  * @property actions What can help with [error]; empty when there is none.
  * @property askingServerPassword The `opencode serve` password is being asked for.
  * @property errorPort The port [error] names, for [ProgressError.ServerNotOnPort]; null otherwise.
+ * @property debugDetail Only while diagnostics are on, that is in a debuggable build (P9.38): the
+ *   technical detail of [error], its failure's chain with the root cause first, redacted so that it
+ *   names no host, address, user name, password or key. Null when diagnostics are off, when there is
+ *   no error, and when the error has no throwable behind it. Printing leaves it out.
  */
 data class ProgressState(
     val serverName: String = "",
@@ -90,6 +94,7 @@ data class ProgressState(
     val actions: Set<ProgressAction> = emptySet(),
     val askingServerPassword: Boolean = false,
     val errorPort: Int? = null,
+    val debugDetail: String? = null,
 ) {
     override fun toString(): String =
         "ProgressState(step=$step, error=$error, actions=$actions, askingServerPassword=$askingServerPassword)"

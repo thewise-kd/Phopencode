@@ -1,13 +1,19 @@
 package io.github.thewisekd.phopencode.feature.connect.ui.progress
 
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.test.core.app.ApplicationProvider
 import io.github.thewisekd.phopencode.feature.connect.logic.contract.ProgressAction
 import io.github.thewisekd.phopencode.feature.connect.logic.contract.ProgressError
 import io.github.thewisekd.phopencode.feature.connect.logic.contract.ProgressState
@@ -39,6 +45,11 @@ internal data class ExpectedProgressStrings(
     val passwordSubmit: String,
     /** What a running server the app will not touch must say, in this language. */
     val noSecondServer: String,
+    /** The debug detail's toggle, its two states, and its copy button (P9.38). */
+    val details: String,
+    val detailsExpanded: String,
+    val detailsCollapsed: String,
+    val copy: String,
     val errors: Map<ProgressError, String>,
 )
 
@@ -158,6 +169,81 @@ abstract class ProgressScreenLanguageContract {
         compose.onNode(hasText(strings.passwordLabel) and hasAnyAncestor(isDialog())).assertIsDisplayed()
         compose.onNode(hasText(strings.passwordSubmit) and hasAnyAncestor(isDialog())).assertIsDisplayed()
         compose.onNode(hasText(strings.cancel) and hasAnyAncestor(isDialog())).assertIsDisplayed()
+    }
+
+    @Test
+    fun `the debug detail is collapsed under the error until opened, then shown and copied as is`() {
+        compose.setProgressScreen(failedWith(DEBUG_DETAIL))
+
+        // The content scrolls; on a small screen the section may start below the fold.
+        compose.onNodeWithTag(PROGRESS_ERROR_TAG).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(DETAILS_TOGGLE_TAG)
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assert(hasText(strings.details))
+            .assert(hasClickAction())
+            .assert(hasStateDescription(strings.detailsCollapsed))
+            .assertTouchSizeIsAtLeast()
+        compose.onNodeWithTag(DETAILS_TEXT_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(DETAILS_COPY_TAG).assertDoesNotExist()
+
+        compose.onNodeWithTag(DETAILS_TOGGLE_TAG).performClick()
+
+        compose.onNodeWithTag(DETAILS_TOGGLE_TAG).assert(hasStateDescription(strings.detailsExpanded))
+        compose.onNodeWithTag(DETAILS_TEXT_TAG).performScrollTo().assertIsDisplayed().assert(hasText(DEBUG_DETAIL))
+        compose.onNodeWithTag(DETAILS_COPY_TAG)
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assert(hasText(strings.copy))
+            .assertTouchSizeIsAtLeast()
+            .performClick()
+        compose.waitForIdle()
+
+        assertEquals(DEBUG_DETAIL, clipboardText())
+
+        compose.onNodeWithTag(DETAILS_TOGGLE_TAG).performScrollTo().performClick()
+        compose.onNodeWithTag(DETAILS_TOGGLE_TAG).assert(hasStateDescription(strings.detailsCollapsed))
+        compose.onNodeWithTag(DETAILS_TEXT_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun `without a debug detail there is no details section and no copy button`() {
+        compose.setProgressScreen(failedWith(detail = null))
+
+        compose.onNodeWithTag(PROGRESS_ERROR_TAG).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag(DETAILS_TOGGLE_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(DETAILS_COPY_TAG).assertDoesNotExist()
+        compose.onNodeWithText(strings.details).assertDoesNotExist()
+        compose.onNodeWithText(strings.copy).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a new failure's detail replaces the old one and starts collapsed`() {
+        val harness = compose.setProgressScreen(failedWith(DEBUG_DETAIL))
+        compose.onNodeWithTag(DETAILS_TOGGLE_TAG).performScrollTo().performClick()
+
+        harness.state.value = failedWith(OTHER_DETAIL)
+
+        compose.onNodeWithTag(DETAILS_TOGGLE_TAG).assert(hasStateDescription(strings.detailsCollapsed))
+        compose.onNodeWithTag(DETAILS_TOGGLE_TAG).performScrollTo().performClick()
+        compose.onNodeWithTag(DETAILS_TEXT_TAG).assert(hasText(OTHER_DETAIL))
+
+        harness.state.value = ProgressState(serverName = SERVER_NAME, step = ProgressStep.Ssh)
+        compose.onNodeWithTag(DETAILS_TOGGLE_TAG).assertDoesNotExist()
+    }
+
+    private fun failedWith(detail: String?) = ProgressState(
+        serverName = SERVER_NAME,
+        step = ProgressStep.Ssh,
+        error = ProgressError.Unreachable,
+        actions = setOf(ProgressAction.EditServer, ProgressAction.Retry),
+        debugDetail = detail,
+    )
+
+    private fun clipboardText(): String? {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        return clipboard.primaryClip?.getItemAt(0)?.text?.toString()
     }
 
     @Test

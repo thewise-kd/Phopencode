@@ -76,6 +76,12 @@ import kotlinx.coroutines.yield
  * - After a Cancel, this presenter's connect is disconnected even if it stood, exactly once,
  *   whichever of the scope's cleanup and the Cancel's runs first.
  *
+ * Diagnostics (P9.38): only while the manager's `diagnostics` are on, that is in a debuggable build,
+ * a failure also sets [ProgressState.debugDetail]: the manager's `lastEnd` for a failure of the
+ * connect, or the exception caught here for one of storage, as [ProgressDebugDetail] formats and
+ * redacts it, masking the profile's host and user name. A retry or a new step clears it, a new
+ * failure replaces it. With diagnostics off nothing of this is read, built or kept.
+ *
  * Events: [ProgressEvent.OpenHostKey] and [ProgressEvent.Connected] are sent only while this
  * presenter owns the manager's connect, checked under the same lock as every change of owner.
  *
@@ -120,6 +126,13 @@ class DefaultProgressPresenter(
     private var closing = false
 
     private val connectedSent = AtomicBoolean(false)
+
+    /**
+     * Only while diagnostics are on: the host and user name of the profile last connected, which
+     * the debug detail masks. Never set otherwise.
+     */
+    @Volatile
+    private var debugIdentity: Pair<String, String>? = null
 
     /** Guarded by [connectLock]: [scope] ended and [leave] ran; nothing connects any more. */
     private var left = false
@@ -181,6 +194,7 @@ class DefaultProgressPresenter(
                     actions = emptySet(),
                     askingServerPassword = false,
                     errorPort = null,
+                    debugDetail = null,
                 )
             } else {
                 it
@@ -216,6 +230,7 @@ class DefaultProgressPresenter(
         val profile = prepare() ?: return
         if (closing) return
         mutableState.update { it.copy(serverName = profile.name) }
+        if (connection.diagnostics.enabled) debugIdentity = profile.host to profile.username
         // Under the lock an older presenter's release holds from its owner check to the end of its
         // disconnect: that disconnect can never fall on this connect.
         connectLock.withLock {
@@ -262,11 +277,16 @@ class DefaultProgressPresenter(
             sendIfOwner(ProgressEvent.Connected) { connectedSent.compareAndSet(false, true) }
             true
         }
-        is ConnectionState.Error -> fail(progressFailure(state.error)).let { true }
+        // The manager records why it ended before it publishes the end, so this is the end's own.
+        is ConnectionState.Error -> fail(progressFailure(state.error)) { connection.lastEnd }.let { true }
         // Someone else disconnected; connecting again is up to the user.
-        ConnectionState.Idle -> fail(ProgressFailure(ProgressError.Disconnected, setOf(ProgressAction.Retry))).let { true }
+        ConnectionState.Idle -> fail(ProgressFailure(ProgressError.Disconnected, setOf(ProgressAction.Retry))) {
+            connection.lastEnd
+        }.let { true }
         // The app is going away; nothing can connect any more.
-        ConnectionState.Closed -> fail(ProgressFailure(ProgressError.Unexpected, emptySet())).let { true }
+        ConnectionState.Closed -> fail(ProgressFailure(ProgressError.Unexpected, emptySet())) {
+            connection.lastEnd
+        }.let { true }
     }
 
     /**
@@ -280,11 +300,22 @@ class DefaultProgressPresenter(
         }
 
     private fun show(step: ProgressStep) {
-        mutableState.update { it.copy(step = step, error = null, actions = emptySet(), errorPort = null) }
+        mutableState.update {
+            it.copy(step = step, error = null, actions = emptySet(), errorPort = null, debugDetail = null)
+        }
     }
 
-    /** Shows [failure] at the step that failed: the error's own, or else the last one seen. */
-    private fun fail(failure: ProgressFailure) {
+    /**
+     * Shows [failure] at the step that failed: the error's own, or else the last one seen. [cause]
+     * gives the throwable behind it for the debug detail, and is called only while diagnostics are on.
+     */
+    private fun fail(failure: ProgressFailure, cause: () -> Throwable? = { null }) {
+        val detail = if (connection.diagnostics.enabled) {
+            val identity = debugIdentity
+            ProgressDebugDetail.of(cause(), identity?.first, identity?.second)
+        } else {
+            null
+        }
         mutableState.update {
             it.copy(
                 step = failure.step ?: it.step,
@@ -292,6 +323,7 @@ class DefaultProgressPresenter(
                 actions = failure.actions,
                 askingServerPassword = failure.asksPassword,
                 errorPort = failure.port,
+                debugDetail = detail,
             )
         }
     }
@@ -302,8 +334,8 @@ class DefaultProgressPresenter(
             profiles.list().firstOrNull { it.id == serverId }
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Exception) {
-            fail(ProgressFailure(ProgressError.StorageUnavailable, setOf(ProgressAction.Retry)))
+        } catch (e: Exception) {
+            fail(ProgressFailure(ProgressError.StorageUnavailable, setOf(ProgressAction.Retry))) { e }
             return null
         }
         // Nothing to retry or edit: the server was deleted. Only leaving helps.
@@ -335,9 +367,9 @@ class DefaultProgressPresenter(
         } catch (e: CancellationException) {
             withContext(NonCancellable) { deleteQuietly(ref) }
             throw e
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             deleteQuietly(ref)
-            return storeFailed()
+            return storeFailed(e)
         }
         val updated = profile.copy(opencodeCredential = ref)
         try {
@@ -345,8 +377,8 @@ class DefaultProgressPresenter(
         } catch (e: CancellationException) {
             withContext(NonCancellable) { settleFailedSave(ref) }
             throw e
-        } catch (_: Exception) {
-            if (!settleFailedSave(ref)) return storeFailed()
+        } catch (e: Exception) {
+            if (!settleFailedSave(ref)) return storeFailed(e)
         }
         return updated
     }
@@ -369,13 +401,13 @@ class DefaultProgressPresenter(
         return false
     }
 
-    private fun storeFailed(): ServerProfile? {
+    private fun storeFailed(cause: Exception): ServerProfile? {
         fail(
             ProgressFailure(
                 ProgressError.StorageUnavailable,
                 setOf(ProgressAction.EnterServerPassword, ProgressAction.Retry),
             ),
-        )
+        ) { cause }
         mutableState.update { it.copy(askingServerPassword = false) }
         return null
     }

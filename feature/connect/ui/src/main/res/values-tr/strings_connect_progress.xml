@@ -47,4 +47,9 @@
     <string name="connect_progress_error_server_lost">opencode sunucusu bağlanırken durdu. Tekrar deneyin.</string>
     <string name="connect_progress_error_api_failed">opencode sunucusunun API\'si hata döndürdü. Tekrar deneyin.</string>
     <string name="connect_progress_error_unexpected">Beklenmeyen bir sorun oluştu. Tekrar deneyin.</string>
+
+    <string name="connect_progress_details">Ayrıntılar</string>
+    <string name="connect_progress_details_expanded">Gösteriliyor</string>
+    <string name="connect_progress_details_collapsed">Gizli</string>
+    <string name="connect_progress_details_copy">Kopyala</string>
 </resources>
