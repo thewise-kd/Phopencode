@@ -102,7 +102,7 @@ This list is created in one go in P0.4; P13.2 adds the `preview` feature. 34 mod
 | `strings.xml` | No single file | Each screen keeps a `strings_<f>_<screen>.xml` file under `values/` and `values-tr/`. Key prefix `<f>_<screen>_` |
 | `AndroidManifest.xml` | Per module | The `app` manifest does not change after P1.10. Permissions and services go in the feature's own manifest |
 | R8 rules | P3.10, P12.4 | Only `app/proguard-rules.pro`, in these two tasks |
-| `README.md`, `README.tr.md`, `CLAUDE.md` | P0.1, P0.4, P9.29, P12.6, P13.19 | No other task touches them |
+| `README.md`, `README.tr.md`, `CLAUDE.md` | P0.1, P0.4, P9.29, P12.6, P13.19, P14.2 | No other task touches them |
 
 ### What a contract task produces
 
@@ -782,7 +782,37 @@ Rules every task of this phase keeps:
 | P13.20 | Preview end-to-end tests | P13.13, P13.14, P13.15, P13.16, P12.7 | `app/src/androidTest/…/e2e/preview/`, `.github/workflows/emulator.yml` (the preview fixture step; the job `env` for `PREVIEW_PORT` only; the sshd step for the preview's `PermitOpen` entry and the `connected-tests.sh` arguments only: `previewPort`, and `notPackage` for the preview tests on releaseCheck), `.github/fixtures/preview/`, `docs/PHASES.md` (this row) | On the runner a static page is served by `python3 -m http.server --bind 127.0.0.1` beside sshd; the test connects, finds the port in the list, opens the preview and sees the page's title; a `console.log` of the page appears in the console panel; an off-origin link asks for confirmation and a refused off-origin request is logged; the desktop toggle changes `navigator.userAgent`; a value stored in `localStorage` is gone after the preview is closed and opened again; a dropped connection shows connection lost and a reload after the reconnect works; (b): a connection to the bridge port without the secret gets 403, and the port is closed after leaving the screen | `EMU` |
 | P13.22 | Preview WebRTC and DNS-prefetch hardening | P13.13, P13.20, P13.21 | `feature/preview/ui/…/page/` (main, test, androidTest), `strings_preview_page.xml` (EN and TR), `feature/preview/ui/build.gradle.kts`, `gradle/libs.versions.toml` (the `androidx-webkit` version and library entry only), `feature/preview/logic/…/transport/HeadRewriter.kt` and its tests, `app/src/androidTest/…/e2e/preview/`, `.github/fixtures/preview/`, `docs/SECURITY-MODEL.md` and `docs/SECURITY-MODEL.tr.md` (the Live preview section only), `THIRD_PARTY_NOTICES.md`, `feature/settings/ui/…/licenses/ThirdPartyLibraries.kt` and `feature/settings/ui/src/test/resources/licenses/release-runtime-classpath.txt` (the androidx.webkit entry only), `docs/PHASES.md` (this row and the "Extra" row's task range only) | WebRTC is taken out of every frame of the preview WebView before page scripts run: a document start script (androidx.webkit `WebViewCompat.addDocumentStartJavaScript`, origin rules covering every frame) defines `RTCPeerConnection`, `webkitRTCPeerConnection`, `RTCDataChannel`, `RTCSessionDescription`, `RTCIceCandidate`, `RTCRtpSender`, `RTCRtpReceiver`, `RTCRtpTransceiver`, `RTCCertificate` and similar constructors that can start ICE gathering as `undefined`, non-configurable and non-writable; it is registered once per WebView, before the first `loadUrl`; fail closed: without `WebViewFeature.DOCUMENT_START_SCRIPT` the page is not loaded and a `preview_page_` string (EN and TR) says the system WebView is too old; Robolectric tests pin the script text, the order and the unsupported path; `HeadRewriter` adds `X-DNS-Prefetch-Control: off` to every response, the bridge's own answers included, replacing the page's value, pinned by JVM tests; the e2e test asserts `typeof RTCPeerConnection === "undefined"` in the top frame, an iframe from the preview origin and a script-created `about:blank` iframe read through `contentWindow`, and that assigning or deleting `window.RTCPeerConnection` does not restore it; "Known limits" in the security model (EN and TR) says what is blocked, what may remain and that only the emulator tests check it | `EMU` |
 
+**G8**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P13.23 | First-run flags in settings | P4.2 | `core/storage-api/…/SettingsRepository.kt`, `core/storage/…/repo/DataStoreSettingsRepository.kt` (its Preferences keys and their reading and writing live in this file), `core/testing/…/storage/FakeStorage.kt` (the settings fake only), `core/testing/…/contract/StorageContracts.kt` (the settings cases only), their tests, `app/src/test/…/ThemeSettingsFake.kt` (only to implement the new members), `docs/PHASES.md` (this row) | `AppSettings` gains `guideSeen: Boolean = false` and `previewNoticeAccepted: Boolean = false`; `SettingsRepository` gains `markGuideSeen()` and `acceptPreviewNotice()`; both values persist across a restart of the repository; a settings file written before the change reads as both false; `deleteAllData()` resets both to false; the fake follows the same contract; the existing settings tests pass unchanged | `CI` |
+
+**G9**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P13.24 | Live preview first-visit notice | P13.9, P13.23 | `feature/preview/logic/…/notice/` and its tests, `feature/preview/logic/…/contract/` (the notice types only), `feature/preview/ui/…/notice/`, `feature/preview/ui/…/ports/PortsScreen.kt` (showing the notice only) and its tests (the notice tests only), `feature/preview/ui/…/PreviewModule.kt` (the notice binding only), `strings_preview_notice.xml` (EN and TR), `docs/PHASES.md` (this row) | The first time the port picker (`PreviewRoute.Ports`) opens while `previewNoticeAccepted` is false, a dialog appears before the port list can be used; calm tone: an information icon, neutral colours, no "danger" or "warning" wording, no red; a short title and a few short points: start the dev server yourself on `127.0.0.1` or `localhost`, not `0.0.0.0`, so it is not exposed on the server's network; open only projects you trust, since the page's JavaScript runs on the phone (isolated from the app's keys and passwords); do not sign in to real accounts or type real passwords, tokens or personal data into the preview page; check the full address before confirming an outside link; the app never starts or stops your dev server, and the preview's data is cleared when you leave it; "I have read and understood" calls `acceptPreviewNotice()` and the dialog never appears again, including after the app restarts; "Not now" (and back) leaves the preview without accepting, so the dialog appears on the next visit; tapping outside does not dismiss it; the text scrolls on small screens; TalkBack reads the title and the points; 48 dp targets; TR/EN parity; logic tests (`PI`) and screen tests in both languages | `CI` |
+
 `CP13`: push, CI and emulator green, `PHONE`: preview a real dev server, change a file through opencode and see the change after a reload (with (b), through hot reload).
+
+### P14: First-run guide
+
+Planned for a release after v0.1.0. A short guide opens by itself the first time the app is launched and teaches how to use it: what to set up on the server, how to add a server, and how to work with sessions, files, Git, notifications and the live preview. Once skipped or finished it never opens by itself again, and it can be reopened from Settings at any time. No new module; nothing changes on the server.
+
+**G1**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P14.1 | First-run guide | P13.23 | `core/navigation/…/SettingsRoute.kt` (the `Guide` entry only), `core/navigation/src/test/…/RouteTest.kt` and `RouteSamples.kt` (the guide entry only), `app/src/test/…/navigation/AllRoutes.kt`, `app/…/navigation/AppNavHost.kt` and `app/…/MainActivity.kt` (the first-launch redirect only) and their tests, `feature/settings/logic/…/guide/`, `feature/settings/logic/…/contract/` (the guide types only), `feature/settings/ui/…/guide/`, `feature/settings/ui/…/SettingsGraph.kt`, `feature/settings/ui/…/SettingsModule.kt`, `feature/settings/ui/…/prefs/` (the "Usage guide" entry only), `feature/settings/logic/…/prefs/` and `contract/PreferencesContract.kt` (opening the guide only), `strings_settings_guide.xml` and `strings_settings_prefs.xml` (EN and TR; in prefs the guide entry only), their tests, `docs/PHASES.md` (this row) | On first launch, while `guideSeen` is false, the app opens `SettingsRoute.Guide` above the server list; a pager of short pages, each with a title, a few lines and an icon: welcome (what the app does); on your server (install opencode, run `opencode serve` on loopback with a password; the app reaches it through SSH and opens no port on the server); add a server (address, SSH user, key or password, checking the host key fingerprint on the first connection); sessions and chat (choose a project folder, start a session, answer questions and permission requests); files and Git; notifications through ntfy (optional); live preview (start the dev server yourself on `127.0.0.1`, open it from the session menu); done (the guide stays under Settings); a page indicator, Back, Next, Skip on every page and Start on the last; Skip and Start call `markGuideSeen()` and land on the server list, and the guide never opens by itself again; Settings has a "Usage guide" entry that opens it at any time; the text matches `docs/INSTALL.md` and the real screens and holds no server address, key or topic; the text scrolls on small screens; TalkBack reads each page and the page position; 48 dp targets; TR/EN parity; logic tests (`PI`), navigation tests and screen tests in both languages | `CI` |
+
+**G2**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P14.2 | Docs for the guide and the preview notice | P13.24, P14.1 | `docs/INSTALL.md`, `docs/INSTALL.tr.md`, `README.md`, `README.tr.md` (the feature list only), `CHANGELOG.md` (the `## [Unreleased]` section only), `docs/PHASES.md` (this row) | INSTALL (EN, TR) mentions the first-run guide, where to reopen it, and the live preview notice and its points; the READMEs list the guide; the `CHANGELOG.md` Unreleased "Added" list names both; the version stays 0.1.0; all doc tests pass | `PY` |
+
+`CP14`: push, CI green, `PHONE`: a fresh install shows the guide; Skip and Start each end it for good; the live preview shows the notice once.
 
 ## Parallelism summary
 
@@ -801,8 +831,9 @@ Rules every task of this phase keeps:
 | P10 | 11 | 1, 6, 2, 2 | 6 | 5 | 6 |
 | P11 | 12 | 4, 3, 5 | 5 | 10 | 2 |
 | P12 | 10 | 1, 3, 3, 1, 1, 1 | 3 | 5 | 5 |
-| P13 | 20 | 1, 3, 2, 4, 3, 4, 3 | 4 | 14 | 6 |
-| Total | 172 | 54 groups | 6 | 110 | 62 |
+| P13 | 24 | 1, 3, 2, 4, 3, 5, 4, 1, 1 | 5 | 15 | 9 |
+| P14 | 2 | 1, 1 | 1 | 1 | 1 |
+| Total | 178 | 58 groups | 6 | 112 | 66 |
 
 `logic` and `ui` tasks run at the same time after the contract. The group limit is for the Pi; on a stronger machine, consecutive groups of the same phase can be merged, since the dependency column is sufficient.
 
@@ -830,6 +861,7 @@ Phases run in numerical order. For a phase to finish, its checkpoint must also b
 | Extra | MIT, README, repository skeleton | P0.1, P12.3, P12.6 |
 | Extra | Security and release audit | P12.4, P12.8 |
 | Extra | Live preview of a web frontend running on the server | P13.1-P13.22 |
+| Extra | First-run guide and a one-time live preview notice | P13.23, P13.24, P14.1, P14.2 |
 | Extra | Infrastructure and contracts | P0.2-P0.5, P1.2-P1.5, P1.7, P1.8, P4.3, P5.1, P6.1, P7.1, P8.2, P10.1 |
 
 ## Out of scope (first release)
