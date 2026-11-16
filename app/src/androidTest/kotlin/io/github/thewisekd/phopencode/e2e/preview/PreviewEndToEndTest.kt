@@ -10,6 +10,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.github.thewisekd.phopencode.MainActivity
 import io.github.thewisekd.phopencode.e2e.E2eApp
 import io.github.thewisekd.phopencode.e2e.E2eEnvironment
+import io.github.thewisekd.phopencode.e2e.FirstRunDoneRule
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -38,7 +39,11 @@ import io.github.thewisekd.phopencode.core.ui.R as UiR
  */
 @RunWith(AndroidJUnit4::class)
 class PreviewEndToEndTest {
-    @get:Rule
+    /** The first-run guide and the preview notice, ended before the activity starts (P14.3). */
+    @get:Rule(order = 0)
+    val firstRun = FirstRunDoneRule()
+
+    @get:Rule(order = 1)
     val compose = createAndroidComposeRule<MainActivity>()
 
     private lateinit var app: E2eApp

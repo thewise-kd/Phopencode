@@ -11,6 +11,18 @@ internal object PreviewTags {
     /** feature/preview/ui/…/ports/PortsTags.kt: `PortsTags.port(port)`. */
     fun port(port: Int): String = "preview_ports_port:$port"
 
+    /** feature/preview/ui/…/notice/NoticeTags.kt: `NoticeTags.BLOCKER`. */
+    const val NOTICE_BLOCKER = "preview_notice_blocker"
+
+    /** feature/preview/ui/…/notice/NoticeTags.kt: `NoticeTags.DIALOG`. */
+    const val NOTICE_DIALOG = "preview_notice_dialog"
+
+    /** feature/preview/ui/…/notice/NoticeTags.kt: `NoticeTags.ACCEPT`. */
+    const val NOTICE_ACCEPT = "preview_notice_accept"
+
+    /** feature/preview/ui/…/notice/NoticeTags.kt: `NoticeTags.NOT_NOW`. */
+    const val NOTICE_NOT_NOW = "preview_notice_not_now"
+
     /** feature/preview/ui/…/page/PageTags.kt: `PageTags.RELOAD`. */
     const val PAGE_RELOAD = "preview_page_reload"
 
