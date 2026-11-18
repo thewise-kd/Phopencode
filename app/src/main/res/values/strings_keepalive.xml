@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- P9.39: the notification that keeps the connection alive in the background. No server detail ever goes in. -->
+<resources>
+    <string name="keepalive_channel">Connection</string>
+    <string name="keepalive_connected">Connected to the server</string>
+    <string name="keepalive_reconnecting">Reconnecting…</string>
+    <string name="keepalive_connecting">Connecting…</string>
+    <string name="keepalive_disconnect">Disconnect</string>
+</resources>

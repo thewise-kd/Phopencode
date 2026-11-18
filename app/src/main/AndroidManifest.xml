@@ -2,9 +2,16 @@
 <!--
     Final after P1.10; P9.27 added the launcher icon; P11.14 made MainActivity singleTop, so a deep link
     reaches the running activity in onNewIntent. Later tasks fill in the XML files this points to, and declare
-    permissions and services in their feature module's own manifest.
+    permissions and services in their feature module's own manifest. P9.39 added the keep-alive service, which
+    is the app's own, with its permissions.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- API 34 and later: the permission of the keep-alive service's specialUse type. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- API 33 and later: the keep-alive notification. The service runs without it. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".PhopencodeApplication"
@@ -26,6 +33,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- P9.39: keeps the process alive while a connection is active; no wake lock, no time limit. -->
+        <service
+            android:name=".keepalive.KeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps an SSH session that the user started to the user's own server open while the app is in the background, so the connection does not drop. It runs until the user disconnects." />
+        </service>
     </application>
 
 </manifest>

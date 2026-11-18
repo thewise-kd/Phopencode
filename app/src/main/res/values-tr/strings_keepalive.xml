@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- P9.39: the notification that keeps the connection alive in the background. No server detail ever goes in. -->
+<resources>
+    <string name="keepalive_channel">Bağlantı</string>
+    <string name="keepalive_connected">Sunucuya bağlı</string>
+    <string name="keepalive_reconnecting">Yeniden bağlanıyor…</string>
+    <string name="keepalive_connecting">Bağlanıyor…</string>
+    <string name="keepalive_disconnect">Bağlantıyı kes</string>
+</resources>
