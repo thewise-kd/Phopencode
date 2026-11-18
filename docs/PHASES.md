@@ -827,6 +827,18 @@ Planned for a release after v0.1.0. A short guide opens by itself the first time
 
 `CP14`: push, CI green, `PHONE`: a fresh install shows the guide; Skip and Start each end it for good; the live preview shows the notice once.
 
+### P15: Full code audit
+
+The whole project is audited for bugs and security problems, module by module or in smaller parts of a module, with both relays: `reviewer` (GPT) looks for real bugs and `security` (GLM) for security problems in the code committed at HEAD, not in a change set. A chunk that is too large for a relay is split and sent again. Each finding is checked against the code, and the real ones become later P15 fix tasks, each with its own tests. No new module; nothing changes on the server.
+
+**G1**
+
+| Task | Goal | Depends on | Owned paths | Acceptance tests | Test |
+|---|---|---|---|---|---|
+| P15.1 | Whole-code audit mode for the relay scripts | P14.3 | `.claude/scripts/run-review.sh`, `.claude/scripts/run-security.sh`, `.claude/scripts/lib-verdict.sh`, `.claude/agents/reviewer.md` and `.claude/agents/security.md` (the scope only), `scripts/tests/test_relay_audit.py`, `docs/PHASES.md` (this section and the summary counts) | Both scripts accept `--paths P [P ...]`, repeatable, alongside `--dir`, and give the model the whole committed text of the files tracked at HEAD under those paths, with line numbers; untracked, ignored and uncommitted files, symlinks and binary files are never included, and in an audit the security auditor's readable copy holds only files committed at HEAD; the audit prompts ask for real bugs (`run-review.sh`) and for security problems (`run-security.sh`) in existing code; the output contract and exit codes are unchanged; no matching text file exits 3 and a selection over the size cap exits 4, both before any model call; `--print-input` prints the assembled input and exits 0 without calling a model; existing modes behave as before; `security` passes an optional `Scope:` line; the wrapper guard is unchanged and allows the audit commands; tests run with `python3 -m unittest discover -s scripts/tests` and call no model | `PY` |
+
+`CP15`: every module audited by both relays, each finding fixed or rejected with a reason, CI green.
+
 ## Parallelism summary
 
 | Phase | Tasks | Groups (task count) | Widest group | On Pi | CI/EMU only |
@@ -846,7 +858,8 @@ Planned for a release after v0.1.0. A short guide opens by itself the first time
 | P12 | 11 | 1, 3, 3, 1, 1, 1, 1 | 3 | 6 | 5 |
 | P13 | 24 | 1, 3, 2, 4, 3, 5, 4, 1, 1 | 5 | 15 | 9 |
 | P14 | 3 | 1, 2 | 2 | 1 | 2 |
-| Total | 180 | 59 groups | 6 | 113 | 67 |
+| P15 | 1 | 1 | 1 | 1 | 0 |
+| Total | 181 | 60 groups | 6 | 114 | 67 |
 
 `logic` and `ui` tasks run at the same time after the contract. The group limit is for the Pi; on a stronger machine, consecutive groups of the same phase can be merged, since the dependency column is sufficient.
 
