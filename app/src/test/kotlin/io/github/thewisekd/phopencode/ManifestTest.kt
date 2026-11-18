@@ -135,6 +135,13 @@ class ManifestTest {
         assertFalse("android.permission.WAKE_LOCK" in requested)
     }
 
+    @Test
+    fun `the app may follow the default network, for a fast reconnect`() {
+        val requested = context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
+            .requestedPermissions.orEmpty().toSet()
+        assertTrue("android.permission.ACCESS_NETWORK_STATE" in requested)
+    }
+
     private companion object {
         const val TEST_CONFIG = "com/android/tools/test_config.properties"
         const val ANDROID_NAMESPACE = "http://schemas.android.com/apk/res/android"

@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <!-- API 33 and later: the keep-alive notification. The service runs without it. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- P9.40: the default network's callbacks, so a dropped connection waits for the network and comes back with it. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:name=".PhopencodeApplication"

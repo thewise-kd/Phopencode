@@ -52,6 +52,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration
 
 /**
  * Connects the app to one server: SSH, host key approval, `opencode serve` discovery or startup,
@@ -67,6 +68,17 @@ import kotlinx.coroutines.withTimeoutOrNull
  * Only [ConnectionError.retryable] failures are tried again, up to [ReconnectPolicy.maxAttempts];
  * any other failure, and every failure of a first connect, ends in [ConnectionState.Error], since
  * those need the user. A [disconnect], [close] or new [connect] is never taken for a drop.
+ *
+ * Signals ([ConnectionSignals]): the app tells the manager when the default network comes and goes
+ * and when the app comes to the foreground; until told otherwise the network counts as available.
+ * While the network is known to be gone no attempt is made: the wait before the next one lasts
+ * until the network is back, however long, and uses no attempt up, and neither does an attempt that
+ * failed after the network went away. The network coming back, a switch to another network, or the
+ * foreground ends a wait at once. A switch to another network while connected drops the connection
+ * once, as [reconnect] does; losing the network while connected changes nothing by itself, since the
+ * SSH keep-alive and the event stream notice a real drop. Coming to the foreground after the
+ * attempts of a connection that stood ran out on a retryable error reconnects once more, the same
+ * profile with a fresh count; nothing else that ended in [ConnectionState.Error] is tried again.
  *
  * What a drop may do on the server: nothing but what a first connect does. The manager never stops,
  * kills or replaces a process, an `opencode serve` that runs but does not answer included, whoever
@@ -119,7 +131,7 @@ class ConnectionManager(
     private val options: ConnectionOptions = ConnectionOptions(),
     val diagnostics: Diagnostics = Diagnostics.Off,
     private val endLog: ConnectionEndLog = ConnectionEndLog.JavaLogging,
-) {
+) : ConnectionSignals {
     private val lock = Any()
     private val scopeJob: Job = requireNotNull(scope.coroutineContext[Job]) { "The scope has no Job" }
     private val mutableState = MutableStateFlow<ConnectionState>(ConnectionState.Idle)
@@ -133,6 +145,24 @@ class ConnectionManager(
     /** Guarded by [lock]. */
     private var closed = false
     private var generation = 0L
+
+    /**
+     * What the [ConnectionSignals] told, as the reconnect waits follow it: whether the device has
+     * a network (online until told otherwise), and a count of the signals that end a wait on the
+     * timer at once. Written under [lock]. Each such signal makes a new value, so a waiter that
+     * compares with the value it took before publishing its wait never misses one, however quickly
+     * others follow it: a state flow may skip values, never the last one.
+     */
+    private val signals = MutableStateFlow(SignalStatus(online = true, wakeups = 0))
+
+    /** Whether the device has a network now. */
+    private val online: Boolean get() = signals.value.online
+
+    /** Guarded by [lock]: the default network now; null while there is none, or before the first signal. */
+    private var defaultNetwork: Any? = null
+
+    /** Guarded by [lock]: the last network named the default, kept while there is none, to tell a switch. */
+    private var lastNetwork: Any? = null
 
     /**
      * Guarded by [lock]: the known-host write under way, if any, completed when it ends. A write
@@ -309,10 +339,69 @@ class ConnectionManager(
      * Reconnects now: a standing connection is dropped and made again, and a wait before a
      * reconnect attempt ends at once. For when the app learns of a problem first, for example a
      * network change; a server or event-stream drop is noticed without it. Does nothing while idle,
-     * stopped or connecting.
+     * stopped or connecting, and nothing to a wait for the network (see [ConnectionSignals]), which
+     * ends only when the network is back.
      */
     fun reconnect() {
         synchronized(lock) { current }?.kicks?.trySend(Unit)
+    }
+
+    /**
+     * A first network is only noted. A switch to another network ends a wait on the timer at once
+     * and drops a standing connection once, as [reconnect] does; a network that comes back after a
+     * loss ends any reconnect wait at once. The same network again changes nothing.
+     */
+    override fun networkAvailable(network: Any) {
+        val kicked = synchronized(lock) {
+            val before = signals.value
+            val previous = lastNetwork
+            lastNetwork = network
+            defaultNetwork = network
+            val switched = previous != null && previous != network
+            // A return after a loss, or a switch, is a new value even when no waiter saw the loss.
+            if (!before.online || switched) signals.value = SignalStatus(online = true, wakeups = before.wakeups + 1)
+            // A reconnect wait follows [signals] by itself; only a standing connection needs the kick.
+            current?.takeIf { switched && mutableState.value is ConnectionState.Connected }
+        }
+        kicked?.kicks?.trySend(Unit)
+    }
+
+    /** From now on no reconnect attempt is made until a network is available again. */
+    override fun networkLost(network: Any) {
+        synchronized(lock) {
+            val now = defaultNetwork
+            if (now != null && now != network) return
+            defaultNetwork = null
+            signals.value = signals.value.copy(online = false)
+        }
+    }
+
+    /**
+     * Ends a wait on the timer at once; a wait for the network goes on. After the attempts of a
+     * connection that stood ran out on a retryable error, and while [state] still shows that very
+     * error, reconnects the same profile with a fresh attempt count: at once or, without a network,
+     * once it is back. Anything else, a second signal during that reconnect included, does nothing.
+     */
+    override fun appForegrounded() {
+        val run: Run
+        val previous = synchronized(lock) {
+            if (closed) return
+            // A wait on the timer ends at once, also one that is about to start; a wait for the
+            // network only follows [online].
+            signals.value = signals.value.let { it.copy(wakeups = it.wakeups + 1) }
+            val last = current ?: return
+            val now = mutableState.value
+            if (now !is ConnectionState.Error || now !== last.shown || !last.exhausted) return
+            run = Run(last.profile, resumeAfter = now.error)
+            // As in [connect]: a scope that ended just now cancels the job at once.
+            if (closed) return
+            current = run
+            // What the run publishes first, so that a second signal already finds the error gone.
+            mutableState.value = run.firstWait(online) ?: ConnectionState.Ssh(RESUMED_ATTEMPT)
+            last
+        }
+        previous.stop()
+        run.start()
     }
 
     /**
@@ -588,6 +677,13 @@ class ConnectionManager(
         }
     }
 
+    /**
+     * What the signals told: whether the device has a network, and how many signals so far end a
+     * wait on the timer at once (a network back after a loss, a switch to another network, the
+     * foreground). Holds no network, only that count.
+     */
+    private data class SignalStatus(val online: Boolean, val wakeups: Long)
+
     /** Why a connection that was published as connected ended, and whether its event stream opened. */
     private class Drop(val cause: ConnectionError, val stood: Boolean, val trace: Throwable?)
 
@@ -598,7 +694,15 @@ class ConnectionManager(
      * One [connect], or one [acceptChangedHostKey], which first stores [replacement]: its job, what
      * it holds open, and its waiting approval.
      */
-    private inner class Run(val profile: ServerProfile, private val replacement: Replacement? = null) {
+    private inner class Run(
+        val profile: ServerProfile,
+        private val replacement: Replacement? = null,
+        /**
+         * Set for the reconnect [appForegrounded] starts after the attempts ran out on this error: it
+         * goes on as a connection that stood, from attempt [RESUMED_ATTEMPT].
+         */
+        private val resumeAfter: ConnectionError? = null,
+    ) {
         private val held = ArrayList<AutoCloseable>()
         /**
          * Set without [held], so that [stop] never waits for a cleanup that holds it across a
@@ -610,6 +714,12 @@ class ConnectionManager(
 
         /** Guarded by [lock]: the last state this run published, as [state] holds it. */
         var shown: ConnectionState? = null
+
+        /**
+         * Guarded by [lock]: the run ended because the attempts of a connection that stood ran out
+         * on a retryable error; [shown] is that error.
+         */
+        var exhausted = false
 
         @Volatile
         var pending: PendingApproval? = null
@@ -886,10 +996,27 @@ class ConnectionManager(
             return RELEASES.launch { releaseAll() }
         }
 
+        /**
+         * The wait a resumed run starts with: one for the network when there is none ([online] is
+         * false), else null, as the run then makes its attempt at once.
+         */
+        fun firstWait(online: Boolean): ConnectionState.Reconnecting? {
+            val cause = resumeAfter ?: return null
+            if (online) return null
+            return ConnectionState.Reconnecting(
+                RESUMED_ATTEMPT,
+                options.reconnect.delayBefore(RESUMED_ATTEMPT),
+                cause,
+                waitingForNetwork = true,
+            )
+        }
+
         private suspend fun execute(profile: ServerProfile) {
             val policy = options.reconnect
-            var attempt = 0
-            var everConnected = false
+            var attempt = if (resumeAfter != null) RESUMED_ATTEMPT else 0
+            var everConnected = resumeAfter != null
+            val start = signals.value
+            firstWait(start.online)?.let { awaitNextAttempt(it, start, trace = null) }
             while (true) {
                 var failure: Throwable? = null
                 val error = try {
@@ -919,21 +1046,88 @@ class ConnectionManager(
                     failure = cancelled
                     ConnectionError.Unexpected(cancelled)
                 }
+                // Taken before anything is published, so that no signal from here on is missed.
+                val seen = signals.value
                 val ended = failure
                 val trace = { ended ?: ConnectionEndTrace("ended: ${error.javaClass.simpleName}") }
                 if (!everConnected || !error.retryable) {
                     publishEnd(ConnectionState.Error(error), trace)
                     return
                 }
-                attempt++
+                // An attempt that failed once the network was known gone is made again when it is
+                // back, without counting: it never had a chance.
+                if (attempt == 0 || seen.online) attempt++
                 val limit = policy.maxAttempts
                 if (limit != null && attempt > limit) {
+                    synchronized(lock) { exhausted = true }
                     publishEnd(ConnectionState.Error(error), trace)
                     return
                 }
                 val wait = policy.delayBefore(attempt)
-                publishEnd(ConnectionState.Reconnecting(attempt, wait, error), trace)
-                withTimeoutOrNull(wait) { kicks.receive() }
+                awaitNextAttempt(ConnectionState.Reconnecting(attempt, wait, error, waitingForNetwork = !seen.online), seen, trace)
+            }
+        }
+
+        /**
+         * Publishes [waiting], with [trace] as the connection's end when there is one, and waits
+         * before its attempt. [seen] is what the signals told when the wait was decided, taken
+         * before [waiting] was made and published; the wait compares with it, so a signal that comes
+         * at any moment after, before the wait has even started included, is never missed.
+         *
+         * With a network: [ConnectionState.Reconnecting.retryIn], cut short by [reconnect] or by any
+         * new signal value: the network gone, back after a loss (even one so quick that no waiter
+         * saw the loss), switched, or the foreground. Without one: until the network is back,
+         * however long; a [reconnect] meanwhile is answered by the attempt that follows.
+         *
+         * Whatever ended a wait, the network is checked again, on a fresh value, before the
+         * attempt: one that is gone by then turns the wait into a wait for the network, with the
+         * state saying so and no attempt counted. A network that comes back starts the attempt at once.
+         */
+        private suspend fun awaitNextAttempt(
+            waiting: ConnectionState.Reconnecting,
+            seen: SignalStatus,
+            trace: (() -> Throwable)?,
+        ) {
+            if (trace != null) publishEnd(waiting, trace) else publish(waiting)
+            var shown = waiting
+            var last = seen
+            var waited = false
+            while (true) {
+                if (!last.online) {
+                    if (!shown.waitingForNetwork) {
+                        shown = shown.copy(waitingForNetwork = true)
+                        publish(shown)
+                    }
+                    // Reads the current value first: a network that is back already ends it at once.
+                    last = signals.first { it.online }
+                    // A request made while offline is answered by the attempt that follows.
+                    while (kicks.tryReceive().isSuccess) Unit
+                    waited = true
+                    continue
+                }
+                if (waited) return
+                awaitTimerOrSignal(shown.retryIn, last)
+                // The timer, a request or a new signal value; the check above decides, on a fresh value.
+                waited = true
+                last = signals.value
+            }
+        }
+
+        /**
+         * Waits until [wait] runs out, a [reconnect] comes, or [signals] holds anything but [seen].
+         * Each signal that matters makes a new value and no value comes back, so the comparison
+         * misses none, whatever the flow skipped.
+         */
+        private suspend fun awaitTimerOrSignal(wait: Duration, seen: SignalStatus) {
+            withTimeoutOrNull(wait) {
+                coroutineScope {
+                    val changed = async { signals.first { it != seen } }
+                    select<Unit> {
+                        kicks.onReceive { }
+                        changed.onAwait { }
+                    }
+                    changed.cancel()
+                }
             }
         }
 
@@ -1218,6 +1412,9 @@ class ConnectionManager(
     }
 
     private companion object {
+        /** The attempt a reconnect from the foreground starts with, after the attempts ran out. */
+        const val RESUMED_ATTEMPT = 1
+
         /** The server's shutdown notice, which the client passes on as [ServerEvent.Unknown]. */
         const val SHUTDOWN_EVENT = "location.shutdown"
 

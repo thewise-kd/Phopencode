@@ -91,5 +91,6 @@ val connectionModule: Module = module {
     }
 }
 
-/** The core objects the feature modules build on, and the keep-alive of the connection. */
-val coreModules: List<Module> = listOf(appScopeModule, storageModule, connectionModule, keepAliveModule)
+/** The core objects the feature modules build on, the keep-alive of the connection and its reconnect signals. */
+val coreModules: List<Module> =
+    listOf(appScopeModule, storageModule, connectionModule, keepAliveModule, connectionSignalsModule)

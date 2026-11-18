@@ -64,8 +64,16 @@ sealed interface ConnectionState {
     /**
      * Waiting [retryIn] before reconnect attempt [attempt] (from 1), after [cause]: the drop of a
      * connection that stood, or the failure of the previous attempt.
+     *
+     * @property waitingForNetwork The device has no network, as [ConnectionSignals] told: the
+     *   attempt waits for the network instead of [retryIn], and starts as soon as it is back.
      */
-    data class Reconnecting(val attempt: Int, val retryIn: Duration, val cause: ConnectionError) : ConnectionState
+    data class Reconnecting(
+        val attempt: Int,
+        val retryIn: Duration,
+        val cause: ConnectionError,
+        val waitingForNetwork: Boolean = false,
+    ) : ConnectionState
 
     /** Stopped; nothing is open. A new [ConnectionManager.connect] starts over. */
     data class Error(val error: ConnectionError) : ConnectionState
