@@ -30,12 +30,17 @@ import org.koin.mp.KoinPlatform
  * notification and never stops because it saw the connection end: the watcher may see a quick end
  * and reconnect as one active stretch, and then nothing would start the service again.
  *
+ * Only the watcher's start keeps the service past a stop. The system refuses a stop when any intent
+ * was sent after it, a re-post or a disconnect as well as a start; the stop then stays pending, and
+ * the next intent that is not a start ends the service in its place.
+ *
  * Its notification shows only whether the app is connected, connecting or reconnecting, never a
  * server detail. Its one action disconnects on the app scope; the watcher then stops the service.
  *
  * If the system refuses the foreground start, the service stops at once and does not try again;
  * the connection goes on without it. Without the notification permission of API 33 and later the
- * service still runs; the notification just does not show.
+ * service still runs; the notification just does not show until the user grants it, when the app
+ * sends [repostIntent] (see `AskForKeepAliveNotifications`).
  *
  * The connection and the app scope come from the Koin the app started, looked up when the service
  * is created.
@@ -45,6 +50,15 @@ class KeepAliveService : Service() {
     private lateinit var appScope: CoroutineScope
     private var scope: CoroutineScope? = null
     private var inForeground = false
+
+    /** A stop was refused because a later intent was sent; only a start may cancel it. */
+    private var stopPending = false
+
+    /**
+     * The system's `stopSelfResult`: false when an intent was sent after [startId]. Tests stand in
+     * for it, as Robolectric's always succeeds.
+     */
+    internal var stopIfLatest: (startId: Int) -> Boolean = { stopSelfResult(it) }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -60,11 +74,14 @@ class KeepAliveService : Service() {
         when (intent?.action) {
             ACTION_DISCONNECT -> {
                 appScope.launch { connection.disconnect() }
-                // Created by the action alone, as after the service was gone: nothing will stop it.
-                if (!inForeground) stopSelf(startId)
+                // Created by the action alone, as after the service was gone, or sent after a stop
+                // that it made the system refuse: nothing else will stop it.
+                if (!inForeground || stopPending) stop(startId)
             }
             ACTION_STOP -> stop(startId)
+            ACTION_REPOST -> if (inForeground && !stopPending) repost() else stop(startId)
             else -> {
+                stopPending = false
                 // Into the foreground first, whatever the state: startForegroundService owes it.
                 val status = keepAliveStatus(connection.state.value) ?: KeepAliveStatus.Connecting
                 if (goForeground(status)) follow() else stopSelf(startId)
@@ -95,6 +112,16 @@ class KeepAliveService : Service() {
         }
     }
 
+    /**
+     * Posts the notification for the current state again, as after the notification permission was
+     * granted: one posted before the grant may not show, and [follow] posts only when the text changes.
+     * With no connection active it posts nothing, and the watcher's stop follows.
+     */
+    private fun repost() {
+        val status = keepAliveStatus(connection.state.value) ?: return
+        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, keepAliveNotification(this, status))
+    }
+
     /** False when the system refused, as when the app is not allowed to start one from the background. */
     private fun goForeground(status: KeepAliveStatus): Boolean = try {
         ServiceCompat.startForeground(this, NOTIFICATION_ID, keepAliveNotification(this, status), foregroundType())
@@ -107,10 +134,17 @@ class KeepAliveService : Service() {
         false
     }
 
-    /** The watcher's stop. A start sent after it has a later id, so the service then stays. */
+    /**
+     * Stops the service, unless an intent was sent after [startId]: the stop then waits for it (see
+     * [stopPending]). A later start keeps the service; any other intent stops it then.
+     */
     private fun stop(startId: Int) {
-        if (!stopSelfResult(startId)) return
-        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        if (!stopIfLatest(startId)) {
+            stopPending = true
+            return
+        }
+        stopPending = false
+        if (inForeground) ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         inForeground = false
     }
 
@@ -119,6 +153,7 @@ class KeepAliveService : Service() {
         internal const val NOTIFICATION_ID = 9_039
         private const val ACTION_DISCONNECT = "io.github.thewisekd.phopencode.keepalive.DISCONNECT"
         private const val ACTION_STOP = "io.github.thewisekd.phopencode.keepalive.STOP"
+        private const val ACTION_REPOST = "io.github.thewisekd.phopencode.keepalive.REPOST"
 
         /** `specialUse` exists from API 34; below it the type the manifest names is not passed. */
         private fun foregroundType(): Int =
@@ -127,6 +162,13 @@ class KeepAliveService : Service() {
         /** What the watcher sends to stop the service, after the start it sent before. */
         internal fun stopIntent(context: Context): Intent =
             Intent(context, KeepAliveService::class.java).setAction(ACTION_STOP)
+
+        /**
+         * What the app sends after the notification permission was granted, to show the notification
+         * without a reconnect. A service that is not in the foreground only stops again.
+         */
+        internal fun repostIntent(context: Context): Intent =
+            Intent(context, KeepAliveService::class.java).setAction(ACTION_REPOST)
 
         /** What the notification's disconnect action sends this service. */
         internal fun disconnectIntent(context: Context): Intent =

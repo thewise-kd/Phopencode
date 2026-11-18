@@ -277,6 +277,102 @@ class KeepAliveServiceTest {
     }
 
     @Test
+    fun `a re-post after the permission was granted shows the current notification again`() {
+        val controller = started()
+        val notifications = shadowOf(context.getSystemService(NotificationManager::class.java))
+        notifications.cancelAll()
+        connection.state.value = RECONNECTING
+        idle()
+        notifications.cancelAll()
+
+        controller.withIntent(KeepAliveService.repostIntent(context)).startCommand(0, 2)
+        idle()
+
+        assertEquals("Reconnecting…", assertNotNull(shown()).title())
+        assertFalse(shadowOf(controller.get()).isStoppedBySelf)
+        assertEquals(0, connection.disconnects)
+    }
+
+    @Test
+    fun `a re-post that reaches a service that was not running only stops it`() {
+        val service = started(KeepAliveService.repostIntent(context)).get()
+
+        assertNull(shadowOf(service).lastForegroundNotification)
+        assertNull(shown())
+        assertTrue(shadowOf(service).isStoppedBySelf)
+        assertEquals(0, connection.disconnects)
+    }
+
+    /** What became of a run of intents, all sent before the first reached the service. */
+    private class Delivered(val service: KeepAliveService, val stopped: List<Int>)
+
+    /**
+     * Sends [intents] with start ids 1, 2, … as the system would if all were sent at once: a stop
+     * succeeds only for the last id, as `stopSelfResult` refuses one with a later intent sent.
+     * Robolectric's own `stopSelfResult` always succeeds, so the test stands in for it.
+     */
+    private fun deliver(vararg intents: Intent): Delivered {
+        val controller = Robolectric.buildService(KeepAliveService::class.java, intents.first()).create()
+        controllers += controller
+        val stopped = mutableListOf<Int>()
+        controller.get().stopIfLatest = { startId -> (startId == intents.size).also { if (it) stopped += startId } }
+        intents.forEachIndexed { index, intent ->
+            controller.withIntent(intent).startCommand(0, index + 1)
+            idle()
+        }
+        return Delivered(controller.get(), stopped)
+    }
+
+    private fun startIntent() = Intent(context, KeepAliveService::class.java)
+
+    @Test
+    fun `a re-post sent after a stop ends the service the stop could not`() {
+        val run = deliver(startIntent(), KeepAliveService.stopIntent(context), KeepAliveService.repostIntent(context))
+
+        assertEquals(listOf(3), run.stopped)
+        assertTrue(shadowOf(run.service).isForegroundStopped)
+    }
+
+    @Test
+    fun `a stop sent after a re-post ends the service`() {
+        val run = deliver(startIntent(), KeepAliveService.repostIntent(context), KeepAliveService.stopIntent(context))
+
+        assertEquals(listOf(3), run.stopped)
+        assertTrue(shadowOf(run.service).isForegroundStopped)
+    }
+
+    @Test
+    fun `a start sent after a stop keeps the service in the foreground`() {
+        val run = deliver(startIntent(), KeepAliveService.stopIntent(context), startIntent())
+
+        assertEquals(emptyList<Int>(), run.stopped)
+        assertFalse(shadowOf(run.service).isForegroundStopped)
+        assertEquals(KeepAliveService.NOTIFICATION_ID, shadowOf(run.service).lastForegroundNotificationId)
+    }
+
+    @Test
+    fun `a start after a stop and a re-post keeps the service, as the re-post cannot end it`() {
+        val run = deliver(
+            startIntent(),
+            KeepAliveService.stopIntent(context),
+            KeepAliveService.repostIntent(context),
+            startIntent(),
+        )
+
+        assertEquals(emptyList<Int>(), run.stopped)
+        assertFalse(shadowOf(run.service).isForegroundStopped)
+    }
+
+    @Test
+    fun `a disconnect sent after a stop ends the service the stop could not`() {
+        val run = deliver(startIntent(), KeepAliveService.stopIntent(context), KeepAliveService.disconnectIntent(context))
+
+        assertEquals(1, connection.disconnects)
+        assertEquals(listOf(3), run.stopped)
+        assertTrue(shadowOf(run.service).isForegroundStopped)
+    }
+
+    @Test
     fun `tapping the notification opens the main activity through an immutable intent`() {
         val notification = started().get().foreground()
         val tap = assertNotNull(notification.contentIntent)

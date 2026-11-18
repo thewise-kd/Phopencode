@@ -22,6 +22,9 @@ import androidx.navigation.compose.rememberNavController
 import io.github.thewisekd.phopencode.core.storage_api.SettingsRepository
 import io.github.thewisekd.phopencode.core.storage_api.ThemePreference
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
+import io.github.thewisekd.phopencode.keepalive.AskForKeepAliveNotifications
+import io.github.thewisekd.phopencode.keepalive.KeepAliveConnection
+import io.github.thewisekd.phopencode.keepalive.NotificationAsks
 import io.github.thewisekd.phopencode.navigation.AppNavHost
 import io.github.thewisekd.phopencode.navigation.openDeepLink
 import kotlinx.coroutines.flow.Flow
@@ -41,9 +44,14 @@ import org.koin.android.ext.android.inject
  * Deep links, such as a notification's `phopencode://pending`: the NavHost opens the one that
  * starts the activity; one that reaches the running activity opens in [onNewIntent], above the
  * current screen.
+ *
+ * It hosts the one request for the notification permission of the keep-alive (P9.41): once per
+ * install, on API 33 and later, when a connection first becomes active while it is visible.
  */
 class MainActivity : ComponentActivity() {
     private val settings: SettingsRepository by inject()
+    private val keepAliveConnection: KeepAliveConnection by inject()
+    private val notificationAsks: NotificationAsks by inject()
 
     /** The NavHost's controller, once the content is composed; `onNewIntent` hands it deep links. */
     internal var navController: NavHostController? = null
@@ -63,6 +71,7 @@ class MainActivity : ComponentActivity() {
                 )
                 onDispose {}
             }
+            AskForKeepAliveNotifications(keepAliveConnection, notificationAsks)
             PhopencodeTheme(darkTheme = darkTheme) {
                 AppNavHost(
                     modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
