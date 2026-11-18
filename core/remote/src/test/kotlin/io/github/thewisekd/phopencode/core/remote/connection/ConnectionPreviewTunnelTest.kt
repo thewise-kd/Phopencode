@@ -286,6 +286,71 @@ class ConnectionPreviewTunnelTest {
     }
 
     @Test
+    fun `a switch to another network closes the tunnels and a preview opens on the new session`() = runTest {
+        val probe = TunnelProbe().apply { sessionClosesTunnels = false }
+        val fx = fixture(probe)
+        connected(fx)
+        fx.manager.networkAvailable(WIFI)
+        val old = fx.manager.openPreviewTunnel(PREVIEW_PORT)
+
+        fx.manager.networkAvailable(MOBILE)
+        runCurrent()
+
+        assertEquals(1, probe.opened.single().closes.get(), "closed once, by the manager")
+        assertRefusesSockets(old)
+
+        advanceTimeBy(1.seconds + 1.milliseconds)
+        runCurrent()
+        assertIs<ConnectionState.Connected>(fx.manager.state.value)
+        val fresh = fx.manager.openPreviewTunnel(PREVIEW_PORT)
+        assertEquals(listOf(PREVIEW_PORT), fx.connector.sessions.last().loopbackTunnels.map { it.port })
+        fresh.connectTo("127.0.0.1")
+        assertEquals(1, probe.opened.first().closes.get(), "the old tunnel is not closed again")
+    }
+
+    @Test
+    fun `losing the network while connected leaves the tunnels open`() = runTest {
+        val probe = TunnelProbe()
+        val fx = fixture(probe)
+        connected(fx)
+        fx.manager.networkAvailable(WIFI)
+        val tunnel = fx.manager.openPreviewTunnel(PREVIEW_PORT)
+
+        fx.manager.networkLost(WIFI)
+        runCurrent()
+
+        assertIs<ConnectionState.Connected>(fx.manager.state.value)
+        assertEquals(0, probe.opened.single().closes.get())
+        assertTrue(tunnel.connectTo("127.0.0.1").isConnected)
+    }
+
+    @Test
+    fun `while waiting for the network no tunnel opens, and one opens once the network is back`() = runTest {
+        val probe = TunnelProbe()
+        val fx = fixture(probe)
+        connected(fx)
+        fx.manager.networkAvailable(WIFI)
+        val old = fx.manager.openPreviewTunnel(PREVIEW_PORT)
+        fx.manager.networkLost(WIFI)
+        fx.connector.sessions.single().loseConnection()
+        runCurrent()
+
+        val waiting = assertIs<ConnectionState.Reconnecting>(fx.manager.state.value)
+        assertTrue(waiting.waitingForNetwork)
+        assertEquals(1, probe.opened.single().closes.get())
+        assertRefusesSockets(old)
+        assertFailsWith<NotConnectedException> { fx.manager.openPreviewTunnel(PREVIEW_PORT) }
+        assertEquals(1, probe.opened.size, "nothing opened while waiting")
+
+        fx.manager.networkAvailable(WIFI)
+        runCurrent()
+
+        assertIs<ConnectionState.Connected>(fx.manager.state.value)
+        fx.manager.openPreviewTunnel(PREVIEW_PORT)
+        assertEquals(listOf(PREVIEW_PORT), fx.connector.sessions.last().loopbackTunnels.map { it.port })
+    }
+
+    @Test
     fun `tunnels close on disconnect`() = runTest {
         val probe = TunnelProbe().apply { sessionClosesTunnels = false }
         val fx = fixture(probe)
@@ -383,5 +448,9 @@ class ConnectionPreviewTunnelTest {
         const val OTHER_PREVIEW_PORT = 5173
         const val OPENCODE_PORT = 4096
         const val STARTED_PORT = 4100
+
+        /** Two networks, as the platform names them; only compared for equality. */
+        val WIFI = Any()
+        val MOBILE = Any()
     }
 }
