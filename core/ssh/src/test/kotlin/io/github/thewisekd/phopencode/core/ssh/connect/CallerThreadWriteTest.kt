@@ -81,7 +81,13 @@ class CallerThreadWriteTest {
         }
     }
 
-    private fun realTime(body: suspend () -> Unit) = runTest(timeout = 10.seconds) {
+    /**
+     * The whole body runs on real threads, so [REAL_TIME_BUDGET] is wall-clock time. Each step that
+     * could hang keeps its own short bound ([onMain], [eventually], the latch and `withTimeout`
+     * waits); this budget only has to cover the work, which for the first test in the JVM includes
+     * loading BouncyCastle, MINA and sshj.
+     */
+    private fun realTime(body: suspend () -> Unit) = runTest(timeout = REAL_TIME_BUDGET) {
         withContext(Dispatchers.IO) { body() }
     }
 
@@ -225,6 +231,14 @@ class CallerThreadWriteTest {
 
     private companion object {
         const val MAIN_THREAD = "test-main"
+
+        /**
+         * The first test in a JVM spends 10-12 s of process CPU on a Pi starting the server and
+         * connecting; it took 4-8 s of wall time without added load and 16.5 s with the CPUs oversubscribed
+         * (eight busy loops on four cores), where 10 s failed. 45 s leaves room over that and stays
+         * under the class's 60 s JUnit limit, so this timeout, with its coroutine dump, comes first.
+         */
+        val REAL_TIME_BUDGET = 45.seconds
         val ACCEPT = HostKeyVerifier { _, _ -> HostKeyDecision.Accept }
     }
 }
