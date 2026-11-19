@@ -3,6 +3,7 @@ package io.github.thewisekd.phopencode.feature.catalog.logic.skills
 import io.github.thewisekd.phopencode.core.api.ApiException
 import io.github.thewisekd.phopencode.core.model.Skill
 import io.github.thewisekd.phopencode.feature.catalog.logic.contract.CatalogFailure
+import io.github.thewisekd.phopencode.feature.catalog.logic.contract.CatalogRead
 import io.github.thewisekd.phopencode.feature.catalog.logic.contract.SkillCatalog
 import io.github.thewisekd.phopencode.feature.catalog.logic.contract.SkillsEvent
 import io.github.thewisekd.phopencode.feature.catalog.logic.contract.SkillsIntent
@@ -35,7 +36,10 @@ import kotlinx.coroutines.yield
  * - [SkillsIntent.Reload] asks the server again: as [SkillsState.refreshing] while a list is on
  *   screen, else as [SkillsState.loading]. It replaces a refresh that runs, and does nothing while
  *   another reload runs.
- * - A failure keeps the list read before and the search.
+ * - A failure keeps the list read before and the search, unless it came from another connection
+ *   than the one that list was read on: then the list, and what the search shows of it, goes, so
+ *   one server's skills never stand beside another's error. A failure with no connection standing
+ *   keeps the list. The query always stays.
  *
  * Nothing here logs: the skills and the query are the user's.
  *
@@ -60,6 +64,9 @@ class DefaultSkillsPresenter(
     private var load: Job? = null
     private var loadIsReload = false
     private var loadToken: Any? = null
+
+    /** The generation the list on screen was read on; null when none is shown or it is not known. */
+    private var shownGeneration: Long? = null
 
     init {
         synchronized(lock) { start(refresh = false) }
@@ -99,26 +106,33 @@ class DefaultSkillsPresenter(
         if (cancelRunning) load?.cancel()
         load = scope.launch {
             yield()
-            val outcome = try {
-                Result.success(skills.skills(refresh))
-            } catch (e: ApiException) {
-                Result.failure<List<Skill>>(e)
-            }
+            val read = skills.readSkills(refresh)
+            // Only an ApiException is the server's answer; anything else fails as it always has.
+            read.outcome.exceptionOrNull()?.let { if (it !is ApiException) throw it }
             synchronized(lock) {
-                if (loadToken === token) show(outcome)
+                if (loadToken === token) show(read)
             }
         }
     }
 
     /** Called holding [lock], by the current load. */
-    private fun show(outcome: Result<List<Skill>>) {
+    private fun show(read: CatalogRead<List<Skill>>) {
+        val outcome = read.outcome
+        val shown = shownGeneration
+        val otherConnection = read.generation != null && shown != null && read.generation != shown
+        if (outcome.isSuccess) {
+            shownGeneration = read.generation
+        } else if (otherConnection) {
+            shownGeneration = null
+        }
         mutableState.update { current ->
             outcome.fold(
-                onSuccess = { read ->
-                    current.copy(loading = false, refreshing = false, error = null, skills = read, shown = read.matching(current.query))
+                onSuccess = { list ->
+                    current.copy(loading = false, refreshing = false, error = null, skills = list, shown = list.matching(current.query))
                 },
                 onFailure = { e ->
-                    current.copy(loading = false, refreshing = false, error = CatalogFailure.of((e as ApiException).error))
+                    val failed = current.copy(loading = false, refreshing = false, error = CatalogFailure.of((e as ApiException).error))
+                    if (otherConnection) failed.copy(skills = emptyList(), shown = emptyList()) else failed
                 },
             )
         }

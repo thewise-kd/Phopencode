@@ -1,5 +1,7 @@
 package io.github.thewisekd.phopencode.feature.catalog.logic.registry
 
+import io.github.thewisekd.phopencode.feature.catalog.logic.contract.CatalogList
+import io.github.thewisekd.phopencode.feature.catalog.logic.contract.CatalogRead
 import io.github.thewisekd.phopencode.feature.catalog.logic.contract.RegistryCatalog
 import io.github.thewisekd.phopencode.feature.catalog.logic.contract.RegistryEvent
 import io.github.thewisekd.phopencode.feature.catalog.logic.contract.RegistryIntent
@@ -21,7 +23,10 @@ import kotlinx.coroutines.yield
 
 /**
  * The registry's three tabs. Each list is read through [registry] on its own, so one that fails
- * shows its error on its tab and leaves the others; a failed read keeps the items read before it.
+ * shows its error on its tab and leaves the others; a failed read keeps the items read before it,
+ * unless it failed on another connection than the one those items were read on: then they go (and
+ * for the models, the providers and the default too), so one server's lists never stand beside
+ * another's error. A failure with no connection standing keeps them.
  * [RegistryIntent.Refresh] reads every list again through the kept ones; [RegistryIntent.Reload]
  * reads one tab from the server. Either one starts a new read for each list it covers, and only a
  * list's newest read writes it: an older one, perhaps still running on a connection since replaced,
@@ -41,6 +46,9 @@ class DefaultRegistryPresenter(
 
     /** Each list's newest read, under [lock]; only it writes the list. */
     private val newest = mutableMapOf<RegistryTab, Job>()
+
+    /** The generation each list on screen was read on, under [lock]; absent when none is known. */
+    private val shownGenerations = mutableMapOf<RegistryTab, Long>()
 
     override val state: StateFlow<RegistryState> = mutableState.asStateFlow()
 
@@ -67,9 +75,9 @@ class DefaultRegistryPresenter(
             yield()
             val self = coroutineContext[Job]
             when (tab) {
-                RegistryTab.Commands -> readCommands(refresh) { change -> write(tab, self, change) }
-                RegistryTab.Agents -> readAgents(refresh) { change -> write(tab, self, change) }
-                RegistryTab.Models -> readModels(refresh) { change -> write(tab, self, change) }
+                RegistryTab.Commands -> loadCommands(tab, self, refresh)
+                RegistryTab.Agents -> loadAgents(tab, self, refresh)
+                RegistryTab.Models -> loadModels(tab, self, refresh)
             }
         }
         val previous = synchronized(lock) { newest.put(tab, job) }
@@ -84,30 +92,64 @@ class DefaultRegistryPresenter(
         }
     }
 
-    private suspend fun readCommands(refresh: Boolean, write: ((RegistryState) -> RegistryState) -> Unit) {
-        write { it.copy(commands = it.commands.reading()) }
-        val outcome = attempt { registry.commands(refresh) }
-        write { it.copy(commands = it.commands.settled(outcome) { commands -> commands }) }
-    }
-
-    private suspend fun readAgents(refresh: Boolean, write: ((RegistryState) -> RegistryState) -> Unit) {
-        write { it.copy(agents = it.agents.reading()) }
-        val outcome = attempt { registry.agents(refresh) }
-        write { state ->
-            state.copy(agents = state.agents.settled(outcome) { agents -> agents.filterNot { it.hidden } })
+    /**
+     * Ends [tab]'s read [job] with [outcome], only while [job] is its newest read. [change] learns
+     * whether the read failed on another connection than the one [tab]'s list on screen came from,
+     * when that list must go.
+     */
+    private fun <T> settle(
+        tab: RegistryTab,
+        job: Job?,
+        read: CatalogRead<T>,
+        outcome: Outcome<T>,
+        change: (RegistryState, otherConnection: Boolean) -> RegistryState,
+    ) {
+        synchronized(lock) {
+            if (newest[tab] !== job) return
+            val generation = read.generation
+            val shown = shownGenerations[tab]
+            val otherConnection = outcome is Outcome.Failed && generation != null && shown != null && generation != shown
+            when {
+                outcome is Outcome.Read -> if (generation != null) shownGenerations[tab] = generation else shownGenerations.remove(tab)
+                otherConnection -> shownGenerations.remove(tab)
+            }
+            mutableState.update { change(it, otherConnection) }
         }
     }
 
-    private suspend fun readModels(refresh: Boolean, write: ((RegistryState) -> RegistryState) -> Unit) {
-        write { it.copy(models = it.models.reading()) }
-        val outcome = attempt { registry.models(refresh) }
-        write { state ->
-            val models = state.models.settled(outcome) { catalog -> catalog.models }
-            when (outcome) {
-                is Outcome.Read ->
+    private suspend fun loadCommands(tab: RegistryTab, job: Job?, refresh: Boolean) {
+        write(tab, job) { it.copy(commands = it.commands.reading()) }
+        val read = registry.readCommands(refresh)
+        val outcome = attempt { read.outcome.getOrThrow() }
+        settle(tab, job, read, outcome) { state, otherConnection ->
+            state.copy(commands = state.commands.droppedIf(otherConnection).settled(outcome) { commands -> commands })
+        }
+    }
+
+    private suspend fun loadAgents(tab: RegistryTab, job: Job?, refresh: Boolean) {
+        write(tab, job) { it.copy(agents = it.agents.reading()) }
+        val read = registry.readAgents(refresh)
+        val outcome = attempt { read.outcome.getOrThrow() }
+        settle(tab, job, read, outcome) { state, otherConnection ->
+            state.copy(agents = state.agents.droppedIf(otherConnection).settled(outcome) { agents -> agents.filterNot { it.hidden } })
+        }
+    }
+
+    private suspend fun loadModels(tab: RegistryTab, job: Job?, refresh: Boolean) {
+        write(tab, job) { it.copy(models = it.models.reading()) }
+        val read = registry.readModels(refresh)
+        val outcome = attempt { read.outcome.getOrThrow() }
+        settle(tab, job, read, outcome) { state, otherConnection ->
+            val models = state.models.droppedIf(otherConnection).settled(outcome) { catalog -> catalog.models }
+            when {
+                outcome is Outcome.Read ->
                     state.copy(models = models, providers = outcome.value.providers, defaultModel = outcome.value.defaultModel)
-                is Outcome.Failed -> state.copy(models = models)
+                otherConnection -> state.copy(models = models, providers = emptyList(), defaultModel = null)
+                else -> state.copy(models = models)
             }
         }
     }
+
+    private fun <T> CatalogList<T>.droppedIf(otherConnection: Boolean): CatalogList<T> =
+        if (otherConnection) copy(items = emptyList()) else this
 }

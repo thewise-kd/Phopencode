@@ -8,6 +8,7 @@ import io.github.thewisekd.phopencode.core.remote.connection.ConnectionState
 import io.github.thewisekd.phopencode.core.storage_api.HostEndpoint
 import io.github.thewisekd.phopencode.core.testing.api.FakeOpencodeClient
 import io.github.thewisekd.phopencode.feature.catalog.logic.contract.ActiveCatalogConnection
+import io.github.thewisekd.phopencode.feature.catalog.logic.contract.CatalogRead
 import io.github.thewisekd.phopencode.feature.catalog.logic.contract.SkillCatalog
 import java.util.Collections
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +41,11 @@ internal class RecordingSkillCatalog(private val delegate: SkillCatalog) : Skill
     override suspend fun skills(refresh: Boolean): List<Skill> {
         refreshes += refresh
         return delegate.skills(refresh)
+    }
+
+    override suspend fun readSkills(refresh: Boolean): CatalogRead<List<Skill>> {
+        refreshes += refresh
+        return delegate.readSkills(refresh)
     }
 }
 

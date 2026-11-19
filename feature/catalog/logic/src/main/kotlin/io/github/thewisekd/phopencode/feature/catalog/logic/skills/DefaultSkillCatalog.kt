@@ -4,6 +4,7 @@ import io.github.thewisekd.phopencode.core.api.ApiException
 import io.github.thewisekd.phopencode.core.api.CatalogApi
 import io.github.thewisekd.phopencode.core.model.Skill
 import io.github.thewisekd.phopencode.feature.catalog.logic.contract.CatalogConnection
+import io.github.thewisekd.phopencode.feature.catalog.logic.contract.CatalogRead
 import io.github.thewisekd.phopencode.feature.catalog.logic.contract.SkillCatalog
 import kotlinx.coroutines.CompletableDeferred
 
@@ -56,6 +57,17 @@ class DefaultSkillCatalog(private val connection: CatalogConnection) : SkillCata
 
     override suspend fun skills(refresh: Boolean): List<Skill> =
         connection.call { catalog, generation -> skillsOf(catalog, generation, refresh) }
+
+    /** As [skills], with the generation the call ran on; null when no connection stood. */
+    override suspend fun readSkills(refresh: Boolean): CatalogRead<List<Skill>> {
+        var ranOn: Long? = null
+        return CatalogRead.of({ ranOn }) {
+            connection.call { catalog, generation ->
+                ranOn = generation
+                skillsOf(catalog, generation, refresh)
+            }
+        }
+    }
 
     private suspend fun skillsOf(catalog: CatalogApi, generation: Long, refresh: Boolean): List<Skill> {
         while (true) {

@@ -10,6 +10,7 @@ import io.github.thewisekd.phopencode.core.model.Model
 import io.github.thewisekd.phopencode.core.model.ModelRef
 import io.github.thewisekd.phopencode.core.model.Skill
 import io.github.thewisekd.phopencode.core.remote.connection.ConnectionState
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -73,6 +74,12 @@ interface SkillCatalog {
      * @throws ApiException As [CatalogConnection.call].
      */
     suspend fun skills(refresh: Boolean = false): List<Skill>
+
+    /**
+     * Reads as [skills] does, and tells which generation the list or the failure belongs to. By
+     * default the generation is not known (null).
+     */
+    suspend fun readSkills(refresh: Boolean = false): CatalogRead<List<Skill>> = CatalogRead.of({ null }) { skills(refresh) }
 }
 
 /**
@@ -90,6 +97,48 @@ interface RegistryCatalog {
     suspend fun agents(refresh: Boolean = false): List<Agent>
 
     suspend fun models(refresh: Boolean = false): ModelCatalog
+
+    /**
+     * The `read` functions read as their namesakes do, and tell which generation the value or the
+     * failure belongs to. By default the generation is not known (null).
+     */
+    suspend fun readCommands(refresh: Boolean = false): CatalogRead<List<Command>> =
+        CatalogRead.of({ null }) { commands(refresh) }
+
+    suspend fun readAgents(refresh: Boolean = false): CatalogRead<List<Agent>> = CatalogRead.of({ null }) { agents(refresh) }
+
+    suspend fun readModels(refresh: Boolean = false): CatalogRead<ModelCatalog> = CatalogRead.of({ null }) { models(refresh) }
+}
+
+/**
+ * How a read through a catalog ended, and which connection it belongs to, so that a screen can tell
+ * whether a failure is about the server its lists came from.
+ *
+ * @property generation The generation of the connection the read ran on; null when no connection
+ *   stood, so none was asked, or when the catalog does not tell.
+ * @property outcome The value, or the failure: any exception but a cancellation, which is thrown.
+ */
+class CatalogRead<out T>(val generation: Long?, val outcome: Result<T>) {
+    /** Prints no value and no server text. */
+    override fun toString(): String =
+        "CatalogRead(generation=$generation, ${if (outcome.isSuccess) "read" else "failed"})"
+
+    companion object {
+        /**
+         * Runs [block] and catches its failure, cancellation aside; [generation] is asked once
+         * [block] has ended, so that [block] can note the generation it ran on.
+         */
+        suspend fun <T> of(generation: () -> Long?, block: suspend () -> T): CatalogRead<T> {
+            val outcome = try {
+                Result.success(block())
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                Result.failure(failure)
+            }
+            return CatalogRead(generation(), outcome)
+        }
+    }
 }
 
 /**

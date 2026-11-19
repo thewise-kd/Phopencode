@@ -243,4 +243,23 @@ class DefaultRegistryCatalogTest {
         assertFalse("secret" in registry.toString())
         assertEquals("DefaultRegistryCatalog", registry.toString())
     }
+
+    @Test
+    fun `a read tells the generation its value or its failure belongs to`() = runTest {
+        val commands = registry.readCommands()
+        assertEquals(1L, commands.generation)
+        assertEquals(listOf(Fixtures.review, Fixtures.init), commands.outcome.getOrThrow())
+
+        connection.generation = 2
+        connection.control.failNext(ApiError.Network)
+        val agents = registry.readAgents()
+        assertEquals(2L, agents.generation)
+        assertEquals(ApiError.Network, (agents.outcome.exceptionOrNull() as ApiException).error)
+        assertEquals(2L, registry.readModels().generation)
+
+        connection.generation = null
+        val closed = registry.readModels(refresh = true)
+        assertEquals(null, closed.generation)
+        assertEquals(ApiError.Closed, (closed.outcome.exceptionOrNull() as ApiException).error)
+    }
 }

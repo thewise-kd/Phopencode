@@ -235,4 +235,22 @@ class DefaultSkillCatalogTest {
 
         assertEquals("DefaultSkillCatalog", catalog.toString())
     }
+
+    @Test
+    fun `a read tells the generation its list or its failure belongs to`() = runTest {
+        server.connect(generation = 1).catalog.setSkills(listOf(skill("review")))
+        val read = catalog.readSkills()
+        assertEquals(1L, read.generation)
+        assertEquals(listOf("review"), read.outcome.getOrThrow().map { it.id })
+
+        server.connect(generation = 2).control.failNext(ApiError.Network)
+        val failed = catalog.readSkills()
+        assertEquals(2L, failed.generation)
+        assertEquals(ApiError.Network, (failed.outcome.exceptionOrNull() as ApiException).error)
+
+        server.disconnect()
+        val closed = catalog.readSkills()
+        assertEquals(null, closed.generation)
+        assertEquals(ApiError.Closed, (closed.outcome.exceptionOrNull() as ApiException).error)
+    }
 }

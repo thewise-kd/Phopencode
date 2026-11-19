@@ -4,6 +4,7 @@ import io.github.thewisekd.phopencode.core.api.CatalogApi
 import io.github.thewisekd.phopencode.core.model.Agent
 import io.github.thewisekd.phopencode.core.model.Command
 import io.github.thewisekd.phopencode.feature.catalog.logic.contract.CatalogConnection
+import io.github.thewisekd.phopencode.feature.catalog.logic.contract.CatalogRead
 import io.github.thewisekd.phopencode.feature.catalog.logic.contract.ModelCatalog
 import io.github.thewisekd.phopencode.feature.catalog.logic.contract.RegistryCatalog
 import kotlin.coroutines.cancellation.CancellationException
@@ -47,6 +48,12 @@ class DefaultRegistryCatalog(private val connection: CatalogConnection) : Regist
 
     override suspend fun models(refresh: Boolean): ModelCatalog = models.read(refresh)
 
+    override suspend fun readCommands(refresh: Boolean): CatalogRead<List<Command>> = commands.tagged(refresh)
+
+    override suspend fun readAgents(refresh: Boolean): CatalogRead<List<Agent>> = agents.tagged(refresh)
+
+    override suspend fun readModels(refresh: Boolean): CatalogRead<ModelCatalog> = models.tagged(refresh)
+
     /** Keeps descriptions and permissions out of logs. */
     override fun toString(): String = "DefaultRegistryCatalog"
 
@@ -61,6 +68,17 @@ class DefaultRegistryCatalog(private val connection: CatalogConnection) : Regist
 
         suspend fun read(refresh: Boolean): T =
             connection.call { catalog, generation -> read(catalog, generation, refresh) }
+
+        /** As [read], with the generation the call ran on; null when no connection stood. */
+        suspend fun tagged(refresh: Boolean): CatalogRead<T> {
+            var ranOn: Long? = null
+            return CatalogRead.of({ ranOn }) {
+                connection.call { catalog, generation ->
+                    ranOn = generation
+                    read(catalog, generation, refresh)
+                }
+            }
+        }
 
         private suspend fun read(catalog: CatalogApi, generation: Long, refresh: Boolean): T {
             while (true) {

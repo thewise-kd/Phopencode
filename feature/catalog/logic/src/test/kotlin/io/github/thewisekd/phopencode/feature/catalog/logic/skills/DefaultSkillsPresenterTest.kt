@@ -383,4 +383,78 @@ class DefaultSkillsPresenterTest {
 
         assertEquals(emptyList(), catalog.refreshes)
     }
+
+    @Test
+    fun `a failed refresh on a new connection clears the old server's list and search results`() = runTest {
+        server.connect(generation = 1).catalog.setSkills(listOf(review, deploy))
+        val presenter = presenter()
+        runCurrent()
+        presenter.onIntent(SkillsIntent.Search("review"))
+
+        server.connect(generation = 2).control.failNext(ApiError.Network)
+        presenter.onIntent(SkillsIntent.Refresh)
+        runCurrent()
+
+        val state = presenter.state.value
+        assertEquals(CatalogFailure.Unreachable, state.error)
+        assertEquals(emptyList(), state.skills)
+        assertEquals(emptyList(), state.shown)
+        assertEquals("review", state.query, "the query is the user's and stays")
+        assertFalse(state.loading)
+        assertFalse(state.refreshing)
+    }
+
+    @Test
+    fun `a failed reload on a new connection clears the old server's list`() = runTest {
+        server.connect(generation = 1).catalog.setSkills(listOf(review))
+        val presenter = presenter()
+        runCurrent()
+
+        server.connect(generation = 2).control.failNext(ApiError.Server(500, "boom"))
+        presenter.onIntent(SkillsIntent.Reload)
+        runCurrent()
+
+        assertEquals(CatalogFailure.ServerFailed, presenter.state.value.error)
+        assertEquals(emptyList(), presenter.state.value.skills)
+        assertEquals(emptyList(), presenter.state.value.shown)
+        assertFalse(presenter.state.value.refreshing)
+    }
+
+    @Test
+    fun `a failure with no connection standing keeps the list`() = runTest {
+        server.connect(generation = 1).catalog.setSkills(listOf(review))
+        val presenter = presenter()
+        runCurrent()
+
+        server.disconnect()
+        presenter.onIntent(SkillsIntent.Refresh)
+        runCurrent()
+
+        assertEquals(CatalogFailure.NotConnected, presenter.state.value.error)
+        assertEquals(listOf(review), presenter.state.value.skills)
+        assertEquals(listOf(review), presenter.state.value.shown)
+    }
+
+    @Test
+    fun `after a cleared list, the new connection's list shows and a later failure there keeps it`() = runTest {
+        server.connect(generation = 1).catalog.setSkills(listOf(review))
+        val presenter = presenter()
+        runCurrent()
+        val newer = server.connect(generation = 2)
+        newer.catalog.setSkills(listOf(deploy))
+        newer.control.failNext(ApiError.Network)
+        presenter.onIntent(SkillsIntent.Refresh)
+        runCurrent()
+        assertEquals(emptyList(), presenter.state.value.skills)
+
+        presenter.onIntent(SkillsIntent.Reload)
+        runCurrent()
+        assertEquals(listOf(deploy), presenter.state.value.skills)
+
+        newer.control.failNext(ApiError.Network)
+        presenter.onIntent(SkillsIntent.Reload)
+        runCurrent()
+        assertEquals(CatalogFailure.Unreachable, presenter.state.value.error)
+        assertEquals(listOf(deploy), presenter.state.value.skills)
+    }
 }

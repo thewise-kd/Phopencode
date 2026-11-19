@@ -255,4 +255,115 @@ class DefaultRegistryPresenterTest {
         assertFalse("secret" in printed)
         assertFalse("private" in printed)
     }
+
+    @Test
+    fun `a failed refresh on a new connection clears the old server's lists`() = runTest {
+        val presenter = presenter()
+        runCurrent()
+
+        connection.generation = 2
+        connection.control.failNext(ApiError.Network, times = 5)
+        presenter.onIntent(RegistryIntent.Refresh)
+        runCurrent()
+
+        val state = presenter.state.value
+        assertEquals(CatalogList(loading = false, error = CatalogFailure.Unreachable), state.commands)
+        assertEquals(CatalogList(loading = false, error = CatalogFailure.Unreachable), state.agents)
+        assertEquals(CatalogList(loading = false, error = CatalogFailure.Unreachable), state.models)
+        assertEquals(emptyList(), state.providers)
+        assertEquals(null, state.defaultModel)
+    }
+
+    @Test
+    fun `a failed reload on a new connection clears only that tab`() = runTest {
+        val presenter = presenter()
+        runCurrent()
+
+        connection.generation = 2
+        connection.control.failNext(ApiError.Network)
+        presenter.onIntent(RegistryIntent.Reload(RegistryTab.Commands))
+        runCurrent()
+
+        val state = presenter.state.value
+        assertEquals(CatalogList(loading = false, error = CatalogFailure.Unreachable), state.commands)
+        assertEquals(CatalogList(loading = false, items = listOf(Fixtures.build, Fixtures.plan)), state.agents)
+        assertEquals(CatalogList(loading = false, items = listOf(Fixtures.large, Fixtures.small)), state.models)
+        assertEquals(Fixtures.defaultRef, state.defaultModel)
+    }
+
+    @Test
+    fun `a failed models reload on a new connection clears providers and the default too`() = runTest {
+        val presenter = presenter()
+        runCurrent()
+
+        connection.generation = 2
+        connection.control.failNext(ApiError.Network, times = 3)
+        presenter.onIntent(RegistryIntent.Reload(RegistryTab.Models))
+        runCurrent()
+
+        val state = presenter.state.value
+        assertEquals(CatalogList(loading = false, error = CatalogFailure.Unreachable), state.models)
+        assertEquals(emptyList(), state.providers)
+        assertEquals(null, state.defaultModel)
+    }
+
+    @Test
+    fun `a failed reload on the same connection keeps every list`() = runTest {
+        val presenter = presenter()
+        runCurrent()
+
+        connection.control.failNext(ApiError.Network, times = 5)
+        RegistryTab.entries.forEach { presenter.onIntent(RegistryIntent.Reload(it)) }
+        runCurrent()
+
+        val state = presenter.state.value
+        assertEquals(listOf(Fixtures.review, Fixtures.init), state.commands.items)
+        assertEquals(CatalogFailure.Unreachable, state.commands.error)
+        assertEquals(listOf(Fixtures.build, Fixtures.plan), state.agents.items)
+        assertEquals(CatalogFailure.Unreachable, state.agents.error)
+        assertEquals(listOf(Fixtures.large, Fixtures.small), state.models.items)
+        assertEquals(CatalogFailure.Unreachable, state.models.error)
+        assertEquals(listOf(Fixtures.anthropic), state.providers)
+        assertEquals(Fixtures.defaultRef, state.defaultModel)
+    }
+
+    @Test
+    fun `a failure with no connection standing keeps every list`() = runTest {
+        val presenter = presenter()
+        runCurrent()
+
+        connection.generation = null
+        presenter.onIntent(RegistryIntent.Refresh)
+        runCurrent()
+
+        val state = presenter.state.value
+        assertEquals(listOf(Fixtures.review, Fixtures.init), state.commands.items)
+        assertEquals(CatalogFailure.NotConnected, state.commands.error)
+        assertEquals(listOf(Fixtures.build, Fixtures.plan), state.agents.items)
+        assertEquals(CatalogFailure.NotConnected, state.agents.error)
+        assertEquals(listOf(Fixtures.large, Fixtures.small), state.models.items)
+        assertEquals(CatalogFailure.NotConnected, state.models.error)
+        assertEquals(listOf(Fixtures.anthropic), state.providers)
+        assertEquals(Fixtures.defaultRef, state.defaultModel)
+    }
+
+    @Test
+    fun `a success on a new connection replaces the lists`() = runTest {
+        val presenter = presenter()
+        runCurrent()
+
+        connection.generation = 2
+        connection.api.setCommands(listOf(Fixtures.init))
+        connection.api.setModels(listOf(Fixtures.small))
+        connection.api.setProviders(emptyList())
+        connection.api.setDefaultModel(null)
+        presenter.onIntent(RegistryIntent.Refresh)
+        runCurrent()
+
+        val state = presenter.state.value
+        assertEquals(CatalogList(loading = false, items = listOf(Fixtures.init)), state.commands)
+        assertEquals(CatalogList(loading = false, items = listOf(Fixtures.small)), state.models)
+        assertEquals(emptyList(), state.providers)
+        assertEquals(null, state.defaultModel)
+    }
 }
