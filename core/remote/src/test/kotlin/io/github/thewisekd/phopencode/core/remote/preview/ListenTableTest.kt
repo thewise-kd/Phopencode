@@ -14,7 +14,7 @@ class ListenTableTest {
             LISTEN 0      128                    *:5173              *:*
             LISTEN 0      4096                [::]:9000           [::]:*
             LISTEN 0      511   [::ffff:127.0.0.1]:4200              *:*
-            LISTEN 0      4096       127.0.0.53%lo:53          0.0.0.0:*
+            LISTEN 0      4096        127.0.0.1%lo:53          0.0.0.0:*
             LISTEN 0      128                [::1]:631            [::]:*
             LISTEN 0      128              [::1]%lo:6006          [::]:*
             LISTEN 0      128                 :::7070             :::*
@@ -71,9 +71,10 @@ class ListenTableTest {
 
     @Test
     fun `addresses reachable on loopback`() {
-        listOf("127.0.0.1", "127.1.2.3", "0.0.0.0", "*", "::", "[::]", "::1", "[::1]", "[::ffff:127.0.0.1]", "127.0.0.1%lo", "[::1]%lo", "*%lo")
+        listOf("127.0.0.1", "0.0.0.0", "*", "::", "[::]", "::1", "[::1]", "[::ffff:127.0.0.1]", "127.0.0.1%lo", "[::1]%lo", "*%lo")
             .forEach { assertTrue(ListenTable.reachableOnLoopback(it), it) }
-        listOf("10.0.0.5", "[fe80::1]%eth0", "0.0.0.0%eth0", "[::]%eth0", "*%eth0", "[::%eth0]", ":::%eth0","localhost", "", "[]", "[::1", "::1]", "[::ffff:10.0.0.1]", "127.0.0.1%", "1.2.3.4.5")
+        listOf("10.0.0.5", "[fe80::1]%eth0", "0.0.0.0%eth0", "[::]%eth0", "*%eth0", "[::%eth0]", ":::%eth0","localhost", "", "[]", "[::1", "::1]", "[::ffff:10.0.0.1]", "127.0.0.1%", "1.2.3.4.5",
+            "127.1.2.3", "127.0.0.53", "127.0.0.53%lo", "[::ffff:127.0.0.53]", "127.255.255.255")
             .forEach { assertFalse(ListenTable.reachableOnLoopback(it), it) }
     }
 
@@ -140,5 +141,39 @@ class ListenTableTest {
         listOf("", "E \n", "E\n", "E 0010\n", "E 0001 0100\n", "E 0001\nE 0100\n", "E 00010000\n")
             .forEach { assertEquals(null, ListenTable.fromProcNet(it + rows), it) }
         assertEquals(setOf(8080), ListenTable.fromProcNet("E 0001\nE 0001\n$rows"))
+    }
+
+    @Test
+    fun `ss lines bound only to another 127 address are dropped`() {
+        val output = """
+            LISTEN 0 4096 127.0.0.53%lo:53 0.0.0.0:*
+            LISTEN 0 4096 127.0.0.54:53 0.0.0.0:*
+            LISTEN 0 128 127.0.1.1:8000 0.0.0.0:*
+            LISTEN 0 128 [::ffff:127.0.0.2]:8001 *:*
+            0 128 127.0.0.2:8002 0.0.0.0:*
+            LISTEN 0 128 127.0.0.1:8080 0.0.0.0:*
+        """.trimIndent()
+        assertEquals(setOf(8080), ListenTable.fromSs(output))
+    }
+
+    @Test
+    fun `proc net rows bound only to another 127 address are dropped`() {
+        // 127.0.0.53:53, 127.0.1.1:8000 and ::ffff:127.0.0.2:8001, then 127.0.0.1:8080.
+        val little = """
+            E 0001
+            4 3500007F:0035
+            4 0101007F:1F40
+            6 0000000000000000FFFF00000200007F:1F41
+            4 0100007F:1F90
+        """.trimIndent()
+        assertEquals(setOf(8080), ListenTable.fromProcNet(little))
+        val big = """
+            E 0100
+            4 7F000035:0035
+            4 7F000101:1F40
+            6 00000000000000000000FFFF7F000002:1F41
+            4 7F000001:1F90
+        """.trimIndent()
+        assertEquals(setOf(8080), ListenTable.fromProcNet(big))
     }
 }

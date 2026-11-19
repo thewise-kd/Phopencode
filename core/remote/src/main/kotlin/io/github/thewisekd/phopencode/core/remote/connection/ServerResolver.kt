@@ -2,6 +2,7 @@ package io.github.thewisekd.phopencode.core.remote.connection
 
 import io.github.thewisekd.phopencode.core.model.SecretRef
 import io.github.thewisekd.phopencode.core.model.ServerProfile
+import io.github.thewisekd.phopencode.core.model.ServerProfileId
 import io.github.thewisekd.phopencode.core.remote.detect.BinaryLookup
 import io.github.thewisekd.phopencode.core.remote.detect.ServerDetector
 import io.github.thewisekd.phopencode.core.remote.detect.ServerLookup
@@ -15,6 +16,9 @@ import io.github.thewisekd.phopencode.core.ssh.api.SshSession
 import io.github.thewisekd.phopencode.core.storage_api.SecretStore
 import io.github.thewisekd.phopencode.core.storage_api.SecretValue
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /** Server discovery and startup on one session; [Default] is [ServerDetector] and [ServerStarter]. */
 interface ServerTools {
@@ -85,6 +89,13 @@ class ResolvedServer(
  * - Only when no `opencode serve` process runs at all is the opencode binary looked up and
  *   started with a new random password, on the profile's `opencodePort` when it has one. The password is stored under [startedPasswordRef] before the start, so that a server which comes
  *   up can always be reached again, even if the start itself then reports a failure.
+ * - Starts for one profile run one at a time, under a lock per profile ID that every resolver in
+ *   the process shares. A call that found no server takes the lock, and when a start for the
+ *   profile ended since its lookup, it looks again: when that start brought a server up, the
+ *   server is used with the password stored for it, so the
+ *   stored password always belongs to the server that runs. A failed or cancelled start releases
+ *   the lock, and the next call may start. Calls that find a server never wait, and different
+ *   profiles never wait for each other.
  *
  * Failures are thrown as [ConnectionException]; SSH failures pass through as they are.
  */
@@ -96,7 +107,24 @@ class ServerResolver(
     suspend fun resolve(session: SshSession, profile: ServerProfile): ResolvedServer {
         val port = profile.opencodePort
         if (port != null && port !in VALID_PORTS) throw ConnectionException(ConnectionError.InvalidProfile)
-        return when (val lookup = tools.findServer(session, port)) {
+        val lock = startLock(profile.id)
+        val seen = lock.finished
+        val lookup = tools.findServer(session, port)
+        if (lookup !is ServerLookup.NotRunning) return use(lookup, profile, port)
+        return lock.mutex.withLock {
+            try {
+                // A start for this profile ended since the lookup, maybe while this call waited: look again.
+                val current = if (lock.finished == seen) lookup else tools.findServer(session, port)
+                if (current is ServerLookup.NotRunning) start(session, profile, port) else use(current, profile, port)
+            } finally {
+                lock.finished++
+            }
+        }
+    }
+
+    /** What a lookup other than [ServerLookup.NotRunning] leads to. */
+    private suspend fun use(lookup: ServerLookup, profile: ServerProfile, port: Int?): ResolvedServer =
+        when (lookup) {
             is ServerLookup.Running -> {
                 // A server on another port than the profile names is never used, whoever found it.
                 if (port != null && lookup.port != port) throw ConnectionException(ConnectionError.ServerNotOnPort(port))
@@ -109,10 +137,9 @@ class ServerResolver(
             is ServerLookup.Unusable -> throw ConnectionException(ConnectionError.ServerUnusable)
             // Servers run, only not on the profile's port: nothing is started next to them.
             is ServerLookup.NotOnPort -> throw ConnectionException(ConnectionError.ServerNotOnPort(lookup.port))
-            is ServerLookup.NotRunning -> start(session, profile, port)
+            is ServerLookup.NotRunning -> error("A missing server is started, not used")
             is ServerLookup.Failed -> throw ConnectionException(ConnectionError.ServerDetectionFailed(lookup.reason))
         }
-    }
 
     /**
      * Every password known for a running server, likeliest first. A server the state file confirms
@@ -162,10 +189,30 @@ class ServerResolver(
         private const val LOOPBACK_V4 = "127.0.0.1"
         private val VALID_PORTS = 1..65535
 
+        /**
+         * One start lock per profile ID, shared by every resolver in the process. Locks are never
+         * removed: there is one small lock per profile the app has looked a server up for.
+         */
+        private val startLocks = ConcurrentHashMap<ServerProfileId, StartLock>()
+
+        private fun startLock(id: ServerProfileId): StartLock = startLocks.computeIfAbsent(id) { StartLock() }
+
         /** Where the password of a server started for [profile] is kept. */
         fun startedPasswordRef(profile: ServerProfile): SecretRef = SecretRef("opencode-started-server:${profile.id.value}")
 
         internal fun baseUrl(host: String, port: Int): String =
             if (':' in host) "http://[$host]:$port" else "http://$host:$port"
     }
+}
+
+/**
+ * The start lock of one profile. [finished] counts the turns that ended under [mutex], whatever
+ * their outcome, so that a call can tell whether a start ran since its own lookup and look again
+ * only then. It changes only while [mutex] is held.
+ */
+private class StartLock {
+    val mutex = Mutex()
+
+    @Volatile
+    var finished: Long = 0
 }

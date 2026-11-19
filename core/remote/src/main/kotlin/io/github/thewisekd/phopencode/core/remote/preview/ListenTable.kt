@@ -1,19 +1,25 @@
 package io.github.thewisekd.phopencode.core.remote.preview
 
 import io.github.thewisekd.phopencode.core.remote.detect.ListenerAddress
+import java.net.Inet4Address
+import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.UnknownHostException
 
 /**
- * Reads listening ports from the output of [PortListCommands], keeping only those reachable on the
- * server's loopback: bound to a loopback address or to a wildcard. No name is ever looked up, and
- * lines that do not fit are skipped.
+ * Reads listening ports from the output of [PortListCommands], keeping only those the preview tunnel
+ * reaches: bound to `127.0.0.1`, `::1` (IPv4-mapped or not) or a wildcard. A port bound only to
+ * another 127/8 address, such as a local resolver on `127.0.0.53`, is not listed, because the
+ * tunnel connects to the standard loopback address and would find nothing there. No name is ever
+ * looked up, and lines that do not fit are skipped.
  */
 internal object ListenTable {
     private val WHITESPACE = Regex("""\s+""")
     private const val IPV4_ANY = "0.0.0.0"
     private val IPV6_LITERAL = Regex("""[0-9A-Fa-f:.]+""")
     private const val LOOPBACK_ZONE = "lo"
+    private val TUNNEL_LOOPBACK = setOf("127.0.0.1", "::1")
+    private val IPV4_LOOPBACK = byteArrayOf(127, 0, 0, 1)
     private const val MAX_HOST_LENGTH = 64
 
     /**
@@ -77,14 +83,15 @@ internal object ListenTable {
             } catch (_: UnknownHostException) {
                 continue
             }
-            if (address.isLoopbackAddress || address.isAnyLocalAddress) ports += port
+            if (isTunnelLoopback(address) || address.isAnyLocalAddress) ports += port
         }
         return ports
     }
 
     /**
-     * Whether a socket bound to [host], as `ss` prints it, takes connections to loopback: a loopback
-     * address or a wildcard (`*`, `0.0.0.0`, `::`), bracketed or not, IPv4-mapped or not. A scope
+     * Whether a socket bound to [host], as `ss` prints it, takes the tunnel's connections: `127.0.0.1`,
+     * `::1` or a wildcard (`*`, `0.0.0.0`, `::`), bracketed or not, IPv4-mapped or not. Any other
+     * 127/8 address does not count. A scope
      * (`%name`, inside or after the brackets) other than `lo` binds the socket to another
      * interface, so it does not count.
      */
@@ -109,8 +116,15 @@ internal object ListenTable {
         if (zone != null && zone != LOOPBACK_ZONE) return false
         if (text.isEmpty() || text.length > MAX_HOST_LENGTH || ']' in text || '[' in text) return false
         if (text == "*" || text == IPV4_ANY) return true
-        if (ListenerAddress.loopbackHost(text) != null) return true
+        if (ListenerAddress.loopbackHost(text) in TUNNEL_LOOPBACK) return true
         return ':' in text && IPV6_LITERAL.matches(text) && isIpv6Any(text)
+    }
+
+    /** `127.0.0.1` or `::1`; an IPv4-mapped address arrives here as its IPv4 form. */
+    private fun isTunnelLoopback(address: InetAddress): Boolean = when (address) {
+        is Inet4Address -> address.address.contentEquals(IPV4_LOOPBACK)
+        is Inet6Address -> address.isLoopbackAddress
+        else -> false
     }
 
     private fun isIpv6Any(literal: String): Boolean = try {

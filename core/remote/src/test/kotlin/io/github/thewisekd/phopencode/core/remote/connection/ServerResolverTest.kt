@@ -1,14 +1,19 @@
 package io.github.thewisekd.phopencode.core.remote.connection
 
+import io.github.thewisekd.phopencode.core.model.ServerProfileId
 import io.github.thewisekd.phopencode.core.remote.detect.BinaryLookup
+import io.github.thewisekd.phopencode.core.remote.detect.BinarySource
 import io.github.thewisekd.phopencode.core.remote.detect.DetectFailure
 import io.github.thewisekd.phopencode.core.remote.detect.ServerLookup
 import io.github.thewisekd.phopencode.core.remote.detect.ServerNote
 import io.github.thewisekd.phopencode.core.remote.detect.ServerSource
+import io.github.thewisekd.phopencode.core.remote.detect.VersionCheck
+import io.github.thewisekd.phopencode.core.remote.start.ServerStartOptions
 import io.github.thewisekd.phopencode.core.remote.start.ServerStartException
 import io.github.thewisekd.phopencode.core.remote.start.StartedServer
 import io.github.thewisekd.phopencode.core.storage_api.SecretReadResult
 import io.github.thewisekd.phopencode.core.storage_api.SecretValue
+import io.github.thewisekd.phopencode.core.ssh.api.SshSession
 import io.github.thewisekd.phopencode.core.testing.ssh.FakeSshSession
 import io.github.thewisekd.phopencode.core.testing.storage.FakeSecretStore
 import kotlin.test.Test
@@ -16,6 +21,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
 class ServerResolverTest {
@@ -267,5 +275,144 @@ class ServerResolverTest {
         val server = resolver.resolve(session, profile())
         server.close()
         assertFailsWith<IllegalStateException> { server.passwords.single().revealBytes() }
+    }
+
+    // One start per profile at a time. Each test uses a profile ID of its own, because the lock is
+    // shared by every resolver in the process.
+
+    private fun lockProfile(name: String) = profile().copy(id = ServerProfileId("lock-test-$name"))
+
+    private suspend fun stored(profile: io.github.thewisekd.phopencode.core.model.ServerProfile): String =
+        assertIs<SecretReadResult.Found>(secrets.read(ServerResolver.startedPasswordRef(profile))).value.use { it.revealText() }
+
+    @Test
+    fun `two resolves that find no server start one after the other, and the second uses the running one`() = runTest {
+        val host = StartingServerTools()
+        val first = ServerResolver(secrets, host)
+        val second = ServerResolver(secrets, host)
+        val target = lockProfile("serial")
+        val gate = CompletableDeferred<Unit>().also { host.startGates += it }
+
+        val a = async { first.resolve(session, target) }
+        runCurrent()
+        val b = async { second.resolve(session, target) }
+        runCurrent()
+        assertEquals(1, host.started.size, "the second waits while the first starts")
+        assertEquals(listOf("find", "start", "find"), host.events)
+
+        gate.complete(Unit)
+        a.await().use { server -> assertEquals(listOf(host.started.single()), server.passwords.map { it.revealText() }) }
+        b.await().use { server ->
+            assertEquals("http://127.0.0.1:4100", server.baseUrl)
+            assertTrue(host.started.single() in server.passwords.map { it.revealText() }, "the stored password of the running server")
+        }
+        assertEquals(1, host.started.size, "only one server was started")
+        assertEquals(listOf("find", "start", "find", "started", "find"), host.events, "the second looked again after the first")
+        assertEquals(host.started.single(), stored(target), "the stored password matches the server that runs")
+    }
+
+    @Test
+    fun `after a failed start the next waiting resolve may start`() = runTest {
+        val host = StartingServerTools()
+        val resolver = ServerResolver(secrets, host)
+        val target = lockProfile("failed")
+        val gate = CompletableDeferred<Unit>().also { host.startGates += it }
+        host.failures += true
+
+        val a = async { runCatching { resolver.resolve(session, target) } }
+        runCurrent()
+        val b = async { resolver.resolve(session, target) }
+        runCurrent()
+        assertEquals(1, host.started.size)
+
+        gate.complete(Unit)
+        val error = assertIs<ConnectionException>(a.await().exceptionOrNull()).error
+        assertEquals(ConnectionError.ServerStartFailed(ServerStartFailure.PortInUse), error)
+        b.await().use { server -> assertEquals(listOf(host.started[1]), server.passwords.map { it.revealText() }) }
+        assertEquals(2, host.started.size)
+        assertEquals(host.started[1], stored(target))
+    }
+
+    @Test
+    fun `a failed start does not keep the next call from starting`() = runTest {
+        val host = StartingServerTools()
+        val resolver = ServerResolver(secrets, host)
+        val target = lockProfile("sequential")
+        host.failures += true
+        assertIs<ConnectionError.ServerStartFailed>(failure { resolver.resolve(session, target) })
+        resolver.resolve(session, target).use { server -> assertEquals(host.started[1], server.passwords.single().revealText()) }
+        assertEquals(2, host.started.size)
+    }
+
+    @Test
+    fun `different profiles do not wait for each other`() = runTest {
+        val host = StartingServerTools()
+        val first = ServerResolver(secrets, host)
+        val second = ServerResolver(secrets, host)
+        val one = lockProfile("one")
+        val two = lockProfile("two")
+        val gate = CompletableDeferred<Unit>().also { host.startGates += it }
+
+        val a = async { first.resolve(session, one) }
+        runCurrent()
+        assertEquals(1, host.started.size)
+        second.resolve(session, two).use { server -> assertEquals(host.started[1], server.passwords.single().revealText()) }
+        assertTrue(a.isActive, "the first start is still running")
+
+        gate.complete(Unit)
+        a.await().use { server -> assertEquals(host.started[0], server.passwords.single().revealText()) }
+        assertEquals(host.started[0], stored(one))
+        assertEquals(host.started[1], stored(two))
+    }
+
+    @Test
+    fun `cancelling a start releases the lock`() = runTest {
+        val host = StartingServerTools()
+        val resolver = ServerResolver(secrets, host)
+        val target = lockProfile("cancel")
+        CompletableDeferred<Unit>().also { host.startGates += it }
+
+        val a = async { resolver.resolve(session, target) }
+        runCurrent()
+        val b = async { resolver.resolve(session, target) }
+        runCurrent()
+        assertEquals(1, host.started.size, "the second waits")
+
+        a.cancel()
+        runCurrent()
+        b.await().use { server -> assertEquals(host.started[1], server.passwords.single().revealText()) }
+        assertEquals(2, host.started.size)
+        assertEquals(host.started[1], stored(target))
+    }
+}
+
+/**
+ * A server host that runs nothing until a start completes; then a server this app started runs.
+ * Each start can be held open by the gate of its turn and can fail by the flag of its turn.
+ */
+private class StartingServerTools : ServerTools {
+    var server: ServerLookup = ServerLookup.NotRunning()
+    val startGates = mutableListOf<CompletableDeferred<Unit>>()
+    val failures = mutableListOf<Boolean>()
+    val started = mutableListOf<String>()
+    val events = mutableListOf<String>()
+
+    override suspend fun findServer(session: SshSession): ServerLookup {
+        events += "find"
+        return server
+    }
+
+    override suspend fun findBinary(session: SshSession): BinaryLookup =
+        BinaryLookup.Found("/opt/opencode/bin/opencode", BinarySource.KnownLocation, VersionCheck.Unparseable)
+
+    override suspend fun start(session: SshSession, password: SecretValue, options: ServerStartOptions): StartedServer {
+        val turn = started.size
+        started += password.revealText()
+        events += "start"
+        startGates.getOrNull(turn)?.await()
+        if (failures.getOrNull(turn) == true) throw ServerStartException.PortInUse()
+        server = ServerLookup.Running("127.0.0.1", 4100, 200, ServerSource.StateFile)
+        events += "started"
+        return StartedServer("http://127.0.0.1:4100", 4100, 200)
     }
 }

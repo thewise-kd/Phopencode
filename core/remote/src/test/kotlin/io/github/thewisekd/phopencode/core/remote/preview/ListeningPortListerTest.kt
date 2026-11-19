@@ -51,7 +51,7 @@ class ListeningPortListerTest {
             LISTEN 0 4096 127.0.0.53%lo:53 0.0.0.0:*
             """.trimIndent() + "\n",
         )
-        assertEquals(ports(53, 4096, 5173, 8080, opencode = 4096), lister().list(opencodePort = 4096))
+        assertEquals(ports(4096, 5173, 8080, opencode = 4096), lister().list(opencodePort = 4096))
         assertEquals(listOf(PortListCommands.SS), exec.executions.map { it.command })
         assertEquals(5.seconds, exec.executions.single().timeout)
         assertEquals(null, exec.executions.single().stdin)
