@@ -31,14 +31,17 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 
 private val MAIN = SessionId("ses_main")
 private val FIRST = MessageId("msg_first")
@@ -64,7 +67,7 @@ private class FakeChatSession(override val sessionId: SessionId) : ChatSession {
     var lastResult: Any? = null
 
     /** Runs once a call's answer is in, before the caller sees it: lets the sync get there first. */
-    var afterCall: (Any?) -> Unit = {}
+    var afterCall: suspend (Any?) -> Unit = {}
 
     override suspend fun <T> call(block: suspend (OpencodeClient) -> T): T {
         if (!connected) throw ApiException(ApiError.Closed)
@@ -80,6 +83,7 @@ private class FakeChatSession(override val sessionId: SessionId) : ChatSession {
         status: SessionStatus = SessionStatus.Idle,
         directory: String? = null,
         revert: MessageId? = null,
+        phase: SyncPhase = SyncPhase.Live,
     ) {
         mutableState.value = ChatSessionState(
             availability = ChatAvailability.Live,
@@ -89,7 +93,7 @@ private class FakeChatSession(override val sessionId: SessionId) : ChatSession {
                 messages = messages,
                 inbox = inbox,
             ),
-            phase = SyncPhase.Live,
+            phase = phase,
         )
     }
 
@@ -295,8 +299,10 @@ class DefaultActionsPresenterTest {
     @Test
     fun `a compaction the sync added and removed before the answer came is not compacting`() = runTest {
         val (chat, presenter, events) = setup()
+        // The presenter sees the item queued while the answer is on its way, then gone again.
         chat.afterCall = { result ->
             chat.live(history, inbox = listOf(result as InboxItem))
+            yield()
             chat.live(history)
         }
 
@@ -423,6 +429,213 @@ class DefaultActionsPresenterTest {
 
         assertEquals(ActionError(SessionAction.Compact, ChatFailure.NotConnected), presenter.state.value.error)
         assertEquals(emptyList(), chat.calls)
+    }
+
+    // A compaction the sync has not shown yet (A22-1)
+
+    /** Confirms a compaction the server accepts while the sync shows nothing of it and is idle. */
+    private fun TestScope.acceptedUnseen(): Triple<FakeChatSession, DefaultActionsPresenter, InboxItem> {
+        val (chat, presenter) = setup()
+        presenter.onIntent(ActionsIntent.Request(SessionAction.Compact))
+        presenter.onIntent(ActionsIntent.Confirm)
+        runCurrent()
+        assertEquals(listOf("sessions.compact"), chat.calls)
+        return Triple(chat, presenter, chat.lastResult as InboxItem)
+    }
+
+    @Test
+    fun `an accepted compaction the sync has not shown yet holds, and no second one is sent`() = runTest {
+        val (chat, presenter, item) = acceptedUnseen()
+        assertTrue(presenter.state.value.compacting)
+
+        presenter.onIntent(ActionsIntent.Request(SessionAction.Compact))
+        presenter.onIntent(ActionsIntent.Confirm)
+        runCurrent()
+        assertNull(presenter.state.value.confirming)
+        assertEquals(listOf("sessions.compact"), chat.calls)
+
+        // Unrelated idle updates do not end it.
+        chat.live(history + Message.Assistant(MessageId("msg_reply"), MAIN))
+        runCurrent()
+        assertTrue(presenter.state.value.compacting)
+
+        // Fork and new session are unaffected.
+        presenter.onIntent(ActionsIntent.Request(SessionAction.Fork(SECOND)))
+        assertEquals(SessionAction.Fork(SECOND), presenter.state.value.confirming)
+        presenter.onIntent(ActionsIntent.Cancel)
+
+        // Seen queued, then it ends as today.
+        chat.live(history, inbox = listOf(item))
+        runCurrent()
+        assertTrue(presenter.state.value.compacting)
+        chat.live(history + compaction(item.id, "completed"))
+        runCurrent()
+        assertFalse(presenter.state.value.compacting)
+
+        presenter.onIntent(ActionsIntent.Request(SessionAction.Compact))
+        assertEquals(SessionAction.Compact, presenter.state.value.confirming)
+    }
+
+    @Test
+    fun `an unseen compaction seen as its message ends as today`() = runTest {
+        val (chat, presenter, item) = acceptedUnseen()
+
+        chat.live(history + compaction(item.id, "running"))
+        runCurrent()
+        assertTrue(presenter.state.value.compacting)
+
+        chat.live(history + compaction(item.id, "failed"))
+        runCurrent()
+        assertFalse(presenter.state.value.compacting)
+    }
+
+    @Test
+    fun `an unseen compaction seen queued then gone while idle ends as today`() = runTest {
+        val (chat, presenter, item) = acceptedUnseen()
+
+        chat.live(history, inbox = listOf(item))
+        runCurrent()
+        assertTrue(presenter.state.value.compacting)
+
+        chat.live(history)
+        runCurrent()
+        assertFalse(presenter.state.value.compacting)
+    }
+
+    @Test
+    fun `an unseen compaction ends once the session was busy and is idle again`() = runTest {
+        val (chat, presenter) = acceptedUnseen()
+
+        chat.live(history, status = SessionStatus.Running)
+        runCurrent()
+        assertTrue(presenter.state.value.compacting)
+
+        chat.live(history)
+        runCurrent()
+        assertFalse(presenter.state.value.compacting)
+    }
+
+    @Test
+    fun `an unseen compaction ends when the session was busy and idle again before the answer`() = runTest {
+        val (chat, presenter) = setup()
+        // The compaction runs and ends while the answer is on its way; the sync never shows its item.
+        chat.afterCall = {
+            chat.live(history, status = SessionStatus.Running)
+            yield()
+            chat.live(history, status = SessionStatus.Idle)
+            yield()
+        }
+
+        presenter.onIntent(ActionsIntent.Request(SessionAction.Compact))
+        presenter.onIntent(ActionsIntent.Confirm)
+        runCurrent()
+        assertFalse(presenter.state.value.compacting)
+
+        presenter.onIntent(ActionsIntent.Request(SessionAction.Compact))
+        assertEquals(SessionAction.Compact, presenter.state.value.confirming)
+    }
+
+    @Test
+    fun `an unseen compaction sent while busy ends when the session is idle before the answer`() = runTest {
+        val (chat, presenter) = setup()
+        chat.live(history, status = SessionStatus.Running)
+        runCurrent()
+        chat.afterCall = {
+            chat.live(history, status = SessionStatus.Idle)
+            yield()
+        }
+
+        presenter.onIntent(ActionsIntent.Request(SessionAction.Compact))
+        presenter.onIntent(ActionsIntent.Confirm)
+        runCurrent()
+        assertFalse(presenter.state.value.compacting)
+    }
+
+    @Test
+    fun `an unseen compaction ends after the hold limit, while a seen one does not`() = runTest {
+        val (_, presenter) = acceptedUnseen()
+        advanceTimeBy(UNSEEN_COMPACTION_LIMIT - 1.milliseconds)
+        runCurrent()
+        assertTrue(presenter.state.value.compacting)
+        advanceTimeBy(2.milliseconds)
+        runCurrent()
+        assertFalse(presenter.state.value.compacting)
+
+        val (chat, second, item) = acceptedUnseen()
+        chat.live(history, inbox = listOf(item))
+        runCurrent()
+        advanceTimeBy(UNSEEN_COMPACTION_LIMIT * 2)
+        runCurrent()
+        assertTrue(second.state.value.compacting)
+    }
+
+    @Test
+    fun `an unseen compaction ends when a resync holds no trace of it`() = runTest {
+        val (chat, presenter) = acceptedUnseen()
+
+        chat.live(history, phase = SyncPhase.Syncing)
+        runCurrent()
+        assertTrue(presenter.state.value.compacting)
+
+        chat.live(history)
+        runCurrent()
+        assertFalse(presenter.state.value.compacting)
+    }
+
+    @Test
+    fun `an unseen compaction a resync shows holds`() = runTest {
+        val (chat, presenter, item) = acceptedUnseen()
+
+        chat.live(history, phase = SyncPhase.Syncing)
+        runCurrent()
+        chat.live(history, inbox = listOf(item))
+        runCurrent()
+        assertTrue(presenter.state.value.compacting)
+
+        chat.live(history + compaction(item.id, "completed"))
+        runCurrent()
+        assertFalse(presenter.state.value.compacting)
+    }
+
+    @Test
+    fun `an unseen compaction ends when the chat is no longer live`() = runTest {
+        val (chat, presenter) = acceptedUnseen()
+        chat.mutableState.value = chat.mutableState.value.copy(availability = ChatAvailability.Reconnecting)
+        runCurrent()
+        assertFalse(presenter.state.value.compacting)
+
+        val (other, second) = acceptedUnseen()
+        assertTrue(second.state.value.compacting)
+        other.mutableState.value = ChatSessionState(availability = ChatAvailability.OtherServer)
+        runCurrent()
+        assertFalse(second.state.value.compacting)
+    }
+
+    @Test
+    fun `an unseen compaction prints no message ID`() = runTest {
+        val (_, presenter, item) = acceptedUnseen()
+        assertTrue(presenter.state.value.compacting)
+
+        assertFalse(presenter.toString().contains(item.id.value))
+        assertFalse(presenter.state.value.toString().contains(item.id.value))
+    }
+
+    @Test
+    fun `an item the presenter saw queued before the answer ends with it, while one still queued holds`() = runTest {
+        val (chat, presenter) = setup()
+        chat.afterCall = { result ->
+            chat.live(history, inbox = listOf(result as InboxItem))
+            yield()
+        }
+
+        presenter.onIntent(ActionsIntent.Request(SessionAction.Compact))
+        presenter.onIntent(ActionsIntent.Confirm)
+        runCurrent()
+        assertTrue(presenter.state.value.compacting)
+
+        chat.live(history)
+        runCurrent()
+        assertFalse(presenter.state.value.compacting)
     }
 
     // Fork
