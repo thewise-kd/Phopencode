@@ -145,6 +145,33 @@ class ContractTypesTest {
     }
 
     @Test
+    fun `folder state prints counts and presence, never a path, entry or failure detail`() {
+        val folder = listOf("", "srv", secret, "app").joinToString("/")
+        val address = listOf("10", "20", "30", "40").joinToString(".")
+        val failure = IllegalStateException("cannot reach $address at $folder")
+        val entry = FileEntry(path = "$folder/child", type = FileEntryType.Directory)
+        val state = FolderState(
+            loading = false,
+            path = folder,
+            entries = listOf(entry),
+            recent = listOf(folder),
+            error = FolderError.Failed,
+            errorDetail = "SshException.Sftp(Failed) <- java.io.EOFException",
+            debugDetail = "java.lang.IllegalStateException: cannot reach $address at $folder",
+            debugFailure = failure,
+            hiddenCount = 2,
+            listing = listOf(entry, entry),
+        )
+        val printed = state.toString()
+        assertMasked(state, secret, address, folder, failure.message!!, "cannot reach")
+        assertTrue("entries=1" in printed, printed)
+        assertTrue("recent=1" in printed, printed)
+        assertTrue("Failed" in printed, printed)
+        assertEquals(FolderState(path = folder).toString(), FolderState(path = "/other").toString())
+        assertEquals(state, state.copy())
+    }
+
+    @Test
     fun `folder state lists entries as given`() {
         val entry = FileEntry(path = "/srv/app", type = FileEntryType.Directory)
         assertEquals(listOf(entry), FolderState(path = "/srv", entries = listOf(entry)).entries)

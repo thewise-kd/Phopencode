@@ -159,8 +159,13 @@ sealed interface FieldAnswer {
         override fun toString(): String = "Number(***)"
     }
 
-    /** For `FormField.YesNo`; null until picked. */
-    data class YesNo(val value: Boolean? = null) : FieldAnswer
+    /**
+     * For `FormField.YesNo`; null until picked. Prints whether an answer is picked, never which:
+     * `YesNo(***)` for yes and no alike, `YesNo(null)` until picked.
+     */
+    data class YesNo(val value: Boolean? = null) : FieldAnswer {
+        override fun toString(): String = "YesNo(${if (value == null) "null" else "***"})"
+    }
 
     /**
      * For `FormField.External`: whether the app has opened its URL. Only then can the field be

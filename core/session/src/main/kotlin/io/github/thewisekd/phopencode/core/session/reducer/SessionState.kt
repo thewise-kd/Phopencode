@@ -43,8 +43,22 @@ data class SessionState(
     val messageUsage: TokenUsage
         get() = messages.totalUsage()
 
-    /** Counts only: messages, forms and the session hold text a user typed or a model wrote. */
+    /**
+     * The session ID, the status kind and counts only: messages, forms and the session hold text a
+     * user typed or a model wrote, and a retrying or failed status's message and an unknown status's
+     * raw value are the server's text. A retrying status prints its attempt number; [error] does not
+     * print.
+     */
     override fun toString(): String =
-        "SessionState(session=${session.id.value}, status=$status, messages=${messages.size}, " +
+        "SessionState(session=${session.id.value}, status=${status.kind()}, messages=${messages.size}, " +
             "inbox=${inbox.size}, forms=${forms.size}, permissions=${permissions.size}, deleted=$deleted)"
+}
+
+/** The status without the server's text. */
+private fun SessionStatus.kind(): String = when (this) {
+    SessionStatus.Idle -> "Idle"
+    SessionStatus.Running -> "Running"
+    is SessionStatus.Retrying -> "Retrying(attempt=$attempt)"
+    is SessionStatus.Failed -> "Failed"
+    is SessionStatus.Unknown -> "Unknown"
 }

@@ -126,6 +126,19 @@ class InteractionContractTest {
     }
 
     @Test
+    fun `a yes or no answer prints whether it is picked, never which`() {
+        val yes = FieldAnswer.YesNo(true).toString()
+        val no = FieldAnswer.YesNo(false).toString()
+        assertEquals(yes, no)
+        assertFalse("true" in yes, yes)
+        assertFalse("false" in yes, yes)
+        assertTrue("***" in yes, yes)
+        assertNotEquals(yes, FieldAnswer.YesNo(null).toString())
+        assertEquals(FieldAnswer.YesNo(true), FieldAnswer.YesNo(true))
+        assertNotEquals(FieldAnswer.YesNo(true), FieldAnswer.YesNo(false))
+    }
+
+    @Test
     fun `a failed form action names what failed`() {
         val error = FormError(FormAction.Submit, ChatFailure.Rejected)
         assertEquals(FormAction.Submit, error.action)

@@ -48,6 +48,10 @@ enum class FolderError {
  *   0 while [showHidden].
  * @property listing Every child of [path] that can be opened as a folder, hidden or not: what
  *   [entries] is filtered from, so that a change of [showHidden] needs no new listing.
+ *
+ * Prints counts and presence only: whether [path] is set, how many [entries], [recent] and
+ * [listing] there are, the [error], [errorDetail] (class names only), and whether [debugDetail] and
+ * [debugFailure] are set; never a path, an entry, the debug detail or the failure's message.
  */
 data class FolderState(
     val loading: Boolean = true,
@@ -64,7 +68,15 @@ data class FolderState(
 ) {
     /** [path] has a parent folder. */
     val canGoUp: Boolean get() = path != null && path.trimEnd('/').isNotEmpty()
+
+    override fun toString(): String =
+        "FolderState(loading=$loading, path=${path.presence()}, entries=${entries.size}, recent=${recent.size}, " +
+            "error=$error, errorDetail=$errorDetail, debugDetail=${debugDetail.presence()}, " +
+            "debugFailure=${debugFailure.presence()}, showHidden=$showHidden, hiddenCount=$hiddenCount, " +
+            "listing=${listing.size})"
 }
+
+private fun Any?.presence(): String = if (this == null) "null" else "***"
 
 sealed interface FolderIntent {
     /** Shows [path], a child of the current folder or a recent folder. */
