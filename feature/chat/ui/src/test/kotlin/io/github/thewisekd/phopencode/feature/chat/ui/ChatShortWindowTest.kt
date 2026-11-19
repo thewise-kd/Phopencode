@@ -32,6 +32,11 @@ import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.Pe
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.PermissionsState
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SubagentState
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SwitcherState
+import io.github.thewisekd.phopencode.core.model.StructuredError
+import io.github.thewisekd.phopencode.feature.chat.ui.status.HUGE_ERROR_TEXT
+import io.github.thewisekd.phopencode.feature.chat.ui.status.STATUS_FAILED_TAG
+import io.github.thewisekd.phopencode.feature.chat.ui.status.assertHugeFailureScrollsToItsEnd
+import io.github.thewisekd.phopencode.feature.chat.ui.status.failedCapPx
 import io.github.thewisekd.phopencode.feature.chat.ui.timeline.timelineItemTag
 import org.junit.Rule
 import org.junit.Test
@@ -64,12 +69,12 @@ class ChatShortWindowTest {
         cards = (1..count).map { n -> FormCardState(formId = FormId("frm_$n"), sessionId = SessionId("ses_1")) },
     )
 
-    private fun setChat(forms: FormsState) {
+    private fun setChat(forms: FormsState, status: StatusState = StatusState(ChatStatus.Idle)) {
         compose.setContent {
             PhopencodeTheme {
                 ChatScreen(
                     route = route,
-                    status = StatusState(ChatStatus.Idle),
+                    status = status,
                     onStatusIntent = {},
                     usage = UsageState(),
                     onUsageIntent = {},
@@ -157,5 +162,55 @@ class ChatShortWindowTest {
         assertFullyInside(ChatSlotTags.COMPOSER, window)
         assertFullyInside(ChatSlotTags.SWITCHER, window)
         compose.onNodeWithTag(timelineItemTag(latest.key)).assertIsDisplayed()
+    }
+
+    // A long error in the status banner
+
+    private val hugeFailure = StatusState(ChatStatus.Failed(StructuredError(type = "provider.transport", message = HUGE_ERROR_TEXT)))
+
+    /**
+     * With an error of several thousand characters in the banner, the banner keeps to its share of
+     * the window, the timeline keeps at least [timelineAtLeast] and its latest row on screen, the
+     * composer stays whole, and the whole error can be scrolled to inside the banner.
+     */
+    private fun assertLongErrorLeavesTheChat(timelineAtLeast: (window: Dp) -> Dp) {
+        setChat(FormsState(), hugeFailure)
+        val window = bounds("placeholder:$route")
+        val banner = bounds(STATUS_FAILED_TAG)
+        val timeline = bounds(ChatSlotTags.TIMELINE)
+
+        assertTrue(banner.height <= compose.failedCapPx() + 1f, "banner is ${banner.height}px, over its cap in $window")
+        val minimum = px(timelineAtLeast(with(compose.density) { window.height.toDp() }))
+        assertTrue(timeline.height >= minimum - 1f, "timeline is ${timeline.height}px, under $minimum px in $window")
+        assertTrue(abs(timeline.top - banner.bottom) <= px(8.dp) + 1f, "timeline at $timeline does not follow the banner $banner")
+        compose.onNodeWithTag(timelineItemTag(latest.key)).assertIsDisplayed()
+        assertFullyInside(ChatSlotTags.COMPOSER, window)
+        assertFullyInside(STATUS_FAILED_TAG, window)
+
+        compose.assertHugeFailureScrollsToItsEnd()
+        compose.onNodeWithTag(timelineItemTag(latest.key)).assertIsDisplayed()
+    }
+
+    /**
+     * A short window has no room for both the banner and the timeline's usual least height beside
+     * the top bar and the composer; the timeline still keeps rows: at least one row's height.
+     */
+    private val atLeastARow: (Dp) -> Dp = { 48.dp }
+
+    @Test
+    fun `a long error on a short window leaves the timeline on screen`() {
+        assertLongErrorLeavesTheChat(atLeastARow)
+    }
+
+    @Test
+    @Config(qualifiers = "en-w411dp-h891dp")
+    fun `a long error on a tall window leaves the timeline on screen`() {
+        assertLongErrorLeavesTheChat(::timelineMinHeight)
+    }
+
+    @Test
+    @Config(qualifiers = "tr-w320dp-h320dp")
+    fun `a long error leaves the timeline on screen in Turkish too`() {
+        assertLongErrorLeavesTheChat(atLeastARow)
     }
 }

@@ -68,6 +68,15 @@ const val STATUS_ACTIVITY_TAG: String = "chat:status:activity"
 /** The error of the last execution. */
 const val STATUS_FAILED_TAG: String = "chat:status:failed"
 
+/** The scrolling area that holds the failure's text inside its strip. */
+const val STATUS_FAILED_TEXT_TAG: String = "chat:status:failed:text"
+
+/**
+ * The most of the window's height a failure strip may take. Beyond it the error scrolls inside the
+ * strip, so a long error never pushes the timeline off the screen.
+ */
+internal const val FAILED_MAX_WINDOW_SHARE: Float = 0.2f
+
 /** The status that takes the whole chat. */
 const val STATUS_BLOCKING_TAG: String = "chat:status:blocking"
 
@@ -276,32 +285,39 @@ private fun timeOfDay(instant: Instant): String {
 }
 
 /**
- * The last execution's error: a strip in the error's tone, which TalkBack hears as an error. The
- * whole error shows, however long: nothing of it is cut.
+ * The last execution's error: a strip in the error's tone, which TalkBack hears as an error. Nothing
+ * of the error is cut. The strip grows with it up to [FAILED_MAX_WINDOW_SHARE] of the window's
+ * height, and less when its slot is smaller; past that the text scrolls inside the strip, so even an
+ * error of thousands of characters leaves the timeline on screen. TalkBack still reads the whole
+ * text, since the strip merges it, and can scroll the strip.
  */
 @Composable
 private fun FailedBanner(error: StructuredError?, modifier: Modifier) {
     val description = error?.description
     val errorLabel = stringResource(CoreUiR.string.ui_common_status_danger)
+    val maxHeight = LocalConfiguration.current.screenHeightDp.dp * FAILED_MAX_WINDOW_SHARE
     Strip(
         tone = PhopencodeTheme.status.danger,
         icon = PhopencodeIcons.Warning,
         modifier = modifier,
         stripModifier = Modifier
+            .heightIn(max = maxHeight)
             .testTag(STATUS_FAILED_TAG)
             .semantics(mergeDescendants = true) {
                 stateDescription = errorLabel
                 liveRegion = LiveRegionMode.Polite
             },
     ) {
-        Text(
-            text = if (description != null) {
-                stringResource(R.string.chat_status_failed, description)
-            } else {
-                stringResource(R.string.chat_status_failed_generic)
-            },
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        Box(Modifier.testTag(STATUS_FAILED_TEXT_TAG).verticalScroll(rememberScrollState())) {
+            Text(
+                text = if (description != null) {
+                    stringResource(R.string.chat_status_failed, description)
+                } else {
+                    stringResource(R.string.chat_status_failed_generic)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
     }
 }
 

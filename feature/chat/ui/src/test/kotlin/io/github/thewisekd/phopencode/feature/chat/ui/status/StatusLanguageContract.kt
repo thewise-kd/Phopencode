@@ -103,6 +103,14 @@ abstract class StatusLanguageContract {
     }
 
     @Test
+    fun `an error of several thousand characters keeps to its strip and scrolls to its end`() {
+        show(ChatStatus.Failed(StructuredError(type = "provider.transport", message = HUGE_ERROR_TEXT)))
+
+        shows(strings.failed(HUGE_ERROR_TEXT))
+        compose.assertHugeFailureScrollsToItsEnd()
+    }
+
+    @Test
     fun `loading says it loads the session`() {
         show(ChatStatus.Loading)
 

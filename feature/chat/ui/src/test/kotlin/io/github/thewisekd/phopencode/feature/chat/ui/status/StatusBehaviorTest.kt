@@ -170,17 +170,33 @@ class StatusBehaviorTest {
     }
 
     @Test
-    fun `a long failure shows in full`() {
+    fun `a long failure grows with its text up to its share of the window`() {
         val harness = compose.setStatus(StatusState(ChatStatus.Failed(StructuredError(type = "provider.auth", message = "refused"))))
         compose.waitForIdle()
         val short = part(STATUS_FAILED_TAG).fetchSemanticsNode().boundsInRoot.height
 
         harness.state.value = StatusState(ChatStatus.Failed(StructuredError(type = "provider.auth", message = LONG_ERROR_TEXT)))
         compose.waitForIdle()
+        val long = part(STATUS_FAILED_TAG).fetchSemanticsNode().boundsInRoot.height
+        assertTrue(long > short * 2f, "a longer error makes a taller strip: $short -> $long")
 
-        // Thirteen lines against one: every line of the error is on screen, none is cut.
-        val full = part(STATUS_FAILED_TAG).fetchSemanticsNode().boundsInRoot.height
-        assertTrue(full > short * 6f, "the whole error shows: $short -> $full")
+        harness.state.value = StatusState(ChatStatus.Failed(StructuredError(type = "provider.auth", message = HUGE_ERROR_TEXT)))
+        compose.waitForIdle()
+        val huge = part(STATUS_FAILED_TAG).fetchSemanticsNode().boundsInRoot.height
+        assertTrue(huge <= compose.failedCapPx() + 1f, "a huge error stops at the cap ${compose.failedCapPx()}px: $huge")
+    }
+
+    @Test
+    fun `an error of several thousand characters scrolls inside its strip to its end`() {
+        compose.setStatus(StatusState(ChatStatus.Failed(StructuredError(type = "provider.auth", message = HUGE_ERROR_TEXT))))
+        part(STATUS_FAILED_TAG)
+
+        compose.assertHugeFailureScrollsToItsEnd()
+    }
+
+    @Test
+    fun `the cap is a small share of the window`() {
+        assertTrue(FAILED_MAX_WINDOW_SHARE > 0f && FAILED_MAX_WINDOW_SHARE <= 1f / 3f, "share is $FAILED_MAX_WINDOW_SHARE")
     }
 
     @Test
@@ -189,6 +205,29 @@ class StatusBehaviorTest {
 
         val text = part(STATUS_FAILED_TAG).fetchSemanticsNode().config.getOrNull(SemanticsProperties.Text).orEmpty()
         assertTrue(text.any { it.text.endsWith("SON") }, "the full text is in the semantics: $text")
+    }
+
+    @Test
+    fun `screen readers get the whole failure even past the cap`() {
+        compose.setStatus(StatusState(ChatStatus.Failed(StructuredError(type = "provider.auth", message = HUGE_ERROR_TEXT))))
+
+        val config = part(STATUS_FAILED_TAG).fetchSemanticsNode().config
+        val text = config.getOrNull(SemanticsProperties.Text).orEmpty()
+        assertTrue(text.any { it.text.contains(HUGE_ERROR_TEXT) }, "the full text is in the semantics")
+        assertEquals("Error", config.getOrNull(SemanticsProperties.StateDescription))
+        assertEquals(LiveRegionMode.Polite, config.getOrNull(SemanticsProperties.LiveRegion))
+    }
+
+    @Test
+    @Config(qualifiers = "en-w320dp-h240dp")
+    fun `a blocking status on a short window still scrolls`() {
+        compose.setStatus(StatusState(ChatStatus.Unavailable(ChatFailure.Unreachable)))
+        compose.waitForIdle()
+
+        val range = compose.onNodeWithTag(STATUS_BLOCKING_TAG).fetchSemanticsNode().config
+            .getOrNull(SemanticsProperties.VerticalScrollAxisRange)
+        assertTrue(range != null && range.maxValue() > 0f, "the blocking status scrolls: $range")
+        part(STATUS_CLOSE_TAG).assertTouchSizeIsAtLeast(48.dp)
     }
 
     private fun assertSlim(tag: String) {
