@@ -24,6 +24,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.coroutines.CoroutineContext
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -34,6 +35,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
@@ -223,6 +225,230 @@ class DefaultProgressPresenterTest {
         presenter.onIntent(ProgressIntent.ReviewHostKey)
         runCurrent()
         assertEquals(listOf<ProgressEvent>(ProgressEvent.OpenHostKey), events)
+    }
+
+    /** A presenter stopped on a changed host key: the approved key is [OTHER_KEY], the server shows [SERVER_KEY]. */
+    private suspend fun TestScope.atChangedKey(scope: CoroutineScope? = null): Pair<ProgressFixture, DefaultProgressPresenter> {
+        val fx = ProgressFixture(this)
+        fx.seed()
+        fx.trust(OTHER_KEY)
+        val presenter = if (scope == null) fx.presenter() else fx.presenter(scope)
+        runCurrent()
+        assertEquals(ProgressError.HostKeyChanged, presenter.state.value.error)
+        assertEquals(1, fx.connector.attempts.size)
+        return fx to presenter
+    }
+
+    @Test
+    fun `an accepted changed host key is followed to the connection`() = runTest {
+        val (fx, presenter) = atChangedKey()
+        val events = fx.events(presenter)
+        val states = fx.states(presenter)
+
+        fx.acceptChangedKey()
+        runCurrent()
+
+        assertIs<ConnectionState.Connected>(fx.connectionState)
+        val state = presenter.state.value
+        assertEquals(ProgressStep.Connected, state.step)
+        assertNull(state.error)
+        assertEquals(emptySet(), state.actions)
+        assertNull(state.debugDetail)
+        assertEquals(listOf<ProgressEvent>(ProgressEvent.Connected), events)
+        assertEquals(2, fx.connector.attempts.size, "the accepted key's reconnect only")
+        val reconnect = states.dropWhile { it.error != null }
+        assertTrue(reconnect.isNotEmpty() && reconnect.all { it.error == null && it.actions.isEmpty() })
+        assertTrue(
+            reconnect.any { it.step == ProgressStep.Ssh || it.step == ProgressStep.Server || it.step == ProgressStep.Api },
+            "the reconnect's steps show: $reconnect",
+        )
+
+        presenter.onIntent(ProgressIntent.Retry)
+        runCurrent()
+        assertEquals(2, fx.connector.attempts.size, "nothing to retry once connected")
+        assertEquals(listOf<ProgressEvent>(ProgressEvent.Connected), events, "sent exactly once")
+    }
+
+    @Test
+    fun `a failed reconnect after an accepted host key shows its own error`() = runTest {
+        val (fx, presenter) = atChangedKey()
+        val events = fx.events(presenter)
+        fx.tools.server = ServerLookup.Unresponsive("127.0.0.1", 4096, 100, ServerSource.ProcessScan)
+
+        fx.acceptChangedKey()
+        runCurrent()
+
+        val state = presenter.state.value
+        assertEquals(ProgressError.ServerUnresponsive, state.error)
+        assertEquals(ProgressStep.Server, state.step)
+        assertEquals(setOf(ProgressAction.Retry), state.actions)
+        assertTrue(events.isEmpty())
+
+        // That error is retried as any other: one connect, which now stands.
+        fx.tools.server = ServerLookup.Running("127.0.0.1", 4096, 100, ServerSource.ProcessScan)
+        presenter.onIntent(ProgressIntent.Retry)
+        runCurrent()
+        assertEquals(3, fx.connector.attempts.size)
+        assertEquals(ProgressStep.Connected, presenter.state.value.step)
+        assertEquals(listOf<ProgressEvent>(ProgressEvent.Connected), events)
+    }
+
+    @Test
+    fun `retry while the accepted key's reconnect runs connects no second time`() = runTest {
+        val (fx, presenter) = atChangedKey()
+        val events = fx.events(presenter)
+        fx.connector.silent = true
+
+        fx.acceptChangedKey()
+        // Before the presenter saw the reconnect start: its state still shows the error.
+        assertEquals(ProgressError.HostKeyChanged, presenter.state.value.error)
+        presenter.onIntent(ProgressIntent.Retry)
+        runCurrent()
+
+        assertEquals(2, fx.connector.attempts.size, "no connect besides the accepted key's")
+        assertEquals(ProgressStep.Ssh, presenter.state.value.step)
+        assertNull(presenter.state.value.error)
+
+        // And after it saw it.
+        presenter.onIntent(ProgressIntent.Retry)
+        runCurrent()
+        assertEquals(2, fx.connector.attempts.size)
+
+        fx.connector.silent = false
+        advanceTimeBy(10.minutes)
+        runCurrent()
+        assertEquals(2, fx.connector.attempts.size)
+        assertEquals(ProgressError.Timeout, presenter.state.value.error)
+        assertTrue(events.isEmpty())
+    }
+
+    @Test
+    fun `retry while the changed key is unaccepted connects once and the key can still be accepted`() = runTest {
+        val (fx, presenter) = atChangedKey()
+        val events = fx.events(presenter)
+
+        presenter.onIntent(ProgressIntent.Retry)
+        runCurrent()
+
+        assertEquals(2, fx.connector.attempts.size)
+        assertEquals(ProgressError.HostKeyChanged, presenter.state.value.error)
+
+        fx.acceptChangedKey()
+        runCurrent()
+
+        assertEquals(3, fx.connector.attempts.size)
+        assertEquals(ProgressStep.Connected, presenter.state.value.step)
+        assertEquals(listOf<ProgressEvent>(ProgressEvent.Connected), events)
+    }
+
+    @Test
+    fun `cancel during the accepted key's reconnect disconnects once`() = runTest {
+        val (fx, presenter) = atChangedKey()
+        val events = fx.events(presenter)
+        fx.connector.silent = true
+        fx.acceptChangedKey()
+        runCurrent()
+        assertEquals(ProgressStep.Ssh, presenter.state.value.step)
+
+        presenter.onIntent(ProgressIntent.Cancel)
+        runCurrent()
+
+        assertEquals(ConnectionState.Idle, fx.connectionState)
+        assertEquals(0, fx.connector.halfOpenConnections)
+        assertEquals(listOf<ProgressEvent>(ProgressEvent.Close), events)
+
+        // Disconnected once: a connect made now is not dropped.
+        fx.connector.silent = false
+        fx.manager.connect(profile())
+        runCurrent()
+        assertIs<ConnectionState.Connected>(fx.connectionState)
+        assertEquals(listOf<ProgressEvent>(ProgressEvent.Close), events)
+    }
+
+    @Test
+    fun `leaving the screen at a changed key leaves the error, and during its reconnect ends it`() = runTest {
+        for (accepted in listOf(false, true)) {
+            val fx = ProgressFixture(this)
+            val scope = fx.screenScope()
+            fx.seed()
+            fx.trust(OTHER_KEY)
+            fx.presenter(scope)
+            runCurrent()
+            assertIs<ConnectionState.Error>(fx.connectionState)
+            if (accepted) {
+                fx.connector.silent = true
+                fx.acceptChangedKey()
+                runCurrent()
+            }
+
+            scope.cancel()
+            runCurrent()
+
+            if (accepted) {
+                assertEquals(ConnectionState.Idle, fx.connectionState, "an unfinished connect ends with the screen")
+                assertEquals(0, fx.connector.halfOpenConnections)
+            } else {
+                assertIs<ConnectionState.Error>(fx.connectionState, "nothing was open to disconnect")
+            }
+        }
+    }
+
+    @Test
+    fun `a connection that stood after an accepted key outlives the screen`() = runTest {
+        val fx = ProgressFixture(this)
+        val scope = fx.screenScope()
+        fx.seed()
+        fx.trust(OTHER_KEY)
+        fx.presenter(scope)
+        runCurrent()
+        fx.acceptChangedKey()
+        runCurrent()
+        assertIs<ConnectionState.Connected>(fx.connectionState)
+
+        scope.cancel()
+        runCurrent()
+
+        assertIs<ConnectionState.Connected>(fx.connectionState)
+    }
+
+    @Test
+    fun `a screen taken over at a changed key follows no reconnect of the newer one`() = runTest {
+        val (fx, old) = atChangedKey()
+        val oldEvents = fx.events(old)
+        val oldState = old.state.value
+
+        val newer = fx.presenter()
+        val newerEvents = fx.events(newer)
+        runCurrent()
+        assertEquals(ProgressError.HostKeyChanged, newer.state.value.error)
+        fx.acceptChangedKey()
+        runCurrent()
+
+        assertEquals(ProgressStep.Connected, newer.state.value.step)
+        assertEquals(listOf<ProgressEvent>(ProgressEvent.Connected), newerEvents)
+        assertEquals(oldState, old.state.value, "the old screen shows nothing of the newer connect")
+        assertTrue(oldEvents.isEmpty())
+
+        // Its Cancel leaves the newer connection alone.
+        old.onIntent(ProgressIntent.Cancel)
+        runCurrent()
+        assertIs<ConnectionState.Connected>(fx.connectionState)
+        assertEquals(listOf<ProgressEvent>(ProgressEvent.Close), oldEvents)
+    }
+
+    @Test
+    fun `no address, user or fingerprint shows in the state around an accepted key`() = runTest {
+        val (fx, presenter) = atChangedKey()
+        val states = fx.states(presenter)
+        fx.acceptChangedKey()
+        runCurrent()
+
+        val secrets = listOf(HOST, USER, SERVER_KEY.fingerprintSha256, OTHER_KEY.fingerprintSha256)
+        for (state in states) {
+            for (text in listOf(state.toString(), state.serverName, state.debugDetail.orEmpty())) {
+                for (secret in secrets) assertFalse(secret in text, "state shows a host detail: $state")
+            }
+        }
     }
 
     @Test

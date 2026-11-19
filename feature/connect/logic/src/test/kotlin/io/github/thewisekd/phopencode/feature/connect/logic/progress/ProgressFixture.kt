@@ -37,6 +37,7 @@ import io.github.thewisekd.phopencode.core.testing.storage.FakeProfileRepository
 import io.github.thewisekd.phopencode.core.testing.storage.FakeSecretStore
 import io.github.thewisekd.phopencode.feature.connect.logic.contract.ActiveServer
 import io.github.thewisekd.phopencode.feature.connect.logic.contract.ProgressEvent
+import io.github.thewisekd.phopencode.feature.connect.logic.contract.ProgressState
 import java.io.IOException
 import javax.net.SocketFactory
 import kotlinx.coroutines.CompletableDeferred
@@ -211,6 +212,25 @@ internal class ProgressFixture(val test: TestScope, diagnostics: Diagnostics = D
             presenter.events.collect { seen += it }
         }
         return seen
+    }
+
+    /** Every state [presenter] shows, collected as it comes, the current one first. */
+    fun states(presenter: DefaultProgressPresenter): List<ProgressState> {
+        val seen = mutableListOf<ProgressState>()
+        test.backgroundScope.launch(UnconfinedTestDispatcher(test.testScheduler)) {
+            presenter.state.collect { seen += it }
+        }
+        return seen
+    }
+
+    /**
+     * Accepts the changed host key the manager shows now, as the host key screen does. The manager
+     * takes over at once, before this returns; the reconnect runs on the test's dispatcher.
+     */
+    fun acceptChangedKey() {
+        val shown = manager.state.value as ConnectionState.Error
+        test.backgroundScope.launch(UnconfinedTestDispatcher(test.testScheduler)) { manager.acceptChangedHostKey(shown) }
+        check(manager.state.value is ConnectionState.Ssh) { "the accepted key did not start a reconnect" }
     }
 
     suspend fun seed(profile: ServerProfile = profile(), opencodePassword: String? = OPENCODE_PASSWORD) {

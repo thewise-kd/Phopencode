@@ -3,6 +3,7 @@ package io.github.thewisekd.phopencode.feature.connect.logic.progress
 import io.github.thewisekd.phopencode.core.model.SecretRef
 import io.github.thewisekd.phopencode.core.model.ServerProfile
 import io.github.thewisekd.phopencode.core.model.ServerProfileId
+import io.github.thewisekd.phopencode.core.remote.connection.ConnectionError
 import io.github.thewisekd.phopencode.core.remote.connection.ConnectionManager
 import io.github.thewisekd.phopencode.core.remote.connection.ConnectionState
 import io.github.thewisekd.phopencode.core.storage_api.ProfileRepository
@@ -50,6 +51,15 @@ import kotlinx.coroutines.yield
  * steps become [ProgressState.step]; a new host key sends [ProgressEvent.OpenHostKey] once per
  * approval asked for; a connection that stands sends [ProgressEvent.Connected] once. A failure
  * becomes a [ProgressError] with the [ProgressAction]s that can help (see [progressFailure]).
+ *
+ * A changed host key: a connect that stops on `ConnectionError.HostKeyChanged` shows that error and
+ * goes on following the manager while this presenter still owns its connect. When the host key
+ * screen accepts the new key, the manager connects again on its own
+ * (`ConnectionManager.acceptChangedHostKey`); the error and its actions clear, that reconnect's steps
+ * show, and [ProgressEvent.Connected] is sent once it stands, or its own failure shows. While this
+ * presenter's connect runs in the manager, an accepted key's reconnect included, even before this
+ * presenter saw it start, [ProgressIntent.Retry] connects nothing; while the key is still unaccepted
+ * it connects once, as for any error, and that connect is followed instead.
  *
  * A foreign server: when the password of a running server is unknown or refused, the state asks for
  * it. [ProgressIntent.SubmitServerPassword] turns the text into a [SecretValue] at once, stores it
@@ -143,7 +153,8 @@ class DefaultProgressPresenter(
             try {
                 // On an immediate dispatcher this would run inside the constructor; let it return.
                 yield()
-                runAttempt { loadProfile() }
+                // Recorded like a retry's, so that a retry replaces it rather than runs next to it.
+                launchAttempt { loadProfile() }
                 awaitCancellation()
             } finally {
                 withContext(NonCancellable) { leave() }
@@ -166,8 +177,13 @@ class DefaultProgressPresenter(
         }
     }
 
-    /** Starts over after an error; does nothing while a connect runs. */
+    /**
+     * Starts over after an error; does nothing while a connect runs, also one of this presenter that
+     * the manager started again by itself, such as an accepted host key's, and this presenter has not
+     * seen start yet: the attempt that follows the manager shows it.
+     */
     private fun retry() {
+        if (runsInManager()) return
         if (!restart { it.error != null }) return
         launchAttempt { loadProfile() }
     }
@@ -225,7 +241,10 @@ class DefaultProgressPresenter(
         return job
     }
 
-    /** Gets the profile with [prepare], connects it and follows the manager until the connect ends. */
+    /**
+     * Gets the profile with [prepare], connects it and follows the manager until the connect ends,
+     * standing or failed; a changed host key does not end it (see the class comment).
+     */
     private suspend fun runAttempt(prepare: suspend () -> ServerProfile?) {
         val profile = prepare() ?: return
         if (closing) return
@@ -259,7 +278,10 @@ class DefaultProgressPresenter(
         }
     }
 
-    /** Shows [state]; true once the connect has ended, standing or failed. */
+    /**
+     * Shows [state]; true once the connect has ended, standing or failed. A changed host key is
+     * shown but followed on, as accepting it makes the manager connect again.
+     */
     private fun follow(state: ConnectionState): Boolean = when (state) {
         is ConnectionState.Ssh -> show(ProgressStep.Ssh).let { false }
         // Only a connection that stood reconnects, even if its Connected state was conflated away.
@@ -278,7 +300,10 @@ class DefaultProgressPresenter(
             true
         }
         // The manager records why it ended before it publishes the end, so this is the end's own.
-        is ConnectionState.Error -> fail(progressFailure(state.error)) { connection.lastEnd }.let { true }
+        is ConnectionState.Error -> {
+            fail(progressFailure(state.error)) { connection.lastEnd }
+            state.error !is ConnectionError.HostKeyChanged
+        }
         // Someone else disconnected; connecting again is up to the user.
         ConnectionState.Idle -> fail(ProgressFailure(ProgressError.Disconnected, setOf(ProgressAction.Retry))) {
             connection.lastEnd
@@ -423,6 +448,13 @@ class DefaultProgressPresenter(
     }
 
     private fun owns(): Boolean = synchronized(owners) { owners[connection] === token }
+
+    /** This presenter owns the manager's connect, and that connect runs or stands. */
+    private fun runsInManager(): Boolean = synchronized(owners) {
+        if (owners[connection] !== token) return false
+        val current = connection.state.value
+        current.isUnfinished() || current is ConnectionState.Connected || current is ConnectionState.Reconnecting
+    }
 
     /** [scope] ended: see the class comment. No connect of this presenter starts after this. */
     private suspend fun leave() = release(cancelling = false)
