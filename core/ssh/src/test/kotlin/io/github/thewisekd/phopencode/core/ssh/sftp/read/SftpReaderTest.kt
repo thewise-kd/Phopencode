@@ -15,6 +15,7 @@ import java.io.FilterOutputStream
 import java.io.IOException
 import java.io.OutputStream
 import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.attribute.FileTime
 import java.nio.file.attribute.PosixFilePermissions
@@ -64,9 +65,47 @@ class SftpReaderTest {
     @AfterTest
     fun tearDown() {
         closeables.asReversed().forEach { runCatching { it.close() } }
-        folders.forEach { folder ->
-            folder.toFile().walkTopDown().forEach { runCatching { it.setReadable(true); it.setExecutable(true) } }
-            folder.toFile().deleteRecursively()
+        folders.forEach { runCatching { deleteTree(it) } }
+    }
+
+    /**
+     * Deletes [path] without following links: owner rwx comes back only on real folders inside
+     * it, before they are listed, so a test that locked one can still be emptied; a link is
+     * deleted as a link and what it points to stays as it was.
+     */
+    private fun deleteTree(path: Path) {
+        if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) return
+        if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
+            Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rwx------"))
+            Files.newDirectoryStream(path).use { it.toList() }.forEach(::deleteTree)
+        }
+        Files.delete(path)
+    }
+
+    @Test
+    fun `the tear-down leaves the target of a folder link untouched`() {
+        assumeNotRoot()
+        val victim = Files.createTempDirectory("sftp-read-victim").toRealPath()
+        try {
+            val kept = victim.resolve("kept.txt").also { Files.write(it, BYTES) }
+            val keptDir = victim.resolve("kept-dir").createDirectory()
+            Files.setPosixFilePermissions(kept, PosixFilePermissions.fromString("-w-------"))
+            Files.setPosixFilePermissions(keptDir, PosixFilePermissions.fromString("-wx------"))
+            root.resolve("to-victim").createSymbolicLinkPointingTo(victim)
+            root.resolve("closed").createDirectory().also {
+                Files.write(it.resolve("inner.txt"), BYTES)
+                Files.setPosixFilePermissions(it, PosixFilePermissions.fromString("-w-------"))
+            }
+
+            tearDown()
+
+            assertFalse(Files.exists(root, LinkOption.NOFOLLOW_LINKS), "the temp folder is gone")
+            assertTrue(Files.exists(kept), "the file behind the link is still there")
+            assertTrue(Files.isDirectory(keptDir), "the folder behind the link is still there")
+            assertEquals("-w-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(kept)))
+            assertEquals("-wx------", PosixFilePermissions.toString(Files.getPosixFilePermissions(keptDir)))
+        } finally {
+            deleteTree(victim)
         }
     }
 
