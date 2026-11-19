@@ -49,5 +49,7 @@ class TurkishTimelineTest : TimelineLanguageContract() {
         ),
         turnFailedDetail = "Çalışma başarısız oldu: Rate limited",
         unknown = "Bu mesaj türü henüz desteklenmiyor (poll).",
+        copyAnswer = "Yanıtı kopyala",
+        copied = "Kopyalandı",
     )
 }

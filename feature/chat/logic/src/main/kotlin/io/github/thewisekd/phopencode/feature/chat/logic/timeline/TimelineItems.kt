@@ -43,6 +43,8 @@ private fun itemsOf(message: Message, add: (TimelineItem) -> Unit) {
             ),
         )
         is Message.Assistant -> {
+            val answer = answerOf(message)
+            val lastText = message.blocks.indexOfLast { it is AssistantBlock.Text }
             message.blocks.forEachIndexed { index, block ->
                 when (block) {
                     is AssistantBlock.Text -> add(
@@ -51,6 +53,7 @@ private fun itemsOf(message: Message, add: (TimelineItem) -> Unit) {
                             messageId = id,
                             text = block.text,
                             streaming = block.completedAt == null && message.completedAt == null,
+                            answer = answer.takeIf { index == lastText },
                         ),
                     )
                     is AssistantBlock.Reasoning -> add(TimelineItem.Reasoning(TimelineKey.reasoning(id, index), id))
@@ -74,6 +77,24 @@ private fun itemsOf(message: Message, add: (TimelineItem) -> Unit) {
         is Message.Unknown -> add(TimelineItem.Unknown(key, id, message.rawType))
     }
 }
+
+/**
+ * What a copy of the whole reply takes, as [TimelineItem.AssistantText.answer] says: once [message]
+ * has finished (it has `completedAt` or an `error`), its non-blank text blocks in block order, each
+ * exactly as sent, joined by one blank line; null before that, or when it wrote no text.
+ */
+private fun answerOf(message: Message.Assistant): String? {
+    if (message.completedAt == null && message.error == null) return null
+    return message.blocks
+        .filterIsInstance<AssistantBlock.Text>()
+        .map { it.text }
+        .filter { it.isNotBlank() }
+        .takeIf { it.isNotEmpty() }
+        ?.joinToString(ANSWER_SEPARATOR)
+}
+
+/** Between two text blocks of a copied reply: one blank line, a paragraph break in Markdown. */
+private const val ANSWER_SEPARATOR = "\n\n"
 
 /**
  * A prompt waiting in the inbox gives a pending [TimelineItem.User] under the key its message will

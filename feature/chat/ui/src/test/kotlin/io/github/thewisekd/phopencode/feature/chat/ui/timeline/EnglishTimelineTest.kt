@@ -49,5 +49,7 @@ class EnglishTimelineTest : TimelineLanguageContract() {
         ),
         turnFailedDetail = "The work failed: Rate limited",
         unknown = "This message type is not supported yet (poll).",
+        copyAnswer = "Copy answer",
+        copied = "Copied",
     )
 }

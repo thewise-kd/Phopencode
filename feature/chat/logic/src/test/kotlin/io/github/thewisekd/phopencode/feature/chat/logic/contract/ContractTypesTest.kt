@@ -67,6 +67,21 @@ class ContractTypesTest {
     }
 
     @Test
+    fun `an assistant text prints whether it carries an answer, never the answer`() {
+        val other = listOf("copied", "answer", "7").joinToString("-")
+        val withAnswer = TimelineItem.AssistantText(TimelineKey.text(messageId, 0), messageId, text = secret, answer = other)
+        val printed = withAnswer.toString()
+        assertMasked(withAnswer, secret, other)
+        assertTrue("answer=***" in printed, printed)
+
+        val without = TimelineItem.AssistantText(TimelineKey.text(messageId, 0), messageId, text = secret)
+        assertNull(without.answer)
+        assertTrue("answer=null" in without.toString(), without.toString())
+        assertNotEquals(withAnswer, without)
+        assertEquals(withAnswer, withAnswer.copy())
+    }
+
+    @Test
     fun `masked items still compare by content`() {
         val user = TimelineItem.User(TimelineKey.message(messageId), messageId, text = secret)
         assertEquals(user, user.copy())

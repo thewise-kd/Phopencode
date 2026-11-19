@@ -53,5 +53,7 @@ class TurkishActionsTest : ActionsLanguageContract() {
         turnChanges = "Bu turdaki değişiklikler",
         forkHere = "Buradan çatalla",
         closeActions = "İşlemleri kapat",
+        copy = "Kopyala",
+        copied = "Kopyalandı",
     )
 }

@@ -148,7 +148,7 @@ class DefaultTimelinePresenterTest {
             listOf(
                 TimelineItem.User(TimelineKey.message(MessageId("u1")), MessageId("u1"), "hello", files = listOf("a.kt"), agents = listOf("plan")),
                 TimelineItem.Reasoning(TimelineKey.reasoning(a1, 0), a1),
-                TimelineItem.AssistantText(TimelineKey.text(a1, 1), a1, "answer", streaming = false),
+                TimelineItem.AssistantText(TimelineKey.text(a1, 1), a1, "answer", streaming = false, answer = "answer"),
                 TimelineItem.Tool(TimelineKey.tool(a1, "call1"), a1, callId = "call1", name = "bash"),
                 TimelineItem.AssistantError(TimelineKey.message(a1), a1, error),
                 TimelineItem.Shell(TimelineKey.message(MessageId("s1")), MessageId("s1"), "ls", "out"),
@@ -181,6 +181,136 @@ class DefaultTimelinePresenterTest {
         val text = presenter.state.value.items.single() as TimelineItem.AssistantText
         assertFalse(text.streaming)
         assertEquals("part and more", text.text)
+    }
+
+    private fun answers(presenter: DefaultTimelinePresenter): List<String?> =
+        presenter.state.value.items.filterIsInstance<TimelineItem.AssistantText>().map { it.answer }
+
+    @Test
+    fun `a finished answer joins its text blocks as sent on its last text item`() = runTest {
+        val chat = FakeChat(sessionId)
+        val first = "  # Plan\n\n- one  \n"
+        val second = "```kotlin\nval x = 1\n```"
+        val last = "\nDone.\n\n"
+        chat.flow.value = live(
+            listOf(
+                assistant(
+                    "a1",
+                    AssistantBlock.Reasoning("private thinking"),
+                    AssistantBlock.Text(first, completedAt = done),
+                    AssistantBlock.Tool(id = "call1", name = "bash", status = ToolStatus.Completed),
+                    AssistantBlock.Text(" \n\t", completedAt = done),
+                    AssistantBlock.Text(second, completedAt = done),
+                    AssistantBlock.Unknown("future"),
+                    AssistantBlock.Text(last, completedAt = done),
+                    AssistantBlock.Tool(id = "call2", name = "read", status = ToolStatus.Completed),
+                ),
+            ),
+        )
+        val presenter = open(chat)
+        runCurrent()
+
+        assertEquals(listOf(null, null, null, "$first\n\n$second\n\n$last"), answers(presenter))
+        val texts = presenter.state.value.items.filterIsInstance<TimelineItem.AssistantText>()
+        assertEquals(TimelineKey.text(MessageId("a1"), 6), texts.last().key)
+    }
+
+    @Test
+    fun `each finished answer carries its own text`() = runTest {
+        val chat = FakeChat(sessionId)
+        chat.flow.value = live(
+            listOf(
+                user("u1"),
+                assistant("a1", AssistantBlock.Text("first reply")),
+                user("u2"),
+                assistant("a2", AssistantBlock.Text("second reply")),
+            ),
+        )
+        val presenter = open(chat)
+        runCurrent()
+
+        assertEquals(listOf("first reply", "second reply"), answers(presenter))
+    }
+
+    @Test
+    fun `an answer is offered only once its message has finished`() = runTest {
+        val chat = FakeChat(sessionId)
+        val streaming = assistant(
+            "a1",
+            AssistantBlock.Text("done part", completedAt = done),
+            AssistantBlock.Text("still writing"),
+            completed = false,
+        )
+        chat.flow.value = live(listOf(streaming))
+        val presenter = open(chat)
+        runCurrent()
+        assertEquals(listOf(null, null), answers(presenter))
+
+        // Every block done, but the message is not: more may follow, so still nothing to copy.
+        chat.flow.value = live(
+            listOf(
+                assistant(
+                    "a1",
+                    AssistantBlock.Text("done part", completedAt = done),
+                    AssistantBlock.Text("still writing", completedAt = done),
+                    completed = false,
+                ),
+            ),
+        )
+        runCurrent()
+        assertEquals(listOf(null, null), answers(presenter))
+
+        chat.flow.value = live(
+            listOf(
+                assistant(
+                    "a1",
+                    AssistantBlock.Text("done part", completedAt = done),
+                    AssistantBlock.Text("still writing", completedAt = done),
+                ),
+            ),
+        )
+        runCurrent()
+        assertEquals(listOf(null, "done part\n\nstill writing"), answers(presenter))
+    }
+
+    @Test
+    fun `a failed answer offers what it wrote`() = runTest {
+        val chat = FakeChat(sessionId)
+        chat.flow.value = live(
+            listOf(
+                assistant(
+                    "a1",
+                    AssistantBlock.Text("partial reply"),
+                    completed = false,
+                    error = StructuredError(type = "ProviderError"),
+                ),
+            ),
+        )
+        val presenter = open(chat)
+        runCurrent()
+
+        assertEquals(listOf("partial reply"), answers(presenter))
+    }
+
+    @Test
+    fun `an answer with no written text offers nothing to copy`() = runTest {
+        val chat = FakeChat(sessionId)
+        chat.flow.value = live(
+            listOf(
+                assistant(
+                    "a1",
+                    AssistantBlock.Reasoning("thinking"),
+                    AssistantBlock.Text(""),
+                    AssistantBlock.Tool(id = "call1", name = "bash", status = ToolStatus.Completed),
+                    AssistantBlock.Text(" \n "),
+                ),
+                assistant("a2", AssistantBlock.Tool(id = "call2", name = "bash", status = ToolStatus.Completed)),
+            ),
+        )
+        val presenter = open(chat)
+        runCurrent()
+
+        assertEquals(listOf(null, null), answers(presenter))
     }
 
     @Test

@@ -1,12 +1,16 @@
 package io.github.thewisekd.phopencode.feature.chat.ui.timeline
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.dp
 import io.github.thewisekd.phopencode.core.api.PromptDelivery
 import io.github.thewisekd.phopencode.core.model.MessageId
 import io.github.thewisekd.phopencode.core.model.ModelRef
@@ -17,9 +21,11 @@ import io.github.thewisekd.phopencode.feature.chat.logic.contract.TimelineKey
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.TimelineNotice
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.TimelineState
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.TurnOutcome
+import io.github.thewisekd.phopencode.feature.chat.ui.actions.assertTouchSizeIsAtLeast
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import org.junit.Rule
 import org.junit.Test
-import kotlin.test.assertEquals
 
 /** The texts of the timeline in one language, each with its arguments filled in by the test. */
 internal data class ExpectedTimelineStrings(
@@ -64,6 +70,10 @@ internal data class ExpectedTimelineStrings(
     val turnFailedDetail: String,
     /** For `poll`. */
     val unknown: String,
+    /** The label of a finished reply's Copy button. */
+    val copyAnswer: String,
+    /** The short notice after a copy, on Android 12L and below. */
+    val copied: String,
 )
 
 /** What the timeline shows, the same in each language; a subclass sets the language and its texts. */
@@ -162,6 +172,28 @@ abstract class TimelineLanguageContract {
 
         spokenFirst(strings.assistant, "Paragraph 1 of the reply")
         hides(strings.assistant)
+    }
+
+    @Test
+    fun `a finished reply copies the whole reply and says so`() {
+        val whole = "# Plan\n\nFirst **step**  \n\n```kotlin\nval x = 1\n```\n"
+        val harness = compose.setTimeline(loaded(listOf(answer(1, text = "Last block.", whole = whole))))
+
+        val copy = compose.onNodeWithContentDescription(strings.copyAnswer).performScrollTo()
+        copy.assertIsDisplayed().assertHasClickAction().assertTouchSizeIsAtLeast(48.dp)
+        // A node of its own: the reply's merged "Assistant" text does not hold it.
+        val reply = compose.onAllNodes(hasText("Last block.", substring = true)).fetchSemanticsNodes().first()
+        assertFalse(strings.copyAnswer in reply.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty())
+        assertEquals(strings.assistant, compose.spokenTexts("Last block.").first())
+
+        copy.performClick()
+        compose.waitForIdle()
+
+        assertEquals(whole, clipboardText())
+        assertCopiedNotice(strings.copied)
+
+        harness.showOnly(answer(2, text = "Still part of a reply."))
+        compose.onNodeWithContentDescription(strings.copyAnswer).assertDoesNotExist()
     }
 
     @Test

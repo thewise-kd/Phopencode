@@ -1,5 +1,8 @@
 package io.github.thewisekd.phopencode.feature.chat.ui.timeline
 
+import android.content.ClipboardManager
+import android.content.Context
+import android.os.Build
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,6 +27,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.unit.dp
+import androidx.test.core.app.ApplicationProvider
 import io.github.thewisekd.phopencode.core.model.MessageId
 import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.TimelineIntent
@@ -31,6 +35,8 @@ import io.github.thewisekd.phopencode.feature.chat.logic.contract.TimelineItem
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.TimelineKey
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.TimelineState
 import kotlin.math.abs
+import kotlin.test.assertEquals
+import org.robolectric.shadows.ShadowToast
 
 /** Small enough to fit under the status bar that API 35+ pushes content down by. */
 internal val TIMELINE_HEIGHT = 360.dp
@@ -45,9 +51,34 @@ internal fun user(n: Int, text: String = "Soru $n: çalıştır mı?"): Timeline
     return TimelineItem.User(TimelineKey.message(id), id, text)
 }
 
-internal fun answer(n: Int, text: String = "Answer $n", streaming: Boolean = false): TimelineItem.AssistantText {
+/** A made-up reply; [whole] is what its Copy button copies, null for no button. */
+internal fun answer(
+    n: Int,
+    text: String = "Answer $n",
+    streaming: Boolean = false,
+    whole: String? = null,
+): TimelineItem.AssistantText {
     val id = MessageId("msg_a$n")
-    return TimelineItem.AssistantText(TimelineKey.text(id, 0), id, text, streaming)
+    return TimelineItem.AssistantText(TimelineKey.text(id, 0), id, text, streaming, answer = whole)
+}
+
+/** The plain text on the clipboard, or null when it holds none. */
+internal fun clipboardText(): String? {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    return clipboard.primaryClip?.getItemAt(0)?.text?.toString()
+}
+
+/**
+ * Checks the notice after a copy: on Android 12L and below the chat's own short [copied] notice,
+ * on Android 13 and above none, since the system shows its own.
+ */
+internal fun assertCopiedNotice(copied: String) {
+    if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
+        assertEquals(copied, ShadowToast.getTextOfLatestToast(), "the notice after a copy")
+    } else {
+        assertEquals(0, ShadowToast.shownToastCount(), "no notice of the app's own after a copy")
+    }
 }
 
 /** [count] prompts, oldest first, numbered from [from]. */

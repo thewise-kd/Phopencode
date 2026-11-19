@@ -68,14 +68,26 @@ sealed interface TimelineItem {
                 "pending=$pending, text=***)"
     }
 
-    /** @property streaming The block has no `completedAt` yet: more text may follow. */
+    /**
+     * One text block of a reply, as Markdown source.
+     *
+     * @property streaming The block has no `completedAt` yet: more text may follow.
+     * @property answer What a copy of the whole reply takes: set only on the last text item of a
+     *   finished assistant message (one with `completedAt` or an `error`), to the text of all its
+     *   non-blank text blocks in block order, each exactly as the server sent it, joined by one blank
+     *   line; no tool or reasoning text. Null on every other item, on a reply with no non-blank text,
+     *   and while the reply streams, so that a copy never misses its end.
+     */
     data class AssistantText(
         override val key: TimelineKey,
         override val messageId: MessageId,
         val text: String,
         val streaming: Boolean = false,
+        val answer: String? = null,
     ) : TimelineItem {
-        override fun toString(): String = "AssistantText(key=${key.value}, streaming=$streaming, text=***)"
+        override fun toString(): String =
+            "AssistantText(key=${key.value}, streaming=$streaming, text=***, " +
+                "answer=${if (answer == null) "null" else "***"})"
     }
 
     /** Where a reasoning card goes; it shows `ReasoningState.cards[key]`, or nothing. */

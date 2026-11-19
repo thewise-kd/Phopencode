@@ -53,4 +53,8 @@
     <string name="chat_timeline_turn_unknown">The work ended.</string>
     <!-- %1$s: the server's name for the message type. -->
     <string name="chat_timeline_unknown">This message type is not supported yet (%1$s).</string>
+    <!-- The label of the button under a finished reply that copies the whole reply, read by a screen reader. -->
+    <string name="chat_timeline_copy_answer">Copy answer</string>
+    <!-- A short notice once a text is on the clipboard, shown on Android 12L and below only. -->
+    <string name="chat_timeline_copied">Copied</string>
 </resources>

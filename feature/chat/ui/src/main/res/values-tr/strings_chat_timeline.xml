@@ -53,4 +53,6 @@
     <string name="chat_timeline_turn_unknown">Çalışma sona erdi.</string>
     <!-- %1$s: the server's name for the message type. -->
     <string name="chat_timeline_unknown">Bu mesaj türü henüz desteklenmiyor (%1$s).</string>
+    <string name="chat_timeline_copy_answer">Yanıtı kopyala</string>
+    <string name="chat_timeline_copied">Kopyalandı</string>
 </resources>

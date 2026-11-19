@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -45,6 +47,7 @@ import io.github.thewisekd.phopencode.feature.chat.logic.contract.TimelineItem
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.TimelineNotice
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.TurnOutcome
 import io.github.thewisekd.phopencode.feature.chat.ui.R
+import io.github.thewisekd.phopencode.feature.chat.ui.actions.ActionsIcons
 
 /** A prompt's bubble leaves at least this much room on the start side, so it never passes for a reply. */
 private val USER_INSET = 48.dp
@@ -140,17 +143,43 @@ private fun Attached(@StringRes label: Int, names: List<String>) {
 /**
  * A reply: no bubble, the full width from the start side, its Markdown rendered. Screen readers hear
  * "Assistant" first, through [spokenAs]; nothing on screen says it.
+ *
+ * The body is selectable on its own, in a [SelectionContainer] of this item only (never around the
+ * list): a long press selects text in this block and the system's toolbar copies part of it. A tap
+ * on a link, and a swipe that scrolls the list, work as before.
+ *
+ * The item that carries the finished reply's [TimelineItem.AssistantText.answer] has a Copy button
+ * under it, a node of its own outside the merged "Assistant" text, that puts the whole reply on the
+ * clipboard.
  */
 @Composable
 private fun AssistantEntry(item: TimelineItem.AssistantText) {
-    Box(Modifier.fillMaxWidth().spokenAs(stringResource(R.string.chat_timeline_assistant))) {
-        if (item.text.isBlank() && item.streaming) {
-            StillProgress(stringResource(R.string.chat_timeline_writing), center = false)
-        } else {
-            Box(Modifier.fillMaxWidth().testTag(TIMELINE_ASSISTANT_BODY_TAG)) {
-                MarkdownView(item.text, Modifier.fillMaxWidth())
+    Column(Modifier.fillMaxWidth()) {
+        Box(Modifier.fillMaxWidth().spokenAs(stringResource(R.string.chat_timeline_assistant))) {
+            if (item.text.isBlank() && item.streaming) {
+                StillProgress(stringResource(R.string.chat_timeline_writing), center = false)
+            } else {
+                SelectionContainer {
+                    Box(Modifier.fillMaxWidth().testTag(TIMELINE_ASSISTANT_BODY_TAG)) {
+                        MarkdownView(item.text, Modifier.fillMaxWidth())
+                    }
+                }
             }
         }
+        item.answer?.let { answer -> CopyAnswerButton(answer) }
+    }
+}
+
+/** Puts the whole of a finished reply, [answer], on the clipboard. */
+@Composable
+private fun CopyAnswerButton(answer: String) {
+    val copy = rememberCopyText()
+    IconButton(onClick = { copy(answer) }, modifier = Modifier.testTag(TIMELINE_COPY_ANSWER_TAG)) {
+        Icon(
+            imageVector = ActionsIcons.Copy,
+            contentDescription = stringResource(R.string.chat_timeline_copy_answer),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

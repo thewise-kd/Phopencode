@@ -16,6 +16,13 @@ internal object ActionsIcons {
         "M19,6.41L17.59,5 12,10.59 6.41,5 5,6.41 10.59,12 5,17.59 6.41,19 12,13.41 17.59,19 19,17.59 13.41,12z",
     )
 
+    /** Material's "content copy": two stacked sheets. */
+    val Copy: ImageVector = icon(
+        "Copy",
+        "M16,1L4,1c-1.1,0 -2,0.9 -2,2v14h2L4,3h12L16,1zM19,5L8,5c-1.1,0 -2,0.9 -2,2v14c0,1.1 0.9,2 2,2h11" +
+            "c1.1,0 2,-0.9 2,-2L21,7c0,-1.1 -0.9,-2 -2,-2zM19,21L8,21L8,7h11v14z",
+    )
+
     private fun icon(name: String, pathData: String): ImageVector =
         ImageVector.Builder(
             name = "ChatActions.$name",

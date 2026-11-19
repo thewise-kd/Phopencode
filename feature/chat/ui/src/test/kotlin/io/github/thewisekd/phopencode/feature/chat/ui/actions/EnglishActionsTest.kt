@@ -54,5 +54,7 @@ class EnglishActionsTest : ActionsLanguageContract() {
         turnChanges = "This turn's changes",
         forkHere = "Fork from here",
         closeActions = "Close actions",
+        copy = "Copy",
+        copied = "Copied",
     )
 }

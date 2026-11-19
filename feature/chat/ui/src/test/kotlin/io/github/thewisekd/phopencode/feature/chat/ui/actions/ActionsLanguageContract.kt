@@ -1,19 +1,25 @@
 package io.github.thewisekd.phopencode.feature.chat.ui.actions
 
+import androidx.compose.material3.Surface
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.dp
+import io.github.thewisekd.phopencode.core.ui.theme.PhopencodeTheme
 import io.github.thewisekd.phopencode.feature.chat.logic.contract.ChatFailure
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.ActionError
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.ActionsState
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SessionAction
-import org.junit.Rule
-import org.junit.Test
+import io.github.thewisekd.phopencode.feature.chat.ui.timeline.assertCopiedNotice
+import io.github.thewisekd.phopencode.feature.chat.ui.timeline.clipboardText
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.junit.Rule
+import org.junit.Test
 
 /** The texts of the session menu and a prompt's actions in one language. */
 internal data class ExpectedActionsStrings(
@@ -44,6 +50,9 @@ internal data class ExpectedActionsStrings(
     val turnChanges: String,
     val forkHere: String,
     val closeActions: String,
+    /** A prompt's Copy action, and the short notice after it on Android 12L and below. */
+    val copy: String,
+    val copied: String,
 )
 
 /** What the actions say, the same in each language; a subclass sets the language and its texts. */
@@ -130,5 +139,36 @@ abstract class ActionsLanguageContract {
         assertEquals(strings.turnChanges, merged(ActionsTags.TURN_CHANGES).text())
         assertEquals(strings.forkHere, merged(ActionsTags.FORK_HERE).text())
         assertEquals(strings.closeActions, merged(ActionsTags.MESSAGE_CLOSE).description())
+    }
+
+    @Test
+    fun `a prompt's copy puts its text on the clipboard as typed and closes the actions`() {
+        val typed = "  Testleri çalıştır\n- ve **düzelt**  "
+        var dismissed = 0
+        compose.setContent {
+            PhopencodeTheme(darkTheme = false) {
+                Surface {
+                    MessageActions(PROMPT, READY, onIntent = {}, onDismiss = { dismissed++ }, text = typed)
+                }
+            }
+        }
+        compose.waitForIdle()
+
+        // Drawn alone, in no scrolling container, so nothing to scroll to.
+        val copy = compose.onNodeWithTag(ActionsTags.COPY)
+        assertEquals(strings.copy, copy.text())
+        copy.assertTouchSizeIsAtLeast(48.dp).performClick()
+        compose.waitForIdle()
+
+        assertEquals(typed, clipboardText())
+        assertCopiedNotice(strings.copied)
+        assertEquals(1, dismissed)
+    }
+
+    @Test
+    fun `without a prompt's text there is no copy action`() {
+        show(READY, withMessage = true)
+
+        compose.onNodeWithTag(ActionsTags.COPY).assertDoesNotExist()
     }
 }

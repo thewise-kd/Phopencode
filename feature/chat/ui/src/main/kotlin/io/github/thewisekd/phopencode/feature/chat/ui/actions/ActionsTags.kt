@@ -31,5 +31,6 @@ internal object ActionsTags {
     /** A prompt's actions. */
     const val TURN_CHANGES: String = "actions:turn_changes"
     const val FORK_HERE: String = "actions:fork_here"
+    const val COPY: String = "actions:copy"
     const val MESSAGE_CLOSE: String = "actions:message_close"
 }

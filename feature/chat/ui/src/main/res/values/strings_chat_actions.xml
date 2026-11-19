@@ -50,4 +50,6 @@
     <string name="chat_actions_fork_here">Fork from here</string>
     <!-- The label of the button that closes a prompt's actions, read by a screen reader. -->
     <string name="chat_actions_message_close">Close actions</string>
+    <!-- A prompt's action that puts its text on the clipboard. -->
+    <string name="chat_actions_copy">Copy</string>
 </resources>

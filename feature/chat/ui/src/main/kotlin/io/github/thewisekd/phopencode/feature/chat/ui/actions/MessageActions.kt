@@ -18,6 +18,7 @@ import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.Ac
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.ActionsState
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SessionAction
 import io.github.thewisekd.phopencode.feature.chat.ui.R
+import io.github.thewisekd.phopencode.feature.chat.ui.timeline.rememberCopyText
 
 /**
  * The actions of the prompt [messageId] (P7.15), drawn by the timeline under the prompt after a
@@ -28,9 +29,11 @@ import io.github.thewisekd.phopencode.feature.chat.ui.R
  * - **Fork from here** sends [ActionsIntent.Request] with [SessionAction.Fork] of [messageId]; it can
  *   be tapped only while [ActionsState.canAct]. The confirmation is drawn by [SessionActionsMenu],
  *   which the chat always shows, so it outlives these actions.
+ * - **Copy**, when [text] is given, puts the prompt's text, as typed, on the clipboard as plain
+ *   text, with the same short notice as a reply's Copy button.
  * - **Close** only calls [onDismiss].
  *
- * Either action also calls [onDismiss], so the actions close once used.
+ * Every action also calls [onDismiss], so the actions close once used.
  */
 @Composable
 fun MessageActions(
@@ -39,7 +42,9 @@ fun MessageActions(
     onIntent: (ActionsIntent) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    text: String? = null,
 ) {
+    val copy = rememberCopyText()
     FlowRow(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(PhopencodeTheme.spacing.xs, Alignment.End),
@@ -63,6 +68,17 @@ fun MessageActions(
             modifier = Modifier.testTag(ActionsTags.FORK_HERE),
         ) {
             Text(stringResource(R.string.chat_actions_fork_here))
+        }
+        if (text != null) {
+            TextButton(
+                onClick = {
+                    copy(text)
+                    onDismiss()
+                },
+                modifier = Modifier.testTag(ActionsTags.COPY),
+            ) {
+                Text(stringResource(R.string.chat_actions_copy))
+            }
         }
         IconButton(onClick = onDismiss, modifier = Modifier.testTag(ActionsTags.MESSAGE_CLOSE)) {
             Icon(imageVector = ActionsIcons.Close, contentDescription = stringResource(R.string.chat_actions_message_close))

@@ -23,6 +23,8 @@ import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.Re
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SubagentState
 import io.github.thewisekd.phopencode.feature.chat.logic.interaction.contract.SwitcherState
 import io.github.thewisekd.phopencode.feature.chat.ui.actions.ActionsTags
+import io.github.thewisekd.phopencode.feature.chat.ui.actions.MessageActions
+import io.github.thewisekd.phopencode.feature.chat.ui.actions.PROMPT
 import io.github.thewisekd.phopencode.feature.chat.ui.form.FormHarness
 import io.github.thewisekd.phopencode.feature.chat.ui.form.question
 import io.github.thewisekd.phopencode.feature.chat.ui.form.single
@@ -135,6 +137,16 @@ class AccessibilityAuditTest {
         timeline = TimelineState(loading = false, items = listOf(user(1), answer(1), user(2))),
         composer = ComposerState(draft = "Bir şey daha", enabled = true, running = true),
     )
+
+    @Test
+    fun `a chat with a finished answer that can be copied`() = chat(
+        timeline = TimelineState(loading = false, items = listOf(user(1), answer(1, whole = "Answer 1"))),
+    )
+
+    @Test
+    fun `a prompt's actions with its copy`() = audit {
+        MessageActions(PROMPT, ActionsState(enabled = true), onIntent = {}, onDismiss = {}, text = "Bir şey daha")
+    }
 
     @Test
     fun `a chat that lost its connection`() {

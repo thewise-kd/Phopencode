@@ -203,6 +203,7 @@ fun ChatScreen(
                                 onIntent = onActionsIntent,
                                 onDismiss = dismiss,
                                 modifier = Modifier.testTag(ChatSlotTags.messageActions(item.key)),
+                                text = item.text,
                             )
                         },
                     )

@@ -14,6 +14,9 @@ internal const val TIMELINE_USER_BUBBLE_TAG = "chat_timeline:user_bubble"
 /** The body of a reply's text. */
 internal const val TIMELINE_ASSISTANT_BODY_TAG = "chat_timeline:assistant_body"
 
+/** The button under a finished reply that copies the whole reply. */
+internal const val TIMELINE_COPY_ANSWER_TAG = "chat_timeline:copy_answer"
+
 /** The chip of an execution that did not succeed: failed, stopped or of unknown end. */
 internal const val TIMELINE_TURN_CHIP_TAG = "chat_timeline:turn_chip"
 
