@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -90,6 +91,17 @@ class ConnectionServerTest {
             withContext(NonCancellable) { gate.await() }
         }
         return entered to gate
+    }
+
+    /**
+     * Waits, in real time and for at most [RELEASE_WAIT], for [disconnect] to return. A disconnect
+     * returns only once the stopped connection's release, which runs on a real IO thread
+     * (`ConnectionManager.RELEASES`), has finished, and `runCurrent()` does not wait for that thread.
+     * The test's scheduler keeps running meanwhile, so the disconnect resumes on it. On a timeout
+     * this returns, and the caller's own check fails.
+     */
+    private suspend fun awaitRelease(disconnect: Job) {
+        withContext(Dispatchers.Default) { withTimeoutOrNull(RELEASE_WAIT) { disconnect.join() } }
     }
 
     private fun TestScope.gatedFixture(managerScope: CoroutineScope = backgroundScope): Pair<Fixture, GatedKnownHosts> {
@@ -486,6 +498,7 @@ class ConnectionServerTest {
         runCurrent()
         gate.complete(Unit)
         runCurrent()
+        awaitRelease(disconnected)
 
         assertTrue(disconnected.isCompleted)
         assertEquals(HostKeyReplacement.Stale, result.await())
@@ -534,6 +547,7 @@ class ConnectionServerTest {
         runCurrent()
         gate.complete(Unit)
         runCurrent()
+        awaitRelease(disconnected)
 
         assertTrue(disconnected.isCompleted)
         assertFalse(approved.await())
@@ -632,6 +646,7 @@ class ConnectionServerTest {
         assertEquals(oldFingerprint, fx.knownHosts.approved(endpoint))
         store.gate?.complete(Unit)
         runCurrent()
+        awaitRelease(disconnected)
 
         assertTrue(disconnected.isCompleted)
         // The write started while the request was current, so it stands; nothing follows it.
@@ -722,5 +737,6 @@ class ConnectionServerTest {
 
     private companion object {
         const val RACE_ROUNDS = 200
+        val RELEASE_WAIT = 10.seconds
     }
 }

@@ -37,7 +37,6 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
-import kotlinx.coroutines.test.runTest
 
 class DefaultProgressPresenterTest {
     private suspend fun TestScope.ready(): ProgressFixture {
@@ -48,7 +47,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `nothing starts in the constructor`() = runTest {
+    fun `nothing starts in the constructor`() = runProgressTest {
         val fx = ready()
         val presenter = fx.presenter()
 
@@ -59,7 +58,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `nothing starts in the constructor on an immediate dispatcher`() = runTest {
+    fun `nothing starts in the constructor on an immediate dispatcher`() = runProgressTest {
         val fx = ready()
         // Like Dispatchers.Main.immediate on the main thread: a launch runs at once, a yield dispatches.
         val queue = StandardTestDispatcher(testScheduler)
@@ -79,7 +78,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `connects to a running server and says so once`() = runTest {
+    fun `connects to a running server and says so once`() = runProgressTest {
         val fx = ready()
         val presenter = fx.presenter()
         val events = fx.events(presenter)
@@ -99,7 +98,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `starts a server when none runs`() = runTest {
+    fun `starts a server when none runs`() = runProgressTest {
         val fx = ready()
         fx.tools.server = ServerLookup.NotRunning()
         val presenter = fx.presenter()
@@ -113,7 +112,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a running server that does not answer is waited for, not started next to`() = runTest {
+    fun `a running server that does not answer is waited for, not started next to`() = runProgressTest {
         val fx = ready()
         fx.tools.server = ServerLookup.Unresponsive("127.0.0.1", 4096, 100, ServerSource.ProcessScan)
         val presenter = fx.presenter()
@@ -130,7 +129,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `no server on the profile's port names the port and offers the server form`() = runTest(timeout = 10.seconds) {
+    fun `no server on the profile's port names the port and offers the server form`() = runProgressTest(timeout = 10.seconds) {
         val fx = ProgressFixture(this)
         fx.seed(profile(opencodePort = 4096))
         fx.trust()
@@ -160,7 +159,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `with a port and no server running, one is started on that port`() = runTest(timeout = 10.seconds) {
+    fun `with a port and no server running, one is started on that port`() = runProgressTest(timeout = 10.seconds) {
         val fx = ProgressFixture(this)
         fx.seed(profile(opencodePort = 4096))
         fx.trust()
@@ -174,7 +173,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a missing opencode binary fails at the server step`() = runTest {
+    fun `a missing opencode binary fails at the server step`() = runProgressTest {
         val fx = ready()
         fx.tools.server = ServerLookup.NotRunning()
         fx.tools.binary = BinaryLookup.Missing
@@ -187,7 +186,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a new host key opens the host key screen once and goes on once approved`() = runTest {
+    fun `a new host key opens the host key screen once and goes on once approved`() = runProgressTest {
         val fx = ProgressFixture(this)
         fx.seed()
         val presenter = fx.presenter()
@@ -207,7 +206,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a changed host key offers a review`() = runTest {
+    fun `a changed host key offers a review`() = runProgressTest {
         val fx = ProgressFixture(this)
         fx.seed()
         fx.trust(OTHER_KEY)
@@ -240,7 +239,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `an accepted changed host key is followed to the connection`() = runTest {
+    fun `an accepted changed host key is followed to the connection`() = runProgressTest {
         val (fx, presenter) = atChangedKey()
         val events = fx.events(presenter)
         val states = fx.states(presenter)
@@ -270,7 +269,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a failed reconnect after an accepted host key shows its own error`() = runTest {
+    fun `a failed reconnect after an accepted host key shows its own error`() = runProgressTest {
         val (fx, presenter) = atChangedKey()
         val events = fx.events(presenter)
         fx.tools.server = ServerLookup.Unresponsive("127.0.0.1", 4096, 100, ServerSource.ProcessScan)
@@ -294,7 +293,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `retry while the accepted key's reconnect runs connects no second time`() = runTest {
+    fun `retry while the accepted key's reconnect runs connects no second time`() = runProgressTest {
         val (fx, presenter) = atChangedKey()
         val events = fx.events(presenter)
         fx.connector.silent = true
@@ -323,7 +322,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `retry while the changed key is unaccepted connects once and the key can still be accepted`() = runTest {
+    fun `retry while the changed key is unaccepted connects once and the key can still be accepted`() = runProgressTest {
         val (fx, presenter) = atChangedKey()
         val events = fx.events(presenter)
 
@@ -342,7 +341,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `cancel during the accepted key's reconnect disconnects once`() = runTest {
+    fun `cancel during the accepted key's reconnect disconnects once`() = runProgressTest {
         val (fx, presenter) = atChangedKey()
         val events = fx.events(presenter)
         fx.connector.silent = true
@@ -352,6 +351,7 @@ class DefaultProgressPresenterTest {
 
         presenter.onIntent(ProgressIntent.Cancel)
         runCurrent()
+        fx.awaitEvent(events, ProgressEvent.Close)
 
         assertEquals(ConnectionState.Idle, fx.connectionState)
         assertEquals(0, fx.connector.halfOpenConnections)
@@ -366,7 +366,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `leaving the screen at a changed key leaves the error, and during its reconnect ends it`() = runTest {
+    fun `leaving the screen at a changed key leaves the error, and during its reconnect ends it`() = runProgressTest {
         for (accepted in listOf(false, true)) {
             val fx = ProgressFixture(this)
             val scope = fx.screenScope()
@@ -383,6 +383,7 @@ class DefaultProgressPresenterTest {
 
             scope.cancel()
             runCurrent()
+            fx.awaitEnded(scope)
 
             if (accepted) {
                 assertEquals(ConnectionState.Idle, fx.connectionState, "an unfinished connect ends with the screen")
@@ -394,7 +395,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a connection that stood after an accepted key outlives the screen`() = runTest {
+    fun `a connection that stood after an accepted key outlives the screen`() = runProgressTest {
         val fx = ProgressFixture(this)
         val scope = fx.screenScope()
         fx.seed()
@@ -407,12 +408,13 @@ class DefaultProgressPresenterTest {
 
         scope.cancel()
         runCurrent()
+        fx.awaitEnded(scope)
 
         assertIs<ConnectionState.Connected>(fx.connectionState)
     }
 
     @Test
-    fun `a screen taken over at a changed key follows no reconnect of the newer one`() = runTest {
+    fun `a screen taken over at a changed key follows no reconnect of the newer one`() = runProgressTest {
         val (fx, old) = atChangedKey()
         val oldEvents = fx.events(old)
         val oldState = old.state.value
@@ -432,12 +434,13 @@ class DefaultProgressPresenterTest {
         // Its Cancel leaves the newer connection alone.
         old.onIntent(ProgressIntent.Cancel)
         runCurrent()
+        fx.awaitEvent(oldEvents, ProgressEvent.Close)
         assertIs<ConnectionState.Connected>(fx.connectionState)
         assertEquals(listOf<ProgressEvent>(ProgressEvent.Close), oldEvents)
     }
 
     @Test
-    fun `no address, user or fingerprint shows in the state around an accepted key`() = runTest {
+    fun `no address, user or fingerprint shows in the state around an accepted key`() = runProgressTest {
         val (fx, presenter) = atChangedKey()
         val states = fx.states(presenter)
         fx.acceptChangedKey()
@@ -452,7 +455,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a missing login secret offers the server form`() = runTest {
+    fun `a missing login secret offers the server form`() = runProgressTest {
         val fx = ProgressFixture(this)
         fx.profiles.save(profile())
         fx.trust()
@@ -470,7 +473,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `retry connects again with the profile as saved now`() = runTest {
+    fun `retry connects again with the profile as saved now`() = runProgressTest {
         val fx = ProgressFixture(this)
         fx.profiles.save(profile())
         fx.trust()
@@ -489,7 +492,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `retry does nothing while a connect runs`() = runTest {
+    fun `retry does nothing while a connect runs`() = runProgressTest {
         val fx = ProgressFixture(this)
         fx.seed()
         val presenter = fx.presenter()
@@ -504,7 +507,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a missing server cannot connect`() = runTest {
+    fun `a missing server cannot connect`() = runProgressTest {
         val fx = ProgressFixture(this)
         val presenter = fx.presenter()
         val events = fx.events(presenter)
@@ -519,7 +522,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `unreachable profile storage can be retried`() = runTest {
+    fun `unreachable profile storage can be retried`() = runProgressTest {
         val fx = ready()
         fx.profiles.unavailable = true
         val presenter = fx.presenter()
@@ -536,7 +539,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `an unknown server password is asked for`() = runTest {
+    fun `an unknown server password is asked for`() = runProgressTest {
         val fx = ProgressFixture(this)
         fx.seed(profile(opencodeCredential = null))
         fx.trust()
@@ -560,7 +563,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a submitted password is stored under a fresh reference and the connect goes on`() = runTest {
+    fun `a submitted password is stored under a fresh reference and the connect goes on`() = runProgressTest {
         val fx = ProgressFixture(this)
         fx.seed(profile(opencodeCredential = null))
         fx.trust()
@@ -586,7 +589,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a rejected password is asked for again and the old one is replaced`() = runTest {
+    fun `a rejected password is asked for again and the old one is replaced`() = runProgressTest {
         val fx = ready()
         fx.clients.serverPassword = OTHER_PASSWORD
         val presenter = fx.presenter()
@@ -607,7 +610,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a replaced credential that the ssh login shares is kept and the login still works`() = runTest {
+    fun `a replaced credential that the ssh login shares is kept and the login still works`() = runProgressTest {
         val fx = ProgressFixture(this)
         val shared = profile().copy(opencodeCredential = SSH_REF)
         // One secret for both: the ssh password, which the server refuses as its own.
@@ -630,7 +633,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a submitted password is wiped once stored, while the connect still waits`() = runTest {
+    fun `a submitted password is wiped once stored, while the connect still waits`() = runProgressTest {
         val fx = ProgressFixture(this)
         fx.seed(profile(opencodeCredential = null))
         fx.trust()
@@ -651,7 +654,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a submitted password is wiped when it cannot be stored`() = runTest {
+    fun `a submitted password is wiped when it cannot be stored`() = runProgressTest {
         val fx = ProgressFixture(this)
         fx.seed(profile(opencodeCredential = null))
         fx.trust()
@@ -669,7 +672,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `the password of a server this app started is never deleted`() = runTest {
+    fun `the password of a server this app started is never deleted`() = runProgressTest {
         val fx = ready()
         val started = ServerResolver.startedPasswordRef(profile())
         fx.profiles.save(profile(opencodeCredential = started))
@@ -687,7 +690,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a password that cannot be stored leaves the profile as it was`() = runTest {
+    fun `a password that cannot be stored leaves the profile as it was`() = runProgressTest {
         val fx = ProgressFixture(this)
         fx.seed(profile(opencodeCredential = null))
         fx.trust()
@@ -709,7 +712,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a profile that cannot be saved takes its new password back`() = runTest {
+    fun `a profile that cannot be saved takes its new password back`() = runProgressTest {
         val fx = ProgressFixture(this)
         fx.seed(profile(opencodeCredential = null))
         fx.trust()
@@ -729,7 +732,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `an empty password is not submitted`() = runTest {
+    fun `an empty password is not submitted`() = runProgressTest {
         val fx = ProgressFixture(this)
         fx.seed(profile(opencodeCredential = null))
         fx.trust()
@@ -745,7 +748,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `cancel disconnects and closes`() = runTest {
+    fun `cancel disconnects and closes`() = runProgressTest {
         val fx = ProgressFixture(this)
         fx.seed()
         val presenter = fx.presenter()
@@ -755,6 +758,7 @@ class DefaultProgressPresenterTest {
 
         presenter.onIntent(ProgressIntent.Cancel)
         runCurrent()
+        fx.awaitEvent(events, ProgressEvent.Close)
 
         assertEquals(ConnectionState.Idle, fx.connectionState)
         assertEquals(listOf(ProgressEvent.OpenHostKey, ProgressEvent.Close), events)
@@ -762,7 +766,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a connection that stood outlives the screen`() = runTest {
+    fun `a connection that stood outlives the screen`() = runProgressTest {
         val fx = ready()
         val scope = fx.screenScope()
         fx.presenter(scope)
@@ -771,13 +775,14 @@ class DefaultProgressPresenterTest {
 
         scope.cancel()
         runCurrent()
+        fx.awaitEnded(scope)
 
         assertIs<ConnectionState.Connected>(fx.connectionState)
         assertEquals(SERVER_ID, fx.activeServer.id.value)
     }
 
     @Test
-    fun `an unfinished connect ends with the screen`() = runTest {
+    fun `an unfinished connect ends with the screen`() = runProgressTest {
         val fx = ProgressFixture(this)
         fx.seed()
         val scope = fx.screenScope()
@@ -787,12 +792,13 @@ class DefaultProgressPresenterTest {
 
         scope.cancel()
         runCurrent()
+        fx.awaitEnded(scope)
 
         assertEquals(ConnectionState.Idle, fx.connectionState)
     }
 
     @Test
-    fun `a screen that ends late leaves a newer screen's connect alone`() = runTest {
+    fun `a screen that ends late leaves a newer screen's connect alone`() = runProgressTest {
         val fx = ProgressFixture(this)
         fx.seed()
         val oldScope = fx.screenScope()
@@ -805,6 +811,7 @@ class DefaultProgressPresenterTest {
         assertEquals(2, fx.connector.attempts.size)
         oldScope.cancel()
         runCurrent()
+        fx.awaitEnded(oldScope)
 
         assertIs<ConnectionState.HostApproval>(fx.connectionState)
         assertTrue(fx.manager.approveHostKey(SERVER_KEY))
@@ -813,7 +820,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a cancel whose disconnect never got to run still leaves nothing open`() = runTest {
+    fun `a cancel whose disconnect never got to run still leaves nothing open`() = runProgressTest {
         val fx = ProgressFixture(this)
         fx.seed()
         val scope = fx.screenScope()
@@ -825,6 +832,7 @@ class DefaultProgressPresenterTest {
         // The screen goes away before the cancel's coroutine is dispatched.
         scope.cancel()
         runCurrent()
+        fx.awaitEnded(scope)
 
         assertEquals(ConnectionState.Idle, fx.connectionState)
         assertEquals(0, fx.connector.halfOpenConnections)
@@ -832,20 +840,21 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a screen that ends before it starts connects nothing`() = runTest {
+    fun `a screen that ends before it starts connects nothing`() = runProgressTest {
         val fx = ready()
         val scope = fx.screenScope()
         fx.presenter(scope)
 
         scope.cancel()
         runCurrent()
+        fx.awaitEnded(scope)
 
         assertTrue(fx.connector.attempts.isEmpty())
         assertEquals(ConnectionState.Idle, fx.connectionState)
     }
 
     @Test
-    fun `a retry cut short by the screen ending leaves nothing open`() = runTest {
+    fun `a retry cut short by the screen ending leaves nothing open`() = runProgressTest {
         val fx = ProgressFixture(this)
         fx.profiles.save(profile())
         fx.trust()
@@ -858,6 +867,7 @@ class DefaultProgressPresenterTest {
         presenter.onIntent(ProgressIntent.Retry)
         scope.cancel()
         runCurrent()
+        fx.awaitEnded(scope)
 
         assertTrue(fx.connector.sessions.none { it.connected.value })
         assertEquals(0, fx.connector.halfOpenConnections)
@@ -865,7 +875,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `an old screen ending while a newer one connects never drops the newer connect`() = runTest {
+    fun `an old screen ending while a newer one connects never drops the newer connect`() = runProgressTest {
         for (gateFirst in listOf(true, false)) {
             val fx = ProgressFixture(this)
             fx.seed()
@@ -884,6 +894,7 @@ class DefaultProgressPresenterTest {
             oldScope.cancel()
             if (!gateFirst) gated.gate.complete(Unit)
             runCurrent()
+            fx.awaitEnded(oldScope)
 
             assertEquals(2, fx.connector.attempts.size, "gateFirst=$gateFirst")
             assertIs<ConnectionState.HostApproval>(fx.connectionState, "gateFirst=$gateFirst")
@@ -930,17 +941,17 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a screen taken over before it sends asks for no host key`() = runTest {
+    fun `a screen taken over before it sends asks for no host key`() = runProgressTest {
         assertEquals(emptyList(), takeOverAt(ProgressStep.HostApproval, trusted = false))
     }
 
     @Test
-    fun `a screen taken over before it sends says nothing of a connection`() = runTest {
+    fun `a screen taken over before it sends says nothing of a connection`() = runProgressTest {
         assertEquals(emptyList(), takeOverAt(ProgressStep.Connected, trusted = true))
     }
 
     @Test
-    fun `cancel drops a standing connection whichever cleanup runs first`() = runTest {
+    fun `cancel drops a standing connection whichever cleanup runs first`() = runProgressTest {
         for (cancelFirst in listOf(true, false)) {
             val fx = ready()
             val scope = fx.screenScope()
@@ -958,6 +969,7 @@ class DefaultProgressPresenterTest {
                 presenter.onIntent(ProgressIntent.Cancel)
             }
             runCurrent()
+            fx.awaitEnded(scope)
 
             assertEquals(ConnectionState.Idle, fx.connectionState, "cancelFirst=$cancelFirst")
             assertTrue(fx.connector.sessions.none { it.connected.value }, "cancelFirst=$cancelFirst")
@@ -971,7 +983,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a screen that never connected leaves the connection alone`() = runTest {
+    fun `a screen that never connected leaves the connection alone`() = runProgressTest {
         val fx = ready()
         fx.presenter()
         runCurrent()
@@ -982,12 +994,13 @@ class DefaultProgressPresenterTest {
         runCurrent()
         scope.cancel()
         runCurrent()
+        fx.awaitEnded(scope)
 
         assertIs<ConnectionState.Connected>(fx.connectionState)
     }
 
     @Test
-    fun `an older connection's state is not taken for this one`() = runTest {
+    fun `an older connection's state is not taken for this one`() = runProgressTest {
         val fx = ready()
         val other = ServerProfileId("server-2")
         fx.profiles.save(profile(id = other))
@@ -1005,7 +1018,7 @@ class DefaultProgressPresenterTest {
     }
 
     @Test
-    fun `a closed manager is reported`() = runTest {
+    fun `a closed manager is reported`() = runProgressTest {
         val fx = ready()
         fx.manager.close()
         val presenter = fx.presenter()

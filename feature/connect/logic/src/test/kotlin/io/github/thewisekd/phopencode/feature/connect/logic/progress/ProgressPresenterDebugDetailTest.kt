@@ -17,7 +17,6 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
-import kotlinx.coroutines.test.runTest
 
 /** P9.38: the connection screen's failure detail, only while diagnostics are on. */
 class ProgressPresenterDebugDetailTest {
@@ -41,7 +40,7 @@ class ProgressPresenterDebugDetailTest {
     }
 
     @Test
-    fun `with diagnostics on a failed connect shows its chain, root cause first, redacted`() = runTest {
+    fun `with diagnostics on a failed connect shows its chain, root cause first, redacted`() = runProgressTest {
         val fx = ready(Diagnostics(enabled = true))
         fx.connector.failNext(refused())
         val presenter = fx.presenter()
@@ -58,7 +57,7 @@ class ProgressPresenterDebugDetailTest {
     }
 
     @Test
-    fun `with diagnostics off nothing is shown or kept`() = runTest {
+    fun `with diagnostics off nothing is shown or kept`() = runProgressTest {
         val fx = ready(Diagnostics.Off)
         fx.connector.failNext(refused())
         val presenter = fx.presenter()
@@ -70,7 +69,7 @@ class ProgressPresenterDebugDetailTest {
     }
 
     @Test
-    fun `a failure on a later step has its detail too`() = runTest {
+    fun `a failure on a later step has its detail too`() = runProgressTest {
         val fx = ready(Diagnostics(enabled = true))
         fx.tools.server = ServerLookup.Unresponsive("127.0.0.1", 4096, 100, ServerSource.ProcessScan)
         val presenter = fx.presenter()
@@ -83,7 +82,7 @@ class ProgressPresenterDebugDetailTest {
     }
 
     @Test
-    fun `a retry clears the detail and a new failure replaces it`() = runTest {
+    fun `a retry clears the detail and a new failure replaces it`() = runProgressTest {
         val fx = ready(Diagnostics(enabled = true))
         fx.connector.failNext(refused("first refusal"))
         val presenter = fx.presenter()
@@ -107,7 +106,7 @@ class ProgressPresenterDebugDetailTest {
     }
 
     @Test
-    fun `a failure without a throwable shows no detail`() = runTest {
+    fun `a failure without a throwable shows no detail`() = runProgressTest {
         // Nothing seeded: the server is gone, which no exception explains.
         val fx = ProgressFixture(this, Diagnostics(enabled = true))
         val presenter = fx.presenter()
@@ -118,7 +117,7 @@ class ProgressPresenterDebugDetailTest {
     }
 
     @Test
-    fun `unreadable profile storage shows its exception with diagnostics on only`() = runTest {
+    fun `unreadable profile storage shows its exception with diagnostics on only`() = runProgressTest {
         for (enabled in listOf(true, false)) {
             val fx = ready(Diagnostics(enabled))
             fx.profiles.unavailable = true
