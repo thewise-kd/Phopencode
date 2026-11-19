@@ -36,7 +36,7 @@ Follow the groups in `docs/PHASES.md`: run groups in order and the tasks of one 
 Bring finished tasks into the main checkout one at a time, keeping history linear with one commit per task:
 
 1. `git cherry-pick <commit>`.
-2. On a conflict, run `git cherry-pick --abort` and tell that `coder` to rebase onto the main branch, resolve it, rerun the tests and report the new commit. Then repeat step 1.
+2. On a conflict, run `git cherry-pick --abort` and tell that `coder` to rebase onto the main branch, resolve it, rerun the tests and report the new commit. If the resolution changed code, the reviewed change is no longer what gets merged: tell that `coder` to run `git reset --soft HEAD~1`, so the resolved task change is uncommitted again, then run steps 2 to 6 of "One task" on it, `reviewer` and `security` included, before the merge. Then repeat step 1.
 3. `git worktree remove .claude/worktrees/<name>`, then `git branch -D worktree-<name>`.
 
 Never push, and never tell anyone else to. Pushing is the user's job. Finish with the task ID, commit hash and anything the user must decide.

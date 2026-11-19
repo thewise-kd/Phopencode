@@ -30,6 +30,24 @@ GIT_VALUE_OPTIONS = {
     "--namespace", "--work-tree",
 }
 PUSH_COMMANDS = {"push", "send-pack", "http-push"}
+# Markers around commands that run in a child shell: `( ... )`, `$( ... )`,
+# backticks and `sh -c`. A `cd` inside one ends with it.
+ENTER = ("enter",)
+EXIT = ("exit",)
+# Marks a `|` or `&` that runs the commands around it in child shells.
+CHILD = ("child",)
+# GIT_* variables that do not move the repository, tree, index or config.
+HARMLESS_GIT_VARIABLE = re.compile(
+    r"GIT_(AUTHOR|COMMITTER)_\w+|GIT_(SEQUENCE_)?EDITOR|GIT_PAGER|GIT_TERMINAL_PROMPT|GIT_OPTIONAL_LOCKS"
+)
+GIT_VARIABLE = re.compile(r"GIT_\w+")
+# A key in a command's environment that is not a variable: how a wrapper
+# changes the environment git gets.
+WRAPPED = " wrapped"
+# Global git options that move the repository, the work tree or the config.
+GIT_LOCATION_OPTIONS = {"--git-dir", "--work-tree", "--config-env", "--bare"}
+# `-c NAME=value` keys that move the work tree or pull in more config.
+LOCATION_CONFIG = re.compile(r"(?i)core\.(worktree|bare)|include(if)?\b")
 
 SECRET_NAME = re.compile(
     r"""(?ix)
@@ -55,8 +73,10 @@ def deny(reason):
 class ShellParser:
     """Splits shell text into simple commands, each a list of unquoted words.
 
-    Command substitutions become commands of their own. Quoted text and here-doc
-    bodies stay data, so a commit message that mentions a command is not one.
+    Command substitutions become commands of their own, between ENTER and EXIT.
+    Quoted text and here-doc bodies stay data, so a commit message that mentions
+    a command is not one; the `$(...)` and backticks in an unquoted here-doc body
+    run like any others.
     """
 
     def __init__(self, source):
@@ -105,25 +125,25 @@ class ShellParser:
                 self.position = end + 1
             elif char == '"':
                 word = (word or "") + self.double_quoted()
-            elif char == "`":
-                self.position += 1
-                self.parse("`")
-                word = (word or "") + "$()"
-            elif char == "$" and self.peek(1) == "(":
-                self.position += 2
-                self.parse(")")
-                word = (word or "") + "$()"
+            elif char == "`" or (char == "$" and self.peek(1) == "("):
+                word = (word or "") + self.substitution()
             elif char == "(":
                 end_command()
                 self.position += 1
-                self.parse(")")
+                self.subshell(")")
             elif char == "\n":
                 end_command()
                 self.position += 1
                 self.skip_heredoc_bodies()
+            elif char == "&" and self.peek(1) == ">":
+                self.position += 1
+            elif char in "&|" and self.peek(1) != char:
+                end_command()
+                self.position += 2 if self.source.startswith("|&", self.position) else 1
+                self.commands.append(CHILD)
             elif char in ";&|)":
                 end_command()
-                self.position += 1
+                self.position += 2 if char in "&|" else 1
             elif char in " \t":
                 end_word()
                 self.position += 1
@@ -134,7 +154,7 @@ class ShellParser:
                 end_word()
                 self.position += 3 if self.peek(2) == "-" else 2
                 strip_tabs = self.source[self.position - 1] == "-"
-                self.heredocs.append((self.heredoc_delimiter(), strip_tabs))
+                self.heredocs.append((*self.heredoc_delimiter(), strip_tabs))
             elif char in "<>":
                 if word is not None and word.isdigit():
                     word = None
@@ -149,42 +169,60 @@ class ShellParser:
         end_command()
         return self.commands
 
+    def subshell(self, closer):
+        self.commands.append(ENTER)
+        self.parse(closer)
+        self.commands.append(EXIT)
+
+    def substitution(self):
+        """Parses a `$(...)` or backtick substitution at the position as a child shell."""
+        if self.peek() == "`":
+            self.position += 1
+            self.subshell("`")
+        else:
+            self.position += 2
+            self.subshell(")")
+        return "$()"
+
     def double_quoted(self):
-        text = []
         self.position += 1
+        return self.expanded_text('"')
+
+    def expanded_text(self, closer=""):
+        """Reads text that only substitutions expand: double quotes or a here-doc body."""
+        text = []
         while self.position < len(self.source):
             char = self.peek()
-            if char == '"':
+            if closer and char == closer:
                 self.position += 1
                 break
             if char == "\\":
                 text.append(self.peek(1))
                 self.position += 2
-            elif char == "`":
-                self.position += 1
-                self.parse("`")
-                text.append("$()")
-            elif char == "$" and self.peek(1) == "(":
-                self.position += 2
-                self.parse(")")
-                text.append("$()")
+            elif char == "`" or (char == "$" and self.peek(1) == "("):
+                text.append(self.substitution())
             else:
                 text.append(char)
                 self.position += 1
         return "".join(text)
 
     def heredoc_delimiter(self):
+        """Returns the delimiter word and whether any part of it was quoted."""
         while self.peek() in (" ", "\t"):
             self.position += 1
         delimiter = []
+        quoted = False
         while self.peek() and self.peek() not in " \t\n;&|()<>":
-            if self.peek() not in "'\"\\":
+            if self.peek() in "'\"\\":
+                quoted = True
+            else:
                 delimiter.append(self.peek())
             self.position += 1
-        return "".join(delimiter)
+        return "".join(delimiter), quoted
 
     def skip_heredoc_bodies(self):
-        for delimiter, strip_tabs in self.heredocs:
+        for delimiter, quoted, strip_tabs in self.heredocs:
+            body = []
             while self.position < len(self.source):
                 end = self.source.find("\n", self.position)
                 end = len(self.source) if end < 0 else end
@@ -192,6 +230,11 @@ class ShellParser:
                 self.position = min(end + 1, len(self.source))
                 if (line.lstrip("\t") if strip_tabs else line) == delimiter:
                     break
+                body.append(line)
+            if not quoted:
+                inner = ShellParser("\n".join(body))
+                inner.expanded_text()
+                self.commands.extend(inner.commands)
         self.heredocs = []
 
 
@@ -199,51 +242,88 @@ def basename(word):
     return word.rsplit("/", 1)[-1]
 
 
-def real_commands(words):
-    """Yields the commands behind keywords, assignments, wrappers and `sh -c`."""
+def assignments(words):
+    """Returns the NAME=value words as a dict."""
+    return dict(word.split("=", 1) for word in words if ASSIGNMENT.match(word))
+
+
+def real_commands(words, environment=None):
+    """Yields the commands behind keywords, assignments, wrappers and `sh -c`.
+
+    A command is a (environment, words) pair, where environment holds the
+    NAME=value assignments in front of it or its wrapper, and the WRAPPED key.
+    Assignments alone, and those in front of `sh -c`, are ("assign",
+    environment). ENTER, EXIT and CHILD pass through, and a `sh -c` script
+    runs between ENTER and EXIT.
+    """
+    if not isinstance(words, list):
+        yield words
+        return
+    environment = dict(environment or {})
     start = 0
     while start < len(words) and (words[start] in KEYWORDS or ASSIGNMENT.match(words[start])):
+        if ASSIGNMENT.match(words[start]):
+            environment.update(assignments(words[start : start + 1]))
         start += 1
     words = words[start:]
     if not words:
+        yield ("assign", environment)
         return
     name = basename(words[0])
     if name in SHELLS:
         for index, word in enumerate(words[:-1]):
             if re.fullmatch(r"-[A-Za-z]*c[A-Za-z]*", word):
+                yield ("assign", environment)
+                yield ENTER
                 yield from commands_in(words[index + 1])
+                yield EXIT
                 return
     elif name == "eval":
-        yield from commands_in(" ".join(words[1:]))
+        yield from commands_in(" ".join(words[1:]), environment)
     elif name in WRAPPERS:
         for index, word in enumerate(words[1:], 1):
             if basename(word) in SHELLS | {"git", "eval"}:
-                yield from real_commands(words[index:])
+                options = words[1:index]
+                environment.update(assignments(options))
+                if name == "sudo":
+                    environment[WRAPPED] = "`sudo`, which resets the environment"
+                elif name in ("env", "exec") and any(o.startswith("-") for o in options):
+                    environment[WRAPPED] = f"`{name}` with options"
+                yield from real_commands(words[index:], environment)
                 return
     else:
-        yield words
+        yield environment, words
 
 
-def commands_in(source):
+def commands_in(source, environment=None):
     for words in ShellParser(source).parse():
-        yield from real_commands(words)
+        yield from real_commands(words, environment)
 
 
 def split_git(words):
-    """Returns the -C directories, the subcommand and its arguments."""
+    """Returns the -C directories, a location override or None, the subcommand and its arguments."""
     directories = []
+    override = None
     index = 1
     while index < len(words) and words[index].startswith("-"):
+        option = words[index].partition("=")[0]
+        if option in GIT_LOCATION_OPTIONS:
+            override = f"`{option}`"
         if words[index] == "-C":
             directories.extend(words[index + 1 : index + 2])
+            index += 2
+        elif words[index] == "-c":
+            value = (words[index + 1 : index + 2] or [""])[0]
+            if "$" in value or LOCATION_CONFIG.match(value):
+                override = f"`-c {value}`"
             index += 2
         elif words[index] in GIT_VALUE_OPTIONS:
             index += 2
         else:
             index += 1
     if index >= len(words):
-        return directories, None, []
-    return directories, words[index], words[index + 1 :]
+        return directories, override, None, []
+    return directories, override, words[index], words[index + 1 :]
 
 
 def is_secret_path(path):
@@ -324,8 +404,51 @@ def check_commit(directory, pending_paths):
             deny(f"{path} holds a private key. Keep it out of the commit.")
 
 
+def git_variables(text):
+    """Returns the GIT_* names in text that can move the repository or its config."""
+    return [name for name in GIT_VARIABLE.findall(text) if not HARMLESS_GIT_VARIABLE.fullmatch(name)]
+
+
+def location_change(items):
+    """Returns how the command line changes git's location or config, or None.
+
+    Only `cd` and `git -C` are followed. Anything else that could move the
+    repository, the work tree, the index or the config counts, whether it would
+    run or not: GIT_* variables set, exported, unset or named in any command
+    but git itself, location options, wrappers that change the environment,
+    and `source`.
+    """
+    for item in items:
+        if item in (ENTER, EXIT, CHILD):
+            continue
+        environment = item[1] if item[0] == "assign" else item[0]
+        if WRAPPED in environment:
+            return f"runs git under {environment[WRAPPED]}"
+        variables = git_variables(" ".join(environment))
+        if variables:
+            return f"sets {variables[0]}"
+        if item[0] == "assign":
+            continue
+        words = item[1]
+        name = basename(words[0])
+        named = git_variables(" ".join(words[1:]))
+        if name == "git":
+            override = split_git(words)[1]
+            if override:
+                return f"uses {override}"
+        elif name in ("source", "."):
+            return f"runs `{name}`, which can set any variable"
+        elif name == "export" and any(
+            word.startswith("-") or "$" in word.split("=", 1)[0] for word in words[1:]
+        ):
+            return "runs `export` with options or a computed name"
+        elif named:
+            return f"names {named[0]} in `{name}`"
+    return None
+
+
 def check_git(words, directory, pending_paths):
-    directories, subcommand, arguments = split_git(words)
+    directories, _, subcommand, arguments = split_git(words)
     for path in directories:
         directory = os.path.join(directory, os.path.expanduser(path))
     if subcommand is None:
@@ -345,14 +468,41 @@ def check_git(words, directory, pending_paths):
         check_commit(directory, pending_paths)
 
 
+def stages(item):
+    """Tells whether a parsed item is a git add or git commit."""
+    if item in (ENTER, EXIT, CHILD) or item[0] == "assign":
+        return False
+    words = item[1]
+    return basename(words[0]) == "git" and split_git(words)[2] in ("add", "commit")
+
+
 def check_command(command, directory):
+    """Follows `cd`; a child shell's `cd` ends with it."""
+    items = list(commands_in(command))
+    if any(stages(item) for item in items):
+        change = location_change(items)
+        if change:
+            deny(
+                f"this command line runs git add or commit and {change}. Run git add/commit "
+                "without overriding the repository location; use cd or git -C."
+            )
     pending_paths = []
-    for words in commands_in(command):
-        if words[0] == "cd":
-            if len(words) > 1 and words[1] != "-":
-                directory = os.path.join(directory, os.path.expanduser(words[1]))
-        elif basename(words[0]) == "git":
-            check_git(words, directory, pending_paths)
+    saved = []
+    for item in items:
+        if item == ENTER:
+            saved.append(directory)
+        elif item == EXIT:
+            if saved:
+                directory = saved.pop()
+        elif item == CHILD or item[0] == "assign":
+            continue
+        else:
+            words = item[1]
+            if words[0] == "cd":
+                if len(words) > 1 and words[1] != "-":
+                    directory = os.path.join(directory, os.path.expanduser(words[1]))
+            elif basename(words[0]) == "git":
+                check_git(words, directory, pending_paths)
 
 
 def main():

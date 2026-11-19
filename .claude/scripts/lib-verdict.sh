@@ -27,12 +27,25 @@ enter_repo() {
 }
 
 # Prints tracked changes against HEAD, then untracked files as additions.
+# A commit takes the index, not the work tree, so when the index differs from
+# both HEAD and the work tree, it prints the staged diff (HEAD to index) and
+# then the unstaged one (index to work tree): an edit that is staged and then
+# undone on disk still reaches the model. Otherwise one diff against HEAD
+# covers both.
 # Callers run this under `||`, which turns `set -e` off here, so every step
 # checks its own status: a partial patch must never reach the model.
 uncommitted_patch() {
-  local base=HEAD file code
+  local base=HEAD file code staged=0 unstaged=0
   git rev-parse --verify --quiet HEAD >/dev/null || base=$(git hash-object -t tree /dev/null) || return 1
-  git diff --no-color --no-ext-diff --no-textconv "-U$1" "$base" -- || return 1
+  git diff --cached --quiet --no-ext-diff --no-textconv "$base" -- || staged=$?
+  git diff --quiet --no-ext-diff --no-textconv -- || unstaged=$?
+  ((staged <= 1 && unstaged <= 1)) || return 1
+  if ((staged && unstaged)); then
+    git diff --cached --no-color --no-ext-diff --no-textconv "-U$1" "$base" -- || return 1
+    git diff --no-color --no-ext-diff --no-textconv "-U$1" -- || return 1
+  else
+    git diff --no-color --no-ext-diff --no-textconv "-U$1" "$base" -- || return 1
+  fi
   git ls-files --others --exclude-standard -z | while IFS= read -r -d '' file; do
     code=0
     git diff --no-index --no-color --no-ext-diff --no-textconv "-U$1" -- /dev/null "$file" || code=$?

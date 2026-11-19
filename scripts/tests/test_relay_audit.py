@@ -293,6 +293,42 @@ class ExistingModesTest(RelayCase):
         self.assert_exit(self.relay(SECURITY), 5)
         self.assert_exit(self.relay(SECURITY, "--paths", "src"), 5)
 
+    def test_staged_then_reverted_edit_is_reviewed(self):
+        """P15.6 (A11-4): a commit takes the index, so an edit undone only on disk still counts."""
+        self.track("A.kt", COMMITTED)
+        self.commit()
+        self.track("A.kt", "fun staged() = 6\n")
+        self.write("A.kt", COMMITTED)
+        for script in (REVIEW, SECURITY):
+            result = self.relay(script, "--print-input")
+            self.assert_exit(result, 0)
+            self.assertIn("+fun staged() = 6", result.stdout)
+
+    def test_staged_and_later_edits_are_both_reviewed(self):
+        self.track("A.kt", COMMITTED)
+        self.commit()
+        self.track("A.kt", "fun staged() = 6\n")
+        self.write("A.kt", EDITED)
+        self.write("B.kt", "fun untracked() = 5\n")
+        result = self.relay(REVIEW, "--print-input")
+        self.assert_exit(result, 0)
+        for line in ("+fun staged() = 6", "-fun staged() = 6", "+fun edited() = 2", "+fun untracked() = 5"):
+            self.assertIn(line, result.stdout)
+
+    def test_staged_only_or_unstaged_only_change_is_one_diff_against_head(self):
+        self.track("A.kt", COMMITTED)
+        self.commit()
+        self.track("A.kt", EDITED)
+        staged = self.relay(REVIEW, "--print-input")
+        self.assert_exit(staged, 0)
+        self.git("reset", "--quiet")
+        unstaged = self.relay(REVIEW, "--print-input")
+        self.assert_exit(unstaged, 0)
+        for result in (staged, unstaged):
+            self.assertEqual(result.stdout.count("diff --git a/A.kt b/A.kt"), 1)
+            self.assertIn("-fun committed() = 1", result.stdout)
+            self.assertIn("+fun edited() = 2", result.stdout)
+
     def test_empty_change_set_still_exits_3(self):
         self.track("A.kt", "x\n")
         self.commit()
